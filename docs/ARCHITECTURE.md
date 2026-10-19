@@ -22,14 +22,14 @@ code path. That property is the product.
 
 ## Stack and rationale
 
-| Layer | Choice | Why, and what was rejected |
-|---|---|---|
-| Shell | **Electron 33+** | Same shell as Pixel Galaxy Studio, so the editor UI ports across and the owner maintains one pattern. A system WebView2 was rejected: no reliable control over the swap chain, and the WorkerW reparenting story is worse. ADR 0001. |
-| Renderer | **WebGL2** (GLSL ES 3.0) | Universally present in Electron's Chromium, mature drivers, and a 24/7 process is the wrong place to be first to a new graphics API. WebGPU was rejected for now and is a drop-in upgrade later; the engine's host interface is drawn so that it can be. ADR 0003. |
-| Language | **JavaScript, ES modules, no build step** | Matches Pixel Galaxy Studio. Type safety comes from `// @ts-check` with `checkJs` and `strict` on from day one (which PGS is retrofitting; this project does not get that debt). A bundler buys nothing here and costs a build. |
-| Win32 calls | **koffi** FFI, behind one module | Four or five calls are needed (`FindWindowW`, `SendMessageTimeoutW`, `EnumWindows`, `SetParent`, `SHQueryUserNotificationState`). A hand-written N-API addon is the alternative and stays documented. ADR 0002. |
-| Tests | **node:test** units, **Playwright** browser and image tests | What PGS uses. The solar arithmetic is pure and gets the tightest unit tests in the project. |
-| Settings | **JSON file in the OS app-data folder**, written atomically | Same shape and migration table as PGS: `{ app, version, savedAt, cfg, ui }`. |
+| Layer       | Choice                                                      | Why, and what was rejected                                                                                                                                                                                                                                         |
+| ----------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Shell       | **Electron 33+**                                            | Same shell as Pixel Galaxy Studio, so the editor UI ports across and the owner maintains one pattern. A system WebView2 was rejected: no reliable control over the swap chain, and the WorkerW reparenting story is worse. ADR 0001.                               |
+| Renderer    | **WebGL2** (GLSL ES 3.0)                                    | Universally present in Electron's Chromium, mature drivers, and a 24/7 process is the wrong place to be first to a new graphics API. WebGPU was rejected for now and is a drop-in upgrade later; the engine's host interface is drawn so that it can be. ADR 0003. |
+| Language    | **JavaScript, ES modules, no build step**                   | Matches Pixel Galaxy Studio. Type safety comes from `// @ts-check` with `checkJs` and `strict` on from day one (which PGS is retrofitting; this project does not get that debt). A bundler buys nothing here and costs a build.                                    |
+| Win32 calls | **koffi** FFI, behind one module                            | Four or five calls are needed (`FindWindowW`, `SendMessageTimeoutW`, `EnumWindows`, `SetParent`, `SHQueryUserNotificationState`). A hand-written N-API addon is the alternative and stays documented. ADR 0002.                                                    |
+| Tests       | **node:test** units, **Playwright** browser and image tests | What PGS uses. The solar arithmetic is pure and gets the tightest unit tests in the project.                                                                                                                                                                       |
+| Settings    | **JSON file in the OS app-data folder**, written atomically | Same shape and migration table as PGS: `{ app, version, savedAt, cfg, ui }`.                                                                                                                                                                                       |
 
 ## Context
 
@@ -154,8 +154,8 @@ licenses/                 every legal document; copied into every released build
 
 ```js
 const engine = new DayNightEngine(gl);
-engine.setPreset(preset);                  // the authored look
-engine.render({ t, place, crop, pixelRatio });  // one frame
+engine.setPreset(preset); // the authored look
+engine.render({ t, place, crop, pixelRatio }); // one frame
 ```
 
 - **`t`** a millisecond UTC timestamp. Not "now" - the caller decides, which is
@@ -194,10 +194,21 @@ thousand frames.
 ### Colour
 
 Light is summed in **linear** space, always. Colour is interpolated in
-**Oklab**, never sRGB: the straight sRGB path from sunset orange to twilight
-blue runs through a grey-brown that reads as mud, and it is the single most
-visible difference between this looking professional and looking cheap. The
-conversions live only in `sky/oklab.js`; no other module converts a colour.
+**Oklab**, never sRGB, because Oklab's lightness axis matches perception: a
+ramp interpolated there steps evenly to the eye, where an sRGB component lerp
+bends lightness through the gamma curve and reads as pinched. Across a wide,
+shallow gradient that is the most visible difference between this looking
+professional and looking cheap.
+
+Oklab is _not_, however, a cure for interpolating between complementary hues -
+orange to deep blue desaturates through the middle in Oklab much as it does in
+sRGB, because the straight line between opposing chroma vectors passes near the
+neutral axis. Avoiding that is the ramp's job, not the colour space's: the
+authored stops trace the real hue path, so neighbouring stops are close in hue.
+This was found by a unit test that originally asserted the opposite, and both
+properties are now pinned in `tests/unit/oklab.test.mjs`.
+
+The conversions live only in `sky/oklab.js`; no other module converts a colour.
 Output is tone-mapped once, converted to sRGB once, and dithered with blue
 noise so that a 30-degree gradient across 2560 pixels does not band.
 
@@ -276,14 +287,14 @@ coordinates.
 A 24/7 process earns its place by not running. `desktop/pause.js` holds every
 signal; the wallpaper windows render only when it says to.
 
-| Signal | Source | Action |
-|---|---|---|
-| Full-screen or exclusive application | `SHQueryUserNotificationState` | Stop |
-| Session locked or switched | Electron `powerMonitor` | Stop |
-| Display powered down, system suspending | `powerMonitor` | Stop |
-| On battery (configurable, default stop) | `powerMonitor` | Stop or reduce |
-| Desktop fully occluded by windows | Window visibility | Stop |
-| Editor preview not visible | Window state | Stop that preview only |
+| Signal                                  | Source                         | Action                 |
+| --------------------------------------- | ------------------------------ | ---------------------- |
+| Full-screen or exclusive application    | `SHQueryUserNotificationState` | Stop                   |
+| Session locked or switched              | Electron `powerMonitor`        | Stop                   |
+| Display powered down, system suspending | `powerMonitor`                 | Stop                   |
+| On battery (configurable, default stop) | `powerMonitor`                 | Stop or reduce         |
+| Desktop fully occluded by windows       | Window visibility              | Stop                   |
+| Editor preview not visible              | Window state                   | Stop that preview only |
 
 "Stop" means no frames and the render loop torn down, not a loop that runs and
 returns early. Resume is a fresh `render()` at the current timestamp, which is
@@ -352,4 +363,60 @@ The budget is NFR-1 in the PRD. Where it is spent, by design:
   nothing on the CPU.
 
 Measured numbers go in this section as they are taken, with the machine and the
-method, starting at Milestone 0. An unmeasured claim does not belong here.
+method. An unmeasured claim does not belong here.
+
+### Measurement, Milestone 0 (2026-10-18)
+
+**The budget is not met.** This is the open question Milestone 0 existed to
+answer, and the answer is uncomfortable.
+
+Machine: AMD Ryzen 5 3600 (6 cores, 12 threads), Windows 10, two screens,
+WorkerW host attached, editor window hidden. Taken by `tools/measure-cost.js`,
+which reads processor-seconds for every process of the application from the OS
+and divides by wall time. CPU is quoted as a percentage of **one core**,
+because that is the honest unit for a background task - the same figures are
+twelve times smaller against the whole machine, which would flatter them.
+
+| Scenario                               | CPU (% of one core) | Memory     | Processes |
+| -------------------------------------- | ------------------- | ---------- | --------- |
+| Wallpaper off, nothing drawing         | 4.54                | 360 MB     | 4         |
+| Wallpaper on, 30 fps                   | 11.36               | 568 MB     | 6         |
+| **Wallpaper on, 20 fps (the default)** | **8.56**            | **580 MB** | 6         |
+| Wallpaper on, 10 fps                   | 5.50                | 589 MB     | 6         |
+| Wallpaper on, 5 fps                    | 2.46                | 592 MB     | 6         |
+| Wallpaper on, 1 fps                    | 4.97                | 596 MB     | 6         |
+
+Against NFR-1's "under 2 per cent of one core, under 80 MB per screen": the
+default costs **4.3 times the CPU budget** and roughly **3.5 times the memory
+budget**, and ADR 0001's own estimate of 150-250 MB resident was optimistic by
+more than a factor of two.
+
+**What is solid and what is not.** The 10, 20 and 30 fps rows are consistent
+and give a clean slope of about **0.29 % of one core per frame per second**
+across two screens, or roughly 0.15 % per fps per screen. The 1 fps row (4.97)
+sits above the 5 fps row (2.46), and the idle row (4.54) sits above 5 fps as
+well; both are impossible, so those two samples are contaminated - most likely
+by start-up work inside the settling window and by other activity on the
+machine. **The floor has therefore not been measured reliably** and the
+decomposition into "floor plus per-frame" is not yet trustworthy. The headline
+
+- well over budget at the intended default - does not depend on those two rows.
+
+**What this does and does not implicate.** It is not the sky: the Milestone 0
+fragment shader is a vertical gradient with a dither, a handful of instructions
+per pixel. The cost is Chromium presenting a frame per surface per tick, plus
+whatever the floor turns out to be, and neither gets cheaper by drawing a
+simpler sky. Drawing _less often_ does scale it, which is why 5 fps nearly
+reaches the budget - but Milestone 3's clouds are the layer that needs frames,
+so a low frame rate buys time rather than solving the problem.
+
+This reopens ADR 0001 exactly as that decision said it would, and it does so at
+the moment the decision intended: before any art has been built on the
+assumption. The options are recorded in `docs/ROADMAP.md` under tech debt;
+nothing further should be built on the Electron host until the owner has
+chosen between lowering the frame rate, redrawing only when the scene has
+meaningfully changed, moving the surfaces to a native host, or revising the
+budget.
+
+GPU time was **not measured**: there is no dependency-free way to read it on
+Windows, and a figure derived from a frame counter would not be a measurement.
