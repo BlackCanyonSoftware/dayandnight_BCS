@@ -139,3 +139,21 @@ export function notice(message) {
   box.hidden = false;
   box.textContent = message;
 }
+
+/**
+ * An exposure gain as stops, which is how a photographer would read it.
+ *
+ * The automatic exposure spans about twelve stops between noon and deep
+ * twilight, and a raw gain of "3700x" says much less about that than "+11.9".
+ *
+ * @param {number} gain
+ * @returns {string}
+ */
+export function fmtExposure(gain) {
+  if (!(gain > 0)) return "--";
+  return new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+    signDisplay: "exceptZero"
+  }).format(Math.log2(gain));
+}

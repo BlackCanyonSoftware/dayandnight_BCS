@@ -138,9 +138,21 @@ function normaliseCfg(raw) {
   const presetRaw = isRecord(cfg["preset"]) ? cfg["preset"] : {};
   const placeRaw = isRecord(cfg["place"]) ? cfg["place"] : {};
 
+  const defaults = defaultPreset();
+
   return {
     preset: {
-      exposure: num(presetRaw["exposure"], defaultPreset().exposure, -8, 8)
+      exposure: num(presetRaw["exposure"], defaults.exposure, -8, 8),
+      // null is a real value here - it means "face whichever side of the sky
+      // the sun crosses" - so it is preserved rather than coerced.
+      bearing:
+        presetRaw["bearing"] === null || presetRaw["bearing"] === undefined
+          ? defaults.bearing
+          : num(presetRaw["bearing"], 180, 0, 360),
+      horizon: num(presetRaw["horizon"], defaults.horizon, 0, 1),
+      fieldOfView: num(presetRaw["fieldOfView"], defaults.fieldOfView, 20, 200),
+      whitePoint: num(presetRaw["whitePoint"], defaults.whitePoint, 0.5, 32),
+      groundAlbedo: num(presetRaw["groundAlbedo"], defaults.groundAlbedo, 0, 1)
     },
     place: {
       // Latitude stops just short of the poles: at exactly 90 the azimuth

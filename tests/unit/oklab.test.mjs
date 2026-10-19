@@ -14,8 +14,12 @@ import {
 } from "../../app/engine/sky/oklab.js";
 
 /**
- * The horizon stops from sky/palette.js, which is where the hue path through
- * twilight actually lives.
+ * A ramp of horizon colours through twilight.
+ *
+ * These were the Milestone 0 palette, which the scattering model has now
+ * replaced. They are kept here because the ramp function they exercise is not
+ * retired: the grade (ADR 0004) uses an altitude-keyed tint ramp over the
+ * physical sky, and these are a realistic set of stops to hold it to.
  * @type {{ at: number, color: [number, number, number] }[]}
  */
 const SKY_HORIZON = [
@@ -166,9 +170,9 @@ test("Oklab interpolation gives an even lightness progression; sRGB does not", (
 
 test("the authored sky ramp keeps its chroma across twilight", () => {
   // The product-level property that the test above says a two-colour mix
-  // cannot give: because palette.js places stops along the real hue path, the
-  // sky stays coloured right through the twilight window rather than washing
-  // out to grey.
+  // cannot give: because the stops are placed along the real hue path, the
+  // ramp stays coloured right through the twilight window rather than washing
+  // out to grey. This is the property the grade's tint ramp depends on.
   //
   // The window is -12 to +3 degrees, which is the hour either side of the
   // horizon - what the product is actually about. Above it the ramp crosses

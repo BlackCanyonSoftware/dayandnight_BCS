@@ -101,17 +101,16 @@ app/                      the web app; everything a window loads
       lunar.js            the Moon: position, distance, phase, illuminated fraction, limb angle
       sidereal.js         Greenwich and local sidereal time; the star field's rotation
     sky/
-      scattering.js       the physical sky: Rayleigh and Mie from sun direction
-      grade.js            the user's colour transform over the physical result
+      atmosphere.js       the physical sky: Rayleigh, Mie and ozone, integrated
+      lut.js              the baked table, shared; auto-exposure; CPU sampling
       oklab.js            sRGB <-> linear <-> Oklab; the only colour space conversions
-      lut.js              bakes sky and grade into the altitude x height texture
     bodies.js             sun and moon discs, bloom, lunar phase mask
     stars.js              the star field: catalogue, glow, pulse, polar rotation
     dither.js             blue-noise output dither
     gl/
       context.js          context creation, loss and restore
       program.js          shader compilation and uniform plumbing
-      target.js           render targets, the half-resolution sky buffer
+      texture.js          the sky table as a 3D texture
     frame.js              one frame: the whole pipeline for (preset, t, place, crop)
     types.js              JSDoc typedefs for everything that crosses a seam
   ui/                     the editor, as ES modules
@@ -175,22 +174,38 @@ wanted; the engine has no opinion about time passing.
 ```mermaid
 flowchart LR
   A["t, place"] --> B["solar + lunar<br/>altitude, azimuth, phase"]
-  B --> C["scattering<br/>physical sky, linear light"]
-  C --> D["grade<br/>the user's transform"]
-  D --> E["sky LUT<br/>altitude x height, RGBA16F"]
-  E --> F["sky pass<br/>half resolution"]
-  F --> G["stars + bodies<br/>native resolution"]
-  G --> H["bloom"]
-  H --> I["tone map, sRGB, dither"]
+  B --> E["sky table<br/>sun x view x azimuth<br/>built once"]
+  B --> X["auto-exposure<br/>from the table"]
+  E --> F["sky pass<br/>lookup + phase functions"]
+  X --> F
+  F --> G["ground below the horizon"]
+  G --> H["tone map, sRGB, dither"]
 ```
 
-Two timescales, deliberately separated. The **sky LUT** (steps C to E) depends
-only on sun altitude and the preset, so it is rebuilt when the altitude has
-moved enough to matter - a few seconds of wall clock - and is a 256 x 512
-RGBA16F texture, about a megabyte. The **frame** (F to I) runs every frame and
-is a handful of texture reads per pixel. That split is where the performance
-budget is won: the expensive, physically-modelled part runs roughly once per
-thousand frames.
+Two timescales, deliberately separated. The **scattering table**
+(`sky/atmosphere.js`) is the expensive part - a ray-marched integration
+through the atmosphere - and it is built **once per process**, because sun
+elevation is one of its axes rather than an input to it. The **frame** is then
+a single texture fetch, two phase functions and a tone map.
+
+That split is where the performance budget is won twice over: the physically
+modelled part never runs again after start-up, and the per-frame part is
+cheap enough that the thing limiting cost is how often a frame is presented at
+all - which is what `signature.js` decides.
+
+The table is three-dimensional, and the reason is in `sky/atmosphere.js`: the
+phase functions factor out of the integral and are applied per pixel, but the
+geometry inside it genuinely depends on the azimuth between the view and the
+sun. That was measured rather than assumed. At civil twilight the sky opposite
+the sun is five hundred times dimmer than the sky above it.
+
+**Auto-exposure** is part of the pipeline rather than a setting. The sky spans
+roughly six thousand to one between noon and civil twilight and several more
+orders of magnitude below that, so no fixed exposure can show both ends. The
+bake emits a reference brightness per sun elevation and the renderer exposes
+towards a mid-grey, capped at the dark end so the night stays night instead of
+becoming amplified noise. The user's own exposure control is an offset on top,
+in stops.
 
 ### Colour
 
@@ -350,12 +365,10 @@ where a test can, in the suite.
 
 The budget is NFR-1 in the PRD. Where it is spent, by design:
 
-- The sky LUT, the only physically-expensive work, is rebuilt on sun-altitude
-  change rather than per frame - roughly once every few seconds, against 20
-  frames a second.
-- The sky pass renders at half resolution and is upsampled. It is low-frequency
-  by nature and loses nothing; stars, bodies and the eventual horizon render at
-  native resolution over it.
+- The scattering table, the only physically-expensive work, is built once per
+  process rather than per frame, because sun elevation is one of its axes.
+  About 780 ms at start-up for a 288 KB table.
+- A frame is one 3D texture fetch, two phase functions and a tone map.
 - Default 20 fps, user-settable from 10 to 30. The goal is never stuttering
   while the user works, not a high frame rate. Clouds, when they arrive, are
   the only layer that would argue for more.

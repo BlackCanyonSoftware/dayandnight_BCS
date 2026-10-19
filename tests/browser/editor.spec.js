@@ -86,13 +86,10 @@ test("one sky spans several screens with no seam (US-012)", async ({ page }) => 
   // real monitors: render the left half and the right half of a span, then
   // compare the columns either side of the join.
   //
-  // Note what this can and cannot prove in Milestone 0. The gradient is purely
-  // vertical, so two side-by-side crops are legitimately *identical* - there
-  // is nothing in the scene yet that varies with horizontal position. A
-  // seamless join is therefore necessary but not sufficient, and the crop
-  // rectangle is proved to be honoured by the vertical test below instead.
-  // When the sun gets a real azimuth in Milestone 1, this test gains teeth and
-  // the two halves should start to differ.
+  // This gained teeth once the sky became a real one: the two halves now face
+  // different compass bearings, so they are genuinely different pictures that
+  // have to join exactly. Under the Milestone 0 gradient they were identical,
+  // and a seamless join proved nothing.
   const result = await page.evaluate(async () => {
     const { DayNightEngine } = await import("/engine/index.js");
 
@@ -177,6 +174,86 @@ test("one sky spans several screens with no seam (US-012)", async ({ page }) => 
     result.verticalDifference,
     "a slice from the top of the span must differ from one at the bottom, or the crop is being ignored"
   ).toBeGreaterThan(20);
+});
+
+test("the sun's glow tracks its real azimuth across the frame (US-012)", async ({ page }) => {
+  // The product's central promise: the sun is where the sun actually is, so it
+  // crosses the screen through the day rather than sitting still. Checked by
+  // finding the brightest column of the rendered frame and comparing it with
+  // where the computed azimuth says the sun should be.
+  const samples = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset, resolveBearing, sunPosition } =
+      await import("/engine/index.js");
+
+    const width = 240;
+    const height = 100;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+    const preset = defaultPreset();
+    engine.setPreset(preset);
+
+    const place = { lat: 39.7, lon: -105 };
+
+    /** @param {number} t */
+    const measure = (t) => {
+      engine.render({
+        t,
+        place,
+        crop: { x: 0, y: 0, w: width, h: height },
+        span: { w: width, h: height },
+        pixelRatio: 1
+      });
+
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+      let brightest = -1;
+      let best = -1;
+      for (let x = 0; x < width; x += 1) {
+        let total = 0;
+        for (let y = 0; y < height; y += 1) {
+          const i = (y * width + x) * 4;
+          total += pixels[i] + pixels[i + 1] + pixels[i + 2];
+        }
+        if (total > best) {
+          best = total;
+          brightest = x;
+        }
+      }
+
+      const sun = sunPosition(t, place);
+      const bearing = resolveBearing(preset, place);
+      const relative = (((sun.azimuth - bearing + 540) % 360) - 180) / preset.fieldOfView;
+
+      return { brightest, expected: (relative + 0.5) * width, azimuth: sun.azimuth };
+    };
+
+    return [
+      measure(Date.UTC(2026, 8, 22, 13, 5)),
+      measure(Date.UTC(2026, 8, 22, 15, 30)),
+      measure(Date.UTC(2026, 8, 22, 18, 0)),
+      measure(Date.UTC(2026, 8, 22, 21, 0))
+    ];
+  });
+
+  let previous = -1;
+  for (const sample of samples) {
+    // Where the sun is off the edge of the frame, the brightest column is the
+    // edge itself, so the comparison is clamped the same way the picture is.
+    const expected = Math.max(0, Math.min(239, sample.expected));
+    expect(
+      Math.abs(sample.brightest - expected),
+      `at azimuth ${sample.azimuth.toFixed(0)} the glow was at column ${sample.brightest}, expected about ${expected.toFixed(0)}`
+    ).toBeLessThan(12);
+
+    // And it moves one way through the day rather than jumping about.
+    expect(sample.brightest).toBeGreaterThanOrEqual(previous);
+    previous = sample.brightest;
+  }
 });
 
 test("the same inputs give the same pixels (architecture invariant 1)", async ({ page }) => {

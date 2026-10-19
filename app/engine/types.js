@@ -43,15 +43,23 @@
 /**
  * An authored look.
  *
- * Milestone 0 has one knob. The grade decided in ADR 0004 - exposure, a
- * three-band lift/gamma/gain in Oklab, an altitude-keyed tint ramp, turbidity
- * and ground albedo - lands in Milestone 1 and extends this.
+ * The rest of the grade decided in ADR 0004 - a three-band lift/gamma/gain in
+ * Oklab, an altitude-keyed tint ramp, turbidity and ground albedo - is the
+ * next slice and extends this.
  *
- * A preset describes appearance only. It can never describe geometry, because
- * architecture invariant 5 says no setting may put the sun in the wrong place.
+ * A preset describes appearance only, including where the camera points. It
+ * can never describe geometry in the astronomical sense, because architecture
+ * invariant 5 says no setting may put the sun in the wrong place: turning the
+ * camera changes what you see, never where the sun is.
  *
  * @typedef {object} Preset
- * @property {number} exposure stops, 0 is unchanged; applied to linear light
+ * @property {number} exposure stops on top of the automatic exposure
+ * @property {number | null} bearing degrees clockwise from north, or null for
+ *   "face the side of the sky the sun crosses"
+ * @property {number} horizon where the horizon sits down the span, 0..1
+ * @property {number} fieldOfView degrees of sky across the whole span
+ * @property {number} groundAlbedo how much light the ground returns, 0..1
+ * @property {number} whitePoint how bright something must be to reach white
  */
 
 /**
@@ -77,6 +85,7 @@
  * @property {number} sunAltitude degrees
  * @property {number} sunAzimuth degrees clockwise from north
  * @property {"day" | "civil" | "nautical" | "astronomical" | "night"} band
+ * @property {number} exposure the gain the sky was drawn with, for the readout
  */
 
 export {};

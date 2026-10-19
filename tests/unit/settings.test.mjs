@@ -2,13 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { APP, VERSION, readDocument, writeDocument } from "../../app/ui/settings.js";
+import { defaultPreset } from "../../app/engine/defaults.js";
 
 const NOW = Date.UTC(2026, 9, 18, 12, 0, 0);
 
-/** @returns {{ preset: { exposure: number }, place: { lat: number, lon: number }, fps: number, theme: "dark" }} */
+/** @returns {{ preset: import("../../app/engine/types.js").Preset, place: { lat: number, lon: number }, fps: number, theme: "dark" }} */
 function state() {
   return {
-    preset: { exposure: 0.5 },
+    // Built from the defaults rather than written out, so a new preset key
+    // does not quietly stop being covered here.
+    preset: { ...defaultPreset(), exposure: 0.5 },
     place: { lat: 39.7, lon: -105 },
     fps: 20,
     theme: "dark"
@@ -26,7 +29,7 @@ test("a written document round-trips through the reader unchanged", () => {
   assert.deepEqual(doc.cfg, state_cfg());
 });
 
-/** @returns {{ preset: { exposure: number }, place: { lat: number, lon: number }, fps: number }} */
+/** @returns {{ preset: import("../../app/engine/types.js").Preset, place: { lat: number, lon: number }, fps: number }} */
 function state_cfg() {
   const s = state();
   return { preset: s.preset, place: s.place, fps: s.fps };

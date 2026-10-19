@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { frameSignature } from "../../app/engine/signature.js";
+import { defaultPreset } from "../../app/engine/defaults.js";
 
 /**
  * The frame signature decides whether a frame is drawn at all, so it has one
@@ -27,7 +28,7 @@ function request(t, overrides = {}) {
   };
 }
 
-const PRESET = { exposure: 0 };
+const PRESET = defaultPreset();
 
 /** @param {string} iso */
 const at = (iso) => new Date(iso).getTime();
@@ -55,7 +56,28 @@ test("over a long enough interval, it does change", () => {
 
 test("exposure changes the signature", () => {
   const t = at("2026-06-21T18:00:00Z");
-  assert.notEqual(sign(request(t), { exposure: 0 }), sign(request(t), { exposure: 1 }));
+  assert.notEqual(
+    sign(request(t), { ...PRESET, exposure: 0 }),
+    sign(request(t), { ...PRESET, exposure: 1 })
+  );
+});
+
+test("turning the camera changes the signature", () => {
+  // Framing moves the picture without the sky itself changing, so the probes
+  // alone would not notice it.
+  const t = at("2026-06-21T18:00:00Z");
+  assert.notEqual(
+    sign(request(t), { ...PRESET, bearing: 180 }),
+    sign(request(t), { ...PRESET, bearing: 90 })
+  );
+  assert.notEqual(
+    sign(request(t), { ...PRESET, horizon: 0.8 }),
+    sign(request(t), { ...PRESET, horizon: 0.5 })
+  );
+  assert.notEqual(
+    sign(request(t), { ...PRESET, fieldOfView: 90 }),
+    sign(request(t), { ...PRESET, fieldOfView: 120 })
+  );
 });
 
 test("geometry changes the signature", () => {

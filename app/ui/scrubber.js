@@ -4,30 +4,35 @@
  *
  * The scrubber is both the control and a summary: a glance at it says "this is
  * a late-December day in Denver, and the good light is here". It is painted by
- * sampling the same functions that paint the sky, a few hundred times across
- * the day, so it cannot disagree with the preview. See "The time scrubber" in
- * docs/DESIGN.md.
+ * sampling the same scattering table that paints the sky, a few hundred times
+ * across the day, so it cannot disagree with the preview above it. See "The
+ * time scrubber" in docs/DESIGN.md.
  *
  * @module ui/scrubber
  */
 
-import { sunPosition } from "../engine/index.js";
+import { resolveBearing, sunPosition } from "../engine/index.js";
 import { linearToSrgb } from "../engine/sky/oklab.js";
-import { skyColors } from "../engine/sky/palette.js";
+import { autoExposure, sampleSky } from "../engine/sky/lut.js";
 
 /** @typedef {import("../engine/types.js").Place} Place */
+/** @typedef {import("../engine/types.js").Preset} Preset */
 
 const MINUTE_MS = 60_000;
 const DAY_MINUTES = 1440;
 
 /**
- * The height up the sky that the band's colour is sampled at.
+ * The elevation the band's colour is sampled at.
  *
- * Not the horizon, where the colour is most dramatic but least representative,
- * and not the zenith, which barely changes. A little above the middle reads as
- * "what colour was the sky at this hour".
+ * Not the horizon, where the colour is most dramatic but least
+ * representative, and not the zenith, which barely changes. Ten degrees up
+ * reads as "what colour was the sky at this hour".
  */
-const SAMPLE_HEIGHT = 0.55;
+const SAMPLE_ELEVATION = 10;
+
+/** Matching the engine, so the bands are exposed like the preview. */
+const EXPOSURE_TARGET = 0.12;
+const EXPOSURE_MAX = 4000;
 
 /**
  * Paint the bands for one day at one place.
@@ -35,8 +40,9 @@ const SAMPLE_HEIGHT = 0.55;
  * @param {HTMLCanvasElement} canvas
  * @param {number} dayStart timestamp of local midnight
  * @param {Place} place
+ * @param {Preset} preset
  */
-export function drawBands(canvas, dayStart, place) {
+export function drawBands(canvas, dayStart, place, preset) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
@@ -44,23 +50,29 @@ export function drawBands(canvas, dayStart, place) {
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
 
-  // One sample per pixel column. At a few hundred columns this is a few
-  // hundred evaluations of pure arithmetic - cheap enough to redraw whenever
-  // the date, the place or the preset changes, which is what keeps it honest.
+  const bearing = resolveBearing(preset, place);
+
+  // One sample per pixel column. A few hundred table lookups, which is cheap
+  // enough to redraw whenever the date, the place or the preset changes -
+  // which is what keeps it honest.
   for (let x = 0; x < w; x += 1) {
     const minute = (x / w) * DAY_MINUTES;
     const t = dayStart + minute * MINUTE_MS;
     const sun = sunPosition(t, place);
-    const colors = skyColors(sun.altitude);
 
-    const mix = Math.pow(SAMPLE_HEIGHT, colors.curve);
+    const fromSun = Math.abs(((bearing - sun.azimuth + 540) % 360) - 180);
+    const radiance = sampleSky(sun.altitude, SAMPLE_ELEVATION, fromSun);
+
+    const exposure =
+      autoExposure(sun.altitude, EXPOSURE_TARGET, EXPOSURE_MAX) * Math.pow(2, preset.exposure);
+
     /** @type {[number, number, number]} */
-    const linear = [
-      colors.zenith[0] + (colors.horizon[0] - colors.zenith[0]) * mix,
-      colors.zenith[1] + (colors.horizon[1] - colors.zenith[1]) * mix,
-      colors.zenith[2] + (colors.horizon[2] - colors.zenith[2]) * mix
+    const mapped = [
+      toneMap(radiance[0] * exposure, preset.whitePoint),
+      toneMap(radiance[1] * exposure, preset.whitePoint),
+      toneMap(radiance[2] * exposure, preset.whitePoint)
     ];
-    const srgb = linearToSrgb(linear);
+    const srgb = linearToSrgb(mapped);
 
     ctx.fillStyle = `rgb(${to255(srgb[0])} ${to255(srgb[1])} ${to255(srgb[2])})`;
     ctx.fillRect(x, 0, 1, h);
@@ -111,6 +123,17 @@ function mark(ctx, x, h, color) {
   ctx.moveTo(x + 0.5, 0);
   ctx.lineTo(x + 0.5, h);
   ctx.stroke();
+}
+
+/**
+ * The engine's tone curve, per channel.
+ * @param {number} value
+ * @param {number} whitePoint
+ * @returns {number}
+ */
+function toneMap(value, whitePoint) {
+  if (value <= 0) return 0;
+  return (value * (1 + value / (whitePoint * whitePoint))) / (1 + value);
 }
 
 /** @param {number} v 0..1 @returns {number} 0..255 */

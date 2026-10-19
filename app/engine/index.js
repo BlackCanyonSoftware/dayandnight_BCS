@@ -5,7 +5,7 @@
  * Deliberately tiny, and deliberately ignorant. It does not know whether it is
  * drawing the editor's preview or a window pinned behind the desktop icons; it
  * does not know what time it is; it has no opinion about when a frame is
- * wanted. Three methods and a constructor:
+ * wanted:
  *
  *     const engine = new DayNightEngine(gl);
  *     engine.setPreset(preset);
@@ -19,20 +19,34 @@
  * @module engine/index
  */
 
+import { moonPosition } from "./astro/lunar.js";
 import { sunPosition, twilightBand } from "./astro/solar.js";
 import { createFullScreenTriangle, createProgram } from "./gl/program.js";
+import { createSkyTexture } from "./gl/texture.js";
 import { SKY_FRAG, SKY_VERT } from "./shaders.js";
-import { skyColors } from "./sky/palette.js";
-import { defaultPreset } from "./defaults.js";
+import { LUT_AZIMUTH, LUT_SUN, LUT_VIEW } from "./sky/atmosphere.js";
+import { autoExposure, skyLut } from "./sky/lut.js";
+import { defaultPreset, resolveBearing } from "./defaults.js";
 import { frameSignature } from "./signature.js";
 
 /** @typedef {import("./types.js").FrameInfo} FrameInfo */
 /** @typedef {import("./types.js").FrameRequest} FrameRequest */
 /** @typedef {import("./types.js").Preset} Preset */
 
-export { sunPosition, twilightBand };
-export { defaultPreset };
+export { moonPosition, sunPosition, twilightBand };
+export { defaultPreset, resolveBearing };
 export { frameSignature };
+
+/**
+ * The mid-grey the sky is exposed towards, and the most the exposure is
+ * allowed to push.
+ *
+ * The cap is what stops the night turning into grey fog: below nautical
+ * twilight there is essentially nothing left to expose for, and an uncapped
+ * gain would happily amplify the floor of the model until it was visible.
+ */
+const EXPOSURE_TARGET = 0.12;
+const EXPOSURE_MAX = 4000;
 
 export class DayNightEngine {
   /** @param {WebGL2RenderingContext} gl */
@@ -52,6 +66,9 @@ export class DayNightEngine {
 
     /** @type {ReturnType<typeof createFullScreenTriangle> | null} */
     this.quad = null;
+
+    /** @type {ReturnType<typeof createSkyTexture> | null} */
+    this.skyTexture = null;
   }
 
   /**
@@ -67,14 +84,20 @@ export class DayNightEngine {
   }
 
   /**
-   * Build the GPU objects. Called on the first frame, and again after a
-   * context loss. Cheap enough not to need its own scheduling.
+   * Build the GPU objects, and the scattering table if this is the first
+   * engine in the process to need it.
+   *
+   * The table takes a few hundred milliseconds and is then shared for the
+   * life of the process, which is why it lives in `sky/lut.js` rather than
+   * on the instance.
    */
   build() {
-    if (this.sky && this.quad) return;
+    if (this.sky && this.quad && this.skyTexture) return;
     this.release();
+
     this.sky = createProgram(this.gl, SKY_VERT, SKY_FRAG, "sky");
     this.quad = createFullScreenTriangle(this.gl);
+    this.skyTexture = createSkyTexture(this.gl, skyLut().data, LUT_SUN, LUT_VIEW, LUT_AZIMUTH);
   }
 
   /**
@@ -84,8 +107,10 @@ export class DayNightEngine {
   release() {
     this.sky?.dispose();
     this.quad?.dispose();
+    this.skyTexture?.dispose();
     this.sky = null;
     this.quad = null;
+    this.skyTexture = null;
   }
 
   /**
@@ -93,8 +118,8 @@ export class DayNightEngine {
    *
    * Cheap and GPU-free. The host needs this every tick even when it is
    * skipping the draw, because the clock keeps moving and the readout must
-   * follow it - a time and a sun altitude that freeze whenever the colour
-   * stops changing would be a worse bug than the cost they save.
+   * follow it - a time and a sun altitude that froze whenever the colour
+   * stopped changing would be a worse bug than the cost they save.
    *
    * @param {FrameRequest} request
    * @returns {FrameInfo}
@@ -104,16 +129,17 @@ export class DayNightEngine {
     return {
       sunAltitude: sun.altitude,
       sunAzimuth: sun.azimuth,
-      band: twilightBand(sun.altitude)
+      band: twilightBand(sun.altitude),
+      exposure: this.exposureFor(sun.altitude)
     };
   }
 
   /**
    * Would a frame drawn now differ from one drawn at the last signature?
    *
-   * Pure, and cheap - a few hundred floating-point operations, against a full
-   * present. The host keeps the previous value and skips the frame when it
-   * matches; the engine remembers nothing (architecture invariants 1 and 2).
+   * Pure, and cheap against a full present. The host keeps the previous value
+   * and skips the frame when it matches; the engine remembers nothing
+   * (architecture invariants 1 and 2).
    *
    * @param {FrameRequest} request
    * @returns {string}
@@ -128,36 +154,49 @@ export class DayNightEngine {
   }
 
   /**
+   * The total gain the sky is drawn with: the automatic part, which follows
+   * the sun across the day's enormous range of brightness, times the user's
+   * own offset in stops.
+   *
+   * @param {number} sunAltitude degrees
+   * @returns {number}
+   */
+  exposureFor(sunAltitude) {
+    return (
+      autoExposure(sunAltitude, EXPOSURE_TARGET, EXPOSURE_MAX) * Math.pow(2, this.preset.exposure)
+    );
+  }
+
+  /**
    * Draw one frame, and say what it was.
    *
    * Pure in the sense that matters: identical arguments produce identical
-   * pixels. Nothing is remembered between calls except the GPU objects, which
-   * are a cache rather than state - throw them away and the next frame is the
-   * same.
+   * pixels. Nothing is remembered between calls except the GPU objects and
+   * the scattering table, which are caches rather than state - throw them
+   * away and the next frame is the same.
    *
    * @param {FrameRequest} request
    * @returns {FrameInfo}
    */
   render(request) {
-    // pixelRatio is part of the request and is not read yet: Milestone 1 needs
-    // it to keep a star the same apparent size on screens of different
-    // density. It is in the type rather than destructured here so that the
-    // contract is honest without leaving an unused binding.
     const { t, place, crop, span } = request;
     const gl = this.gl;
 
     this.build();
     const sky = this.sky;
     const quad = this.quad;
-    if (!sky || !quad) throw new Error("The sky program could not be built.");
+    const skyTexture = this.skyTexture;
+    if (!sky || !quad || !skyTexture) throw new Error("The sky program could not be built.");
 
     const sun = sunPosition(t, place);
-    const colors = skyColors(sun.altitude);
 
-    // Exposure is in stops, so it is a power of two on linear light. Doing it
-    // on the CPU for two colours is free; in Milestone 1 it moves into the
-    // grade, where it has a whole ramp to apply to.
-    const gain = Math.pow(2, this.preset.exposure);
+    /** @type {FrameInfo} */
+    const info = {
+      sunAltitude: sun.altitude,
+      sunAzimuth: sun.azimuth,
+      band: twilightBand(sun.altitude),
+      exposure: this.exposureFor(sun.altitude)
+    };
 
     const width = gl.drawingBufferWidth;
     const height = gl.drawingBufferHeight;
@@ -167,32 +206,27 @@ export class DayNightEngine {
     gl.disable(gl.BLEND);
 
     sky.use();
+    skyTexture.bind(0);
+    gl.uniform1i(sky.uniform("uSky"), 0);
+
     gl.uniform2f(sky.uniform("uResolution"), width, height);
     gl.uniform4f(sky.uniform("uCrop"), crop.x, crop.y, crop.w, crop.h);
     gl.uniform2f(sky.uniform("uSpan"), span.w, span.h);
-    gl.uniform3f(
-      sky.uniform("uZenith"),
-      colors.zenith[0] * gain,
-      colors.zenith[1] * gain,
-      colors.zenith[2] * gain
-    );
-    gl.uniform3f(
-      sky.uniform("uHorizon"),
-      colors.horizon[0] * gain,
-      colors.horizon[1] * gain,
-      colors.horizon[2] * gain
-    );
-    gl.uniform1f(sky.uniform("uCurve"), colors.curve);
+
     gl.uniform1f(sky.uniform("uSunAltitude"), sun.altitude);
     gl.uniform1f(sky.uniform("uSunAzimuth"), sun.azimuth);
+
+    gl.uniform1f(sky.uniform("uBearing"), resolveBearing(this.preset, place));
+    gl.uniform1f(sky.uniform("uHorizon"), this.preset.horizon);
+    gl.uniform1f(sky.uniform("uFieldOfView"), this.preset.fieldOfView);
+
+    gl.uniform1f(sky.uniform("uExposure"), info.exposure);
+    gl.uniform1f(sky.uniform("uWhite"), this.preset.whitePoint);
+    gl.uniform1f(sky.uniform("uGroundAlbedo"), this.preset.groundAlbedo);
 
     quad.bind();
     quad.draw();
 
-    return {
-      sunAltitude: sun.altitude,
-      sunAzimuth: sun.azimuth,
-      band: twilightBand(sun.altitude)
-    };
+    return info;
   }
 }

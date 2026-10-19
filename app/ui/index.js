@@ -9,7 +9,7 @@
  * @module ui/index
  */
 
-import { defaultPreset, twilightBand } from "../engine/index.js";
+import { defaultPreset, resolveBearing, twilightBand } from "../engine/index.js";
 import * as timeline from "./clock.js";
 import * as shell from "./desktop.js";
 import { createPreview } from "./preview.js";
@@ -30,7 +30,16 @@ import {
   span
 } from "./state.js";
 import { cycleTheme, initTheme, setTheme, theme } from "./theme.js";
-import { $, fmtBearing, fmtDegrees, fmtTime, input, notice, toDateInputValue } from "./util.js";
+import {
+  $,
+  fmtBearing,
+  fmtDegrees,
+  fmtExposure,
+  fmtTime,
+  input,
+  notice,
+  toDateInputValue
+} from "./util.js";
 
 /** @typedef {import("../engine/types.js").FrameInfo} FrameInfo */
 
@@ -117,6 +126,20 @@ function wireControls() {
     setPreset({ exposure: v });
     bandsDirty = true;
   });
+  bindRange("whitePoint", (v) => {
+    setPreset({ whitePoint: v });
+    bandsDirty = true;
+  });
+  // -1 on the slider is "auto": face whichever side of the sky the sun
+  // crosses. It is the leftmost position rather than a separate control,
+  // because a checkbox beside a slider for the same setting reads as two
+  // settings.
+  bindRange("bearing", (v) => {
+    setPreset({ bearing: v < 0 ? null : v });
+    bandsDirty = true;
+  });
+  bindRange("horizon", (v) => setPreset({ horizon: v }));
+  bindRange("fieldOfView", (v) => setPreset({ fieldOfView: v }));
   bindRange("fps", (v) => setFps(Math.round(v)));
 
   input("scrub").addEventListener("input", (event) => {
@@ -253,11 +276,22 @@ function paintFromState() {
   input("lat").value = String(place.lat);
   input("lon").value = String(place.lon);
   input("exposure").value = String(preset.exposure);
+  input("whitePoint").value = String(preset.whitePoint);
+  input("bearing").value = String(preset.bearing === null ? -1 : preset.bearing);
+  input("horizon").value = String(preset.horizon);
+  input("fieldOfView").value = String(preset.fieldOfView);
   input("fps").value = String(fps);
 
   $("#latVal").textContent = fmtDegrees(place.lat);
   $("#lonVal").textContent = fmtDegrees(place.lon);
   $("#exposureVal").textContent = `${preset.exposure.toFixed(1)} EV`;
+  $("#whitePointVal").textContent = preset.whitePoint.toFixed(1);
+  $("#bearingVal").textContent =
+    preset.bearing === null
+      ? `Auto (${compass(resolveBearing(preset, place))})`
+      : compass(preset.bearing);
+  $("#horizonVal").textContent = `${Math.round(preset.horizon * 100)}%`;
+  $("#fieldOfViewVal").textContent = `${Math.round(preset.fieldOfView)}°`;
   $("#fpsVal").textContent = `${fps} fps`;
 
   pushRuntime();
@@ -362,7 +396,8 @@ function onFrame(info, t) {
     fmtTime(t),
     `alt ${fmtDegrees(info.sunAltitude)}`,
     `az ${fmtBearing(info.sunAzimuth)}`,
-    twilightBand(info.sunAltitude)
+    twilightBand(info.sunAltitude),
+    `${fmtExposure(info.exposure)} EV`
   ].join("  ·  ");
 
   if (bandsDirty) {
@@ -379,12 +414,27 @@ function onFrame(info, t) {
 function redrawBands() {
   const width = Math.max(1, bandsCanvas.clientWidth || 600);
   if (bandsCanvas.width !== width) bandsCanvas.width = width;
-  drawBands(bandsCanvas, clock.dayStart, place);
+  drawBands(bandsCanvas, clock.dayStart, place, preset);
 }
 
 /** Hand the wallpaper windows what they need in order to draw. */
 function pushRuntime() {
   shell.pushConfig({ preset, place, fps });
+}
+
+/**
+ * A bearing as a compass direction with its number.
+ *
+ * "SW 225" rather than "225": a bearing is a direction, and most people read
+ * the letters faster than the degrees.
+ *
+ * @param {number} degrees
+ * @returns {string}
+ */
+function compass(degrees) {
+  const points = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  const index = Math.round((((degrees % 360) + 360) % 360) / 45) % 8;
+  return `${points[index]} ${Math.round(degrees)}°`;
 }
 
 let saveTimer = 0;
