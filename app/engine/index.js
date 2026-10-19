@@ -22,8 +22,12 @@
 import { moonPosition } from "./astro/lunar.js";
 import { sunPosition, twilightBand } from "./astro/solar.js";
 import { createFullScreenTriangle, createProgram } from "./gl/program.js";
+import { createRenderTarget } from "./gl/target.js";
 import { createSkyTexture } from "./gl/texture.js";
-import { SKY_FRAG, SKY_VERT } from "./shaders.js";
+import { localSiderealTime } from "./astro/sidereal.js";
+import { toJulianDay } from "./astro/julian.js";
+import { COMPOSITE_FRAG, FULLSCREEN_VERT, SKY_FRAG, STAR_FRAG, STAR_VERT } from "./shaders.js";
+import { buildStarCatalogue, createStarBuffer } from "./stars.js";
 import { LUT_AZIMUTH, LUT_SUN, LUT_VIEW } from "./sky/atmosphere.js";
 import { autoExposure, skyLut } from "./sky/lut.js";
 import { defaultPreset, resolveBearing } from "./defaults.js";
@@ -48,6 +52,19 @@ export { frameSignature };
 const EXPOSURE_TARGET = 0.12;
 const EXPOSURE_MAX = 4000;
 
+/**
+ * Airglow's colour.
+ *
+ * Real airglow is dominated by a green oxygen line, but a night sky does not
+ * look green to a person: adapted eyes see it as a cool grey-blue, and that
+ * is what a photograph of one shows too. This is the perceived colour rather
+ * than the spectroscopic one, because the product is a picture.
+ */
+const AIRGLOW_TINT = [0.45, 0.62, 1.0];
+
+/** How long one twinkle cycle takes, in seconds. */
+const TWINKLE_PERIOD = 9;
+
 export class DayNightEngine {
   /** @param {WebGL2RenderingContext} gl */
   constructor(gl) {
@@ -69,6 +86,21 @@ export class DayNightEngine {
 
     /** @type {ReturnType<typeof createSkyTexture> | null} */
     this.skyTexture = null;
+
+    /** @type {ReturnType<typeof createProgram> | null} */
+    this.stars = null;
+
+    /** @type {ReturnType<typeof createStarBuffer> | null} */
+    this.starBuffer = null;
+
+    /** @type {ReturnType<typeof createProgram> | null} */
+    this.composite = null;
+
+    /**
+     * Where the passes add their light up before any of it is tone mapped.
+     * @type {ReturnType<typeof createRenderTarget> | null}
+     */
+    this.scene = null;
   }
 
   /**
@@ -92,12 +124,26 @@ export class DayNightEngine {
    * on the instance.
    */
   build() {
-    if (this.sky && this.quad && this.skyTexture) return;
+    if (this.sky && this.quad && this.skyTexture && this.stars && this.composite && this.scene) {
+      return;
+    }
     this.release();
 
-    this.sky = createProgram(this.gl, SKY_VERT, SKY_FRAG, "sky");
-    this.quad = createFullScreenTriangle(this.gl);
-    this.skyTexture = createSkyTexture(this.gl, skyLut().data, LUT_SUN, LUT_VIEW, LUT_AZIMUTH);
+    const gl = this.gl;
+
+    this.sky = createProgram(gl, FULLSCREEN_VERT, SKY_FRAG, "sky");
+    this.stars = createProgram(gl, STAR_VERT, STAR_FRAG, "stars");
+    this.composite = createProgram(gl, FULLSCREEN_VERT, COMPOSITE_FRAG, "composite");
+
+    this.quad = createFullScreenTriangle(gl);
+    this.skyTexture = createSkyTexture(gl, skyLut().data, LUT_SUN, LUT_VIEW, LUT_AZIMUTH);
+    this.starBuffer = createStarBuffer(gl, buildStarCatalogue());
+
+    this.scene = createRenderTarget(
+      gl,
+      Math.max(1, gl.drawingBufferWidth),
+      Math.max(1, gl.drawingBufferHeight)
+    );
   }
 
   /**
@@ -106,11 +152,20 @@ export class DayNightEngine {
    */
   release() {
     this.sky?.dispose();
+    this.stars?.dispose();
+    this.composite?.dispose();
     this.quad?.dispose();
     this.skyTexture?.dispose();
+    this.starBuffer?.dispose();
+    this.scene?.dispose();
+
     this.sky = null;
+    this.stars = null;
+    this.composite = null;
     this.quad = null;
     this.skyTexture = null;
+    this.starBuffer = null;
+    this.scene = null;
   }
 
   /**
@@ -184,9 +239,16 @@ export class DayNightEngine {
 
     this.build();
     const sky = this.sky;
+    const stars = this.stars;
+    const composite = this.composite;
     const quad = this.quad;
     const skyTexture = this.skyTexture;
-    if (!sky || !quad || !skyTexture) throw new Error("The sky program could not be built.");
+    const starBuffer = this.starBuffer;
+    const scene = this.scene;
+
+    if (!sky || !stars || !composite || !quad || !skyTexture || !starBuffer || !scene) {
+      throw new Error("The sky program could not be built.");
+    }
 
     const sun = sunPosition(t, place);
 
@@ -200,9 +262,15 @@ export class DayNightEngine {
 
     const width = gl.drawingBufferWidth;
     const height = gl.drawingBufferHeight;
+    scene.resize(width, height);
 
-    gl.viewport(0, 0, width, height);
+    const bearing = resolveBearing(this.preset, place);
+
     gl.disable(gl.DEPTH_TEST);
+
+    /* ------------------------------------------------- 1. the sky, as light */
+
+    scene.bindForDrawing();
     gl.disable(gl.BLEND);
 
     sky.use();
@@ -216,17 +284,85 @@ export class DayNightEngine {
     gl.uniform1f(sky.uniform("uSunAltitude"), sun.altitude);
     gl.uniform1f(sky.uniform("uSunAzimuth"), sun.azimuth);
 
-    gl.uniform1f(sky.uniform("uBearing"), resolveBearing(this.preset, place));
+    gl.uniform1f(sky.uniform("uBearing"), bearing);
     gl.uniform1f(sky.uniform("uHorizon"), this.preset.horizon);
     gl.uniform1f(sky.uniform("uFieldOfView"), this.preset.fieldOfView);
 
-    gl.uniform1f(sky.uniform("uExposure"), info.exposure);
-    gl.uniform1f(sky.uniform("uWhite"), this.preset.whitePoint);
     gl.uniform1f(sky.uniform("uGroundAlbedo"), this.preset.groundAlbedo);
+    gl.uniform3f(
+      sky.uniform("uAirglow"),
+      this.preset.airglow * AIRGLOW_TINT[0],
+      this.preset.airglow * AIRGLOW_TINT[1],
+      this.preset.airglow * AIRGLOW_TINT[2]
+    );
+
+    quad.bind();
+    quad.draw();
+
+    /* --------------------------------------- 2. the stars, added as more light */
+
+    // Additive, into the same linear buffer. This is the whole reason stars
+    // vanish at noon without anybody writing a rule for it: they are simply
+    // outshone.
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+
+    stars.use();
+    gl.uniform4f(stars.uniform("uCrop"), crop.x, crop.y, crop.w, crop.h);
+    gl.uniform2f(stars.uniform("uSpan"), span.w, span.h);
+
+    gl.uniform1f(stars.uniform("uLatitude"), place.lat);
+    gl.uniform1f(stars.uniform("uSiderealTime"), localSiderealTime(toJulianDay(t), place.lon));
+
+    gl.uniform1f(stars.uniform("uBearing"), bearing);
+    gl.uniform1f(stars.uniform("uHorizon"), this.preset.horizon);
+    gl.uniform1f(stars.uniform("uFieldOfView"), this.preset.fieldOfView);
+
+    gl.uniform1f(stars.uniform("uBrightness"), this.preset.starBrightness);
+    // Point size is in device pixels, so it has to follow the display's
+    // density or stars are half the size they should be on a 4K screen.
+    gl.uniform1f(stars.uniform("uSize"), this.preset.starSize * (request.pixelRatio || 1));
+    gl.uniform1f(stars.uniform("uTwinkle"), this.preset.twinkle);
+    // A phase in 0..1 rather than a raw time: sine is periodic, so the wrap
+    // from 1 back to 0 is continuous, and no float has to hold a timestamp in
+    // milliseconds at single precision.
+    gl.uniform1f(stars.uniform("uTwinklePhase"), twinklePhase(t));
+
+    starBuffer.bind();
+    starBuffer.draw();
+
+    /* ------------------------------- 3. expose and tone map the sum, once */
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, width, height);
+    gl.disable(gl.BLEND);
+
+    composite.use();
+    scene.bindAsTexture(0);
+    gl.uniform1i(composite.uniform("uScene"), 0);
+    gl.uniform2f(composite.uniform("uResolution"), width, height);
+    gl.uniform1f(composite.uniform("uExposure"), info.exposure);
+    gl.uniform1f(composite.uniform("uWhite"), this.preset.whitePoint);
 
     quad.bind();
     quad.draw();
 
     return info;
   }
+}
+
+/**
+ * Where the twinkle is in its cycle, as a fraction.
+ *
+ * A fraction rather than a time because `sin` is periodic: the wrap from 1
+ * back to 0 is continuous, so there is no jump, and a single-precision
+ * uniform never has to hold a Unix timestamp in milliseconds - which it
+ * cannot, to anything like the resolution a flicker needs.
+ *
+ * @param {number} t
+ * @returns {number} 0..1
+ */
+function twinklePhase(t) {
+  const seconds = t / 1000 / TWINKLE_PERIOD;
+  return seconds - Math.floor(seconds);
 }

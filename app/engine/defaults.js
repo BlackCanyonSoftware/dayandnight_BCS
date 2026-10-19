@@ -59,6 +59,29 @@ export function defaultPreset() {
     // About a tenth is right for grass, soil and asphalt; snow is far higher.
     groundAlbedo: 0.12,
 
+    // How bright the stars are. A multiplier on their real relative
+    // brightnesses, not a replacement for them: turning it up brings fainter
+    // stars out without flattening the difference between them.
+    starBrightness: 1,
+
+    // The base size a star is drawn at, in device pixels, before the extra
+    // size the brightest ones get. Below about two, a star's peak keeps
+    // falling between pixel centres and the sky both dims and shimmers as
+    // the stars drift across the grid.
+    starSize: 2.6,
+
+    // How much the stars twinkle, 0 to 1. Real twinkling is refraction in
+    // moving air, so the shader concentrates it near the horizon whatever
+    // this is set to.
+    twinkle: 0.6,
+
+    // The faint light the night sky has of its own - airglow high in the
+    // atmosphere, plus the combined glow of stars too faint to resolve. The
+    // scattering model reaches exactly zero once the sun is more than about
+    // eight degrees down, so without this nautical twilight is a dead black
+    // rectangle. Raising it also stands in for light pollution.
+    airglow: 1.1e-6,
+
     // The tone curve's white point: how bright something has to be before it
     // is allowed to reach pure white. Higher keeps more detail in the sun's
     // glow at the cost of overall contrast.

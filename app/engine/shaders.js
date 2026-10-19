@@ -7,6 +7,17 @@
  * file into text, and fetching them at run time would mean the first frame
  * waits on the network stack for files that are already on disk.
  *
+ * Three passes, and the order matters:
+ *
+ * 1. **Sky** fills a half-float buffer with linear radiance.
+ * 2. **Stars** add into the same buffer, in the same units.
+ * 3. **Composite** exposes the sum, tone maps it once, and writes sRGB.
+ *
+ * Summing before tone mapping is what makes the stars behave. A star drawn
+ * over an already tone-mapped sky could never be dimmer than the sky it sits
+ * on, so stars would still be there at noon. Added as light, they are simply
+ * swamped, exactly as they are in life.
+ *
  * @module engine/shaders
  */
 
@@ -22,13 +33,48 @@ import {
 } from "./sky/atmosphere.js";
 
 /**
- * Shared GLSL: the sRGB transfer function and the output dither.
+ * Shared GLSL: the table's axes, and the view mapping the sky and the stars
+ * have to agree on.
  *
- * `linearToSrgb` here must agree with `linearToSrgb1` in sky/oklab.js. The two
- * exist because the same conversion is needed on both sides of the GPU
- * boundary; a unit test pins them to each other.
+ * They agree because it is written once. A star that used a slightly
+ * different projection from the sky would drift across it through the day,
+ * which is the kind of bug that takes a week to notice and a minute to fix.
  */
-const COMMON = /* glsl */ `
+const VIEW = /* glsl */ `
+const float PI = 3.14159265358979;
+const float RADIANS = PI / 180.0;
+
+const float LUT_SUN = ${LUT_SUN}.0;
+const float LUT_VIEW = ${LUT_VIEW}.0;
+const float LUT_AZIMUTH = ${LUT_AZIMUTH}.0;
+const float SUN_MIN = ${SUN_MIN}.0;
+const float SUN_MAX = ${SUN_MAX}.0;
+const float VIEW_MIN = ${VIEW_MIN}.0;
+const float VIEW_MAX = ${VIEW_MAX}.0;
+const float MIE_G = ${MIE_G};
+
+// Resolution is concentrated near the horizon, because that is where the sky
+// changes. Must match encodeElevation() in sky/atmosphere.js exactly.
+float encodeElevation(float degrees, float lo, float hi) {
+  float c = clamp(degrees, lo, hi);
+  return c >= 0.0 ? 0.5 + 0.5 * sqrt(c / hi) : 0.5 - 0.5 * sqrt(c / lo);
+}
+
+// Fold an angle into -180..180.
+float wrap180(float degrees) {
+  return mod(degrees + 540.0, 360.0) - 180.0;
+}
+
+// How many degrees of sky the span covers vertically, given its width in
+// degrees. Matching the two keeps the picture square: a degree across the
+// screen is a degree up it.
+float degreesPerSpanY(float fieldOfView, vec2 span) {
+  return fieldOfView * (span.y / span.x);
+}
+`;
+
+/** The sRGB transfer function and the output dither. Composite pass only. */
+const OUTPUT = /* glsl */ `
 // Exactly the IEC 61966-2-1 transfer function, not the 2.2 power
 // approximation. The approximation is visibly wrong in the darkest few
 // percent, which for a night sky is most of the picture.
@@ -48,17 +94,13 @@ float ditherNoise(vec2 p) {
   return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715))));
 }
 
-// Shift by up to half a quantisation step, so rounding goes both ways and the
-// step boundaries dissolve into noise the eye reads as a smooth ramp.
 vec3 dither(vec3 srgb, vec2 fragCoord) {
   return srgb + (ditherNoise(fragCoord) - 0.5) / 255.0;
 }
 `;
 
-/**
- * The vertex shader: one full-screen triangle, no transforms.
- */
-export const SKY_VERT = /* glsl */ `#version 300 es
+/** One full-screen triangle, no transforms. Used by the sky and composite. */
+export const FULLSCREEN_VERT = /* glsl */ `#version 300 es
 layout(location = 0) in vec2 aPosition;
 
 void main() {
@@ -67,64 +109,34 @@ void main() {
 `;
 
 /**
- * The fragment shader.
+ * The sky pass: writes linear radiance, no tone mapping.
  *
- * Two ideas carry most of it.
- *
- * The gradient is a function of position in the **span** - the bounding box of
+ * The picture is a function of position in the **span** - the bounding box of
  * every monitor - not of position in this window. That is what makes one sky
  * stretch across three screens instead of three skies (US-012).
- *
- * And the sky itself is a table lookup plus two phase functions. The table
- * (`sky/atmosphere.js`) holds the scattering integrals, which are expensive
- * and are computed once; the phase functions are cheap, depend on the angle
- * between the view and the sun, and are what put the glow around the sun. The
- * shader is therefore short even though the model behind it is not.
  */
 export const SKY_FRAG = /* glsl */ `#version 300 es
 precision highp float;
 precision highp sampler3D;
-${COMMON}
+${VIEW}
 
-uniform vec2 uResolution;   // this drawing buffer, in device pixels
-uniform vec4 uCrop;         // this window's rect in the span: x, y, w, h
-uniform vec2 uSpan;         // the whole span, in span pixels
+uniform vec2 uResolution;
+uniform vec4 uCrop;
+uniform vec2 uSpan;
 
-uniform sampler3D uSky;     // the scattering table
+uniform sampler3D uSky;
 
-uniform float uSunAltitude; // degrees above the horizon
-uniform float uSunAzimuth;  // degrees clockwise from north
+uniform float uSunAltitude;
+uniform float uSunAzimuth;
 
-uniform float uBearing;     // which way the camera faces, degrees from north
-uniform float uHorizon;     // where the horizon sits down the span, 0..1
-uniform float uFieldOfView; // degrees across the whole span
+uniform float uBearing;
+uniform float uHorizon;
+uniform float uFieldOfView;
 
-uniform float uExposure;    // auto-exposure times the user's offset
-uniform float uWhite;       // the tone curve's white point
-uniform float uGroundAlbedo;// how much light the ground below the horizon returns
+uniform float uGroundAlbedo;
+uniform vec3 uAirglow;
 
 out vec4 fragColor;
-
-const float PI = 3.14159265358979;
-
-// The table's axes, mirrored from sky/atmosphere.js. If those change and
-// these do not, the sky silently samples the wrong place - so they are
-// injected from the module rather than written twice by hand.
-const float LUT_SUN = ${LUT_SUN}.0;
-const float LUT_VIEW = ${LUT_VIEW}.0;
-const float LUT_AZIMUTH = ${LUT_AZIMUTH}.0;
-const float SUN_MIN = ${SUN_MIN}.0;
-const float SUN_MAX = ${SUN_MAX}.0;
-const float VIEW_MIN = ${VIEW_MIN}.0;
-const float VIEW_MAX = ${VIEW_MAX}.0;
-const float MIE_G = ${MIE_G};
-
-// Resolution is concentrated near the horizon, because that is where the sky
-// changes. Must match encodeElevation() in sky/atmosphere.js exactly.
-float encodeElevation(float degrees, float lo, float hi) {
-  float c = clamp(degrees, lo, hi);
-  return c >= 0.0 ? 0.5 + 0.5 * sqrt(c / hi) : 0.5 - 0.5 * sqrt(c / lo);
-}
 
 float rayleighPhase(float cosTheta) {
   return (3.0 / (16.0 * PI)) * (1.0 + cosTheta * cosTheta);
@@ -137,35 +149,8 @@ float miePhase(float cosTheta, float g) {
   return numerator / denominator;
 }
 
-// Extended Reinhard, applied to luminance so that hue survives.
-//
-// A per-channel curve desaturates everything bright, which on a sunrise means
-// the one part of the picture worth looking at turns white. This compresses
-// the brightness and leaves the colour alone.
-vec3 toneMap(vec3 colour) {
-  float luminance = dot(colour, vec3(0.2126, 0.7152, 0.0722));
-  if (luminance <= 0.0) return vec3(0.0);
-  float mapped = luminance * (1.0 + luminance / (uWhite * uWhite)) / (1.0 + luminance);
-  return colour * (mapped / luminance);
-}
-
-void main() {
-  // gl_FragCoord is in device pixels with the origin bottom-left. Flip y so
-  // that 0 is the top of the picture, which is how the span is described.
-  vec2 inWindow = gl_FragCoord.xy / uResolution;
-  vec2 inSpan = (uCrop.xy + vec2(inWindow.x, 1.0 - inWindow.y) * uCrop.zw) / uSpan;
-
-  // Where this pixel is looking. Azimuth runs across the span and elevation
-  // up it, at the same degrees per pixel in both, so nothing is stretched.
-  float degreesPerSpanY = uFieldOfView * (uSpan.y / uSpan.x);
-  float azimuth = uBearing + (inSpan.x - 0.5) * uFieldOfView;
-  float elevation = (uHorizon - inSpan.y) * degreesPerSpanY;
-
-  // How far round from the sun, folded into 0..180: the sky is mirror
-  // symmetric about the sun's own meridian, which is why the table only
-  // stores half a turn.
-  float fromSun = abs(mod(azimuth - uSunAzimuth + 540.0, 360.0) - 180.0);
-
+// Look the table up and apply the phase functions, for one direction.
+vec3 skyRadiance(float elevation, float fromSun) {
   // The two elevation axes are sampled at texel centres, so the encoded value
   // is already the right coordinate. The azimuth axis stores its endpoints
   // exactly instead, so it needs the half-texel shift spelled out.
@@ -180,12 +165,28 @@ void main() {
   // The angle between the view direction and the sun, which both phase
   // functions turn on. Constant along a view ray, which is exactly why it
   // could be taken out of the integral and left until now.
-  float rad = PI / 180.0;
   float cosTheta =
-    sin(elevation * rad) * sin(uSunAltitude * rad) +
-    cos(elevation * rad) * cos(uSunAltitude * rad) * cos(fromSun * rad);
+    sin(elevation * RADIANS) * sin(uSunAltitude * RADIANS) +
+    cos(elevation * RADIANS) * cos(uSunAltitude * RADIANS) * cos(fromSun * RADIANS);
 
-  vec3 radiance = entry.rgb * rayleighPhase(cosTheta) + vec3(entry.a) * miePhase(cosTheta, MIE_G);
+  return entry.rgb * rayleighPhase(cosTheta) + vec3(entry.a) * miePhase(cosTheta, MIE_G);
+}
+
+void main() {
+  // gl_FragCoord is in device pixels with the origin bottom-left. Flip y so
+  // that 0 is the top of the picture, which is how the span is described.
+  vec2 inWindow = gl_FragCoord.xy / uResolution;
+  vec2 inSpan = (uCrop.xy + vec2(inWindow.x, 1.0 - inWindow.y) * uCrop.zw) / uSpan;
+
+  float azimuth = uBearing + (inSpan.x - 0.5) * uFieldOfView;
+  float elevation = (uHorizon - inSpan.y) * degreesPerSpanY(uFieldOfView, uSpan);
+
+  // How far round from the sun, folded into 0..180: the sky is mirror
+  // symmetric about the sun's own meridian, which is why the table only
+  // stores half a turn.
+  float fromSun = abs(wrap180(azimuth - uSunAzimuth));
+
+  vec3 radiance = skyRadiance(elevation, fromSun);
 
   // Below the horizon there is ground, and the model has none: a view ray
   // that meets the Earth carries only the short column of air in front of it,
@@ -200,21 +201,187 @@ void main() {
   // Milestone 4.
   float belowHorizon = smoothstep(0.0, -1.2, elevation);
   if (belowHorizon > 0.0) {
-    vec4 groundLight = texture(uSky, vec3(uvw.x, encodeElevation(0.75, VIEW_MIN, VIEW_MAX), uvw.z));
-
-    float groundCos =
-      sin(0.75 * rad) * sin(uSunAltitude * rad) +
-      cos(0.75 * rad) * cos(uSunAltitude * rad) * cos(fromSun * rad);
-
-    vec3 lit = groundLight.rgb * rayleighPhase(groundCos) +
-               vec3(groundLight.a) * miePhase(groundCos, MIE_G);
-
-    radiance = mix(radiance, lit * uGroundAlbedo, belowHorizon);
+    radiance = mix(radiance, skyRadiance(0.75, fromSun) * uGroundAlbedo, belowHorizon);
   }
 
+  // Airglow: the faint light a night sky has of its own, from oxygen and
+  // sodium high in the atmosphere, plus the combined glow of stars too faint
+  // to resolve. Without it the scattering model reaches exactly zero once the
+  // sun is more than about eight degrees down, and nautical twilight renders
+  // as a dead black rectangle - which is both wrong and ugly. Above the
+  // horizon only; the ground does not glow.
+  radiance += uAirglow * (1.0 - belowHorizon);
+
+  fragColor = vec4(max(radiance, vec3(0.0)), 1.0);
+}
+`;
+
+/**
+ * The star pass, vertex half.
+ *
+ * Each star carries a real right ascension and declination, and this turns
+ * them into what the observer sees - the same transform `astro/coords.js`
+ * does on the CPU for the sun. That is where the whole of US-005 comes from:
+ * the field turns about the celestial pole at the sidereal rate, tilted by
+ * the observer's latitude, without any of that being written down as a rule.
+ */
+export const STAR_VERT = /* glsl */ `#version 300 es
+precision highp float;
+${VIEW}
+
+// right ascension, declination, radiance, per-star hash
+layout(location = 0) in vec4 aStar;
+
+uniform vec4 uCrop;
+uniform vec2 uSpan;
+
+uniform float uLatitude;
+uniform float uSiderealTime;   // local apparent sidereal time, degrees
+
+uniform float uBearing;
+uniform float uHorizon;
+uniform float uFieldOfView;
+
+uniform float uBrightness;
+uniform float uSize;           // base point size, device pixels
+uniform float uTwinkle;        // 0 none, 1 plenty
+uniform float uTwinklePhase;   // 0..1, wraps continuously
+
+out vec3 vColour;
+out float vRadiance;
+
+// A star's colour from its hash. Real visible stars run from blue-white
+// through white to orange, weighted towards the warm end; this is that ramp,
+// not a hue wheel, because a sky with green and purple stars in it reads as a
+// screensaver.
+vec3 starColour(float hash) {
+  vec3 hot = vec3(0.70, 0.80, 1.00);
+  vec3 white = vec3(1.00, 0.98, 0.95);
+  vec3 cool = vec3(1.00, 0.80, 0.62);
+  return hash < 0.5 ? mix(hot, white, hash * 2.0) : mix(white, cool, (hash - 0.5) * 2.0);
+}
+
+void main() {
+  float rightAscension = aStar.x;
+  float declination = aStar.y;
+  float radiance = aStar.z;
+  float hash = aStar.w;
+
+  // The hour angle: how far the star is past the observer's meridian. This
+  // one subtraction is what makes the sky turn, because sidereal time
+  // advances a little over 15 degrees an hour.
+  float H = (uSiderealTime - rightAscension) * RADIANS;
+  float lat = uLatitude * RADIANS;
+  float dec = declination * RADIANS;
+
+  float sinAltitude = sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(H);
+  float altitude = asin(clamp(sinAltitude, -1.0, 1.0)) / RADIANS;
+
+  float azimuthFromSouth = atan(sin(H), cos(H) * sin(lat) - tan(dec) * cos(lat));
+  float azimuth = mod(azimuthFromSouth / RADIANS + 180.0, 360.0);
+
+  // Below the horizon there is ground in the way. Pushed off-screen rather
+  // than discarded in the fragment shader, which is cheaper and avoids half a
+  // star sitting on the horizon line.
+  if (altitude < -0.5) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    gl_PointSize = 0.0;
+    return;
+  }
+
+  // The same projection the sky uses, run backwards.
+  float spanFracX = wrap180(azimuth - uBearing) / uFieldOfView + 0.5;
+  float spanFracY = uHorizon - altitude / degreesPerSpanY(uFieldOfView, uSpan);
+
+  vec2 spanPixel = vec2(spanFracX * uSpan.x, spanFracY * uSpan.y);
+  vec2 inWindow = (spanPixel - uCrop.xy) / uCrop.zw;
+
+  gl_Position = vec4(inWindow.x * 2.0 - 1.0, (1.0 - inWindow.y) * 2.0 - 1.0, 0.0, 1.0);
+
+  // Twinkling is refraction in moving air, so it is strongest near the
+  // horizon where the light has come through most of it, and almost absent
+  // overhead. Faking it evenly across the sky is the usual mistake and reads
+  // as flickering rather than as stars.
+  float nearHorizon = 1.0 - smoothstep(0.0, 40.0, altitude);
+  float flicker = 1.0 + uTwinkle * nearHorizon * 0.55 *
+    sin((uTwinklePhase + hash) * 2.0 * PI * 7.0 + hash * 31.0);
+
+  vRadiance = radiance * uBrightness * max(flicker, 0.0);
+  vColour = starColour(hash);
+
+  // Brighter stars are drawn larger as well as more intensely, which is how
+  // both a camera and an eye behave. Without it the bright stars clip to
+  // white at the same size as the faint ones and the sky loses its depth.
+  gl_PointSize = uSize * (1.0 + 2.2 * sqrt(clamp(radiance * 3200.0, 0.0, 1.0)));
+}
+`;
+
+/**
+ * The star pass, fragment half: a soft round point.
+ *
+ * The falloff matters more than it looks. A hard-edged disc reads as a
+ * sticker; a tight core with a wide faint skirt reads as a point of light
+ * seen through air, and it is what gives the brighter stars their glow
+ * without a separate bloom pass.
+ */
+export const STAR_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+
+in vec3 vColour;
+in float vRadiance;
+
+out vec4 fragColor;
+
+void main() {
+  vec2 offset = gl_PointCoord * 2.0 - 1.0;
+  float r2 = dot(offset, offset);
+  if (r2 > 1.0) discard;
+
+  // A tight core plus a broad halo: the sum of two falloffs rather than one,
+  // because a single Gaussian gives either no glow or no definition.
+  //
+  // The core is gentler than it looks like it should be, and that is
+  // deliberate. A star is only a couple of pixels across, so a sharp falloff
+  // drops most of its light *between* pixel centres: measured, the brightest
+  // star in the sky was reaching 97 of 255 instead of nearly white, purely
+  // because the peak kept landing in a gap. Spreading it over the pixels it
+  // actually covers is what makes a star look like a star rather than a
+  // flickering speck.
+  float core = exp(-r2 * 4.5);
+  float halo = exp(-r2 * 1.2) * 0.25;
+
+  fragColor = vec4(vColour * vRadiance * (core + halo), 1.0);
+}
+`;
+
+/** The composite pass: expose the summed light, tone map once, write sRGB. */
+export const COMPOSITE_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+${OUTPUT}
+
+uniform sampler2D uScene;
+uniform vec2 uResolution;
+uniform float uExposure;
+uniform float uWhite;
+
+out vec4 fragColor;
+
+// Extended Reinhard, applied to luminance so that hue survives.
+//
+// A per-channel curve desaturates everything bright, which on a sunrise means
+// the one part of the picture worth looking at turns white. This compresses
+// the brightness and leaves the colour alone.
+vec3 toneMap(vec3 colour) {
+  float luminance = dot(colour, vec3(0.2126, 0.7152, 0.0722));
+  if (luminance <= 0.0) return vec3(0.0);
+  float mapped = luminance * (1.0 + luminance / (uWhite * uWhite)) / (1.0 + luminance);
+  return colour * (mapped / luminance);
+}
+
+void main() {
+  vec3 radiance = texture(uScene, gl_FragCoord.xy / uResolution).rgb;
   vec3 colour = toneMap(max(radiance, vec3(0.0)) * uExposure);
   vec3 srgb = linearToSrgb(clamp(colour, 0.0, 1.0));
-
   fragColor = vec4(dither(srgb, gl_FragCoord.xy), 1.0);
 }
 `;

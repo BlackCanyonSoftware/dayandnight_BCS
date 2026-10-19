@@ -293,6 +293,240 @@ test("the same inputs give the same pixels (architecture invariant 1)", async ({
   expect(identical, "two renders of the same request must be byte-identical").toBe(true);
 });
 
+test("the star field turns at the sidereal rate, not the solar one (US-005)", async ({ page }) => {
+  // The sharpest test of the rotation there is, and it needs no reference
+  // data at all.
+  //
+  // A sidereal day - 23h 56m 04s - is how long the Earth takes to turn once
+  // relative to the stars, about four minutes shorter than a solar day
+  // because the Earth has also moved along its orbit. So after exactly one
+  // sidereal day the field must be back where it started, and after one
+  // *solar* day it must visibly not be. A field driven by the clock rather
+  // than by sidereal time would pass the second check and fail the first.
+  const result = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset } = await import("/engine/index.js");
+
+    const width = 700;
+    const height = 380;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+    engine.setPreset(defaultPreset());
+
+    const place = { lat: 39.7, lon: -105 };
+
+    const starPixels = (t) => {
+      engine.render({
+        t,
+        place,
+        crop: { x: 0, y: 0, w: width, h: height },
+        span: { w: width, h: height },
+        pixelRatio: 1
+      });
+
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+      const found = new Set();
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const i = (y * width + x) * 4;
+          if (Math.max(pixels[i], pixels[i + 1], pixels[i + 2]) > 70) found.add(x + "," + y);
+        }
+      }
+      return found;
+    };
+
+    const overlap = (a, b) => {
+      if (a.size === 0) return 0;
+      let shared = 0;
+      for (const key of a) if (b.has(key)) shared += 1;
+      return shared / a.size;
+    };
+
+    // Deep night at Denver, so the sky itself contributes almost nothing and
+    // what is being compared really is the stars.
+    const base = Date.UTC(2026, 8, 23, 8, 30);
+    const SIDEREAL_DAY = 86_164_090;
+    const SOLAR_DAY = 86_400_000;
+
+    const start = starPixels(base);
+
+    return {
+      stars: start.size,
+      afterSidereal: overlap(start, starPixels(base + SIDEREAL_DAY)),
+      afterSolar: overlap(start, starPixels(base + SOLAR_DAY)),
+      afterAnHour: overlap(start, starPixels(base + 3_600_000))
+    };
+  });
+
+  expect(result.stars, "there should be stars to compare").toBeGreaterThan(40);
+
+  expect(
+    result.afterSidereal,
+    `after one sidereal day the field should be back where it was, got ${(result.afterSidereal * 100).toFixed(0)} per cent overlap`
+  ).toBeGreaterThan(0.8);
+
+  // Four minutes of rotation is about a degree, which at this field of view
+  // is several pixels - enough to move most stars off their old positions.
+  expect(
+    result.afterSolar,
+    `after one solar day the field should have moved on, got ${(result.afterSolar * 100).toFixed(0)} per cent overlap`
+  ).toBeLessThan(0.5);
+
+  expect(result.afterAnHour, "an hour should move the field a long way").toBeLessThan(0.3);
+});
+
+test("stars are circumpolar at the pole and roll through at the equator (US-005)", async ({
+  page
+}) => {
+  // The other half of US-005: the field turns about the celestial pole, so
+  // the observer's latitude sets the axis. At the pole nothing rises or sets
+  // - the sky wheels about a point overhead and the number up stays put. At
+  // the equator it rolls straight through, so the number changes as fresh sky
+  // comes over the horizon.
+  const result = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset } = await import("/engine/index.js");
+
+    const width = 500;
+    const height = 300;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+    engine.setPreset({ ...defaultPreset(), fieldOfView: 170, horizon: 0.95 });
+
+    const count = (t, lat) => {
+      engine.render({
+        t,
+        place: { lat, lon: 0 },
+        crop: { x: 0, y: 0, w: width, h: height },
+        span: { w: width, h: height },
+        pixelRatio: 1
+      });
+
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+      let lit = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (Math.max(pixels[i], pixels[i + 1], pixels[i + 2]) > 70) lit += 1;
+      }
+      return lit;
+    };
+
+    const spread = (lat) => {
+      const samples = [];
+      for (let hour = 0; hour < 6; hour += 1) {
+        samples.push(count(Date.UTC(2026, 11, 21, 0, 0) + hour * 3_600_000, lat));
+      }
+      const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+      const range = Math.max(...samples) - Math.min(...samples);
+      return { mean, relative: mean > 0 ? range / mean : 0 };
+    };
+
+    return { pole: spread(89.5), equator: spread(0) };
+  });
+
+  expect(result.pole.mean, "the polar sky should have stars in it").toBeGreaterThan(30);
+  expect(result.equator.mean, "the equatorial sky should have stars in it").toBeGreaterThan(30);
+
+  expect(
+    result.pole.relative,
+    `at the pole the number of stars up should barely change, varied by ${(result.pole.relative * 100).toFixed(0)} per cent`
+  ).toBeLessThan(0.2);
+
+  expect(
+    result.equator.relative,
+    `at the equator the sky should roll through, varied by only ${(result.equator.relative * 100).toFixed(0)} per cent`
+  ).toBeGreaterThan(result.pole.relative * 1.5);
+});
+
+test("stars come out as the sky darkens and are gone by day", async ({ page }) => {
+  // Nobody wrote this rule. The stars are added to the sky as light, in the
+  // same units, and the sum is tone mapped once - so they are swamped at noon
+  // and emerge through twilight for the same reason they do in life.
+  const counts = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset, sunPosition } = await import("/engine/index.js");
+
+    const width = 600;
+    const height = 340;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+    engine.setPreset(defaultPreset());
+
+    const place = { lat: 39.7, lon: -105 };
+
+    // A star is a pixel much brighter than its surroundings, which is what
+    // tells one apart from a merely bright sky.
+    const starCount = (t) => {
+      engine.render({
+        t,
+        place,
+        crop: { x: 0, y: 0, w: width, h: height },
+        span: { w: width, h: height },
+        pixelRatio: 1
+      });
+
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+      // A star is a *local* peak, not merely a bright pixel. Comparing
+      // against the frame's average instead counts the sky's own gradient,
+      // which at twilight is most of the picture - the first version of this
+      // test reported eleven thousand stars in civil twilight for exactly
+      // that reason.
+      const value = (x, y) => {
+        const i = (y * width + x) * 4;
+        return Math.max(pixels[i], pixels[i + 1], pixels[i + 2]);
+      };
+
+      let peaks = 0;
+      const reach = 4;
+      for (let y = reach; y < height - reach; y += 1) {
+        for (let x = reach; x < width - reach; x += 1) {
+          const here = value(x, y);
+          const around = Math.max(
+            value(x - reach, y),
+            value(x + reach, y),
+            value(x, y - reach),
+            value(x, y + reach)
+          );
+          if (here > around + 35) peaks += 1;
+        }
+      }
+
+      return { peaks, altitude: sunPosition(t, place).altitude };
+    };
+
+    return [
+      starCount(Date.UTC(2026, 8, 22, 19, 0)),
+      starCount(Date.UTC(2026, 8, 23, 0, 30)),
+      starCount(Date.UTC(2026, 8, 23, 2, 0)),
+      starCount(Date.UTC(2026, 8, 23, 8, 0))
+    ];
+  });
+
+  const [day, civil, nautical, night] = counts;
+
+  expect(day.altitude).toBeGreaterThan(0);
+  expect(night.altitude).toBeLessThan(-18);
+
+  expect(day.peaks, "no stars in daylight").toBeLessThan(5);
+  expect(night.peaks, "plenty at night").toBeGreaterThan(80);
+  expect(civil.peaks, "few in civil twilight").toBeLessThan(night.peaks / 3);
+  expect(nautical.peaks, "more by nautical twilight than in civil").toBeGreaterThan(civil.peaks);
+});
+
 test("every control carries a hint, and none is a bare label (US-023)", async ({ page }) => {
   const rows = await page.evaluate(() =>
     [...document.querySelectorAll(".row > label")].map((label) => ({

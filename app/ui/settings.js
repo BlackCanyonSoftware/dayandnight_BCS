@@ -152,7 +152,11 @@ function normaliseCfg(raw) {
       horizon: num(presetRaw["horizon"], defaults.horizon, 0, 1),
       fieldOfView: num(presetRaw["fieldOfView"], defaults.fieldOfView, 20, 200),
       whitePoint: num(presetRaw["whitePoint"], defaults.whitePoint, 0.5, 32),
-      groundAlbedo: num(presetRaw["groundAlbedo"], defaults.groundAlbedo, 0, 1)
+      groundAlbedo: num(presetRaw["groundAlbedo"], defaults.groundAlbedo, 0, 1),
+      starBrightness: num(presetRaw["starBrightness"], defaults.starBrightness, 0, 8),
+      starSize: num(presetRaw["starSize"], defaults.starSize, 0.5, 6),
+      twinkle: num(presetRaw["twinkle"], defaults.twinkle, 0, 1),
+      airglow: num(presetRaw["airglow"], defaults.airglow, 0, 1e-4)
     },
     place: {
       // Latitude stops just short of the poles: at exactly 90 the azimuth

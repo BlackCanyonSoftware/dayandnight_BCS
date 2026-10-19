@@ -139,6 +139,15 @@ function wireControls() {
     bandsDirty = true;
   });
   bindRange("horizon", (v) => setPreset({ horizon: v }));
+  bindRange("starBrightness", (v) => setPreset({ starBrightness: v }));
+  bindRange("starSize", (v) => setPreset({ starSize: v }));
+  bindRange("twinkle", (v) => setPreset({ twinkle: v }));
+  // The slider is in units of 1e-6 radiance, because a control whose numbers
+  // run from 0 to 0.0000066 tells the user nothing.
+  bindRange("airglow", (v) => {
+    setPreset({ airglow: v * 1e-6 });
+    bandsDirty = true;
+  });
   bindRange("fieldOfView", (v) => setPreset({ fieldOfView: v }));
   bindRange("fps", (v) => setFps(Math.round(v)));
 
@@ -280,6 +289,10 @@ function paintFromState() {
   input("bearing").value = String(preset.bearing === null ? -1 : preset.bearing);
   input("horizon").value = String(preset.horizon);
   input("fieldOfView").value = String(preset.fieldOfView);
+  input("starBrightness").value = String(preset.starBrightness);
+  input("starSize").value = String(preset.starSize);
+  input("twinkle").value = String(preset.twinkle);
+  input("airglow").value = String(preset.airglow * 1e6);
   input("fps").value = String(fps);
 
   $("#latVal").textContent = fmtDegrees(place.lat);
@@ -292,6 +305,10 @@ function paintFromState() {
       : compass(preset.bearing);
   $("#horizonVal").textContent = `${Math.round(preset.horizon * 100)}%`;
   $("#fieldOfViewVal").textContent = `${Math.round(preset.fieldOfView)}°`;
+  $("#starBrightnessVal").textContent = `${preset.starBrightness.toFixed(1)}×`;
+  $("#starSizeVal").textContent = `${preset.starSize.toFixed(1)} px`;
+  $("#twinkleVal").textContent = `${Math.round(preset.twinkle * 100)}%`;
+  $("#airglowVal").textContent = (preset.airglow * 1e6).toFixed(1);
   $("#fpsVal").textContent = `${fps} fps`;
 
   pushRuntime();

@@ -105,7 +105,7 @@ app/                      the web app; everything a window loads
       lut.js              the baked table, shared; auto-exposure; CPU sampling
       oklab.js            sRGB <-> linear <-> Oklab; the only colour space conversions
     bodies.js             sun and moon discs, bloom, lunar phase mask
-    stars.js              the star field: catalogue, glow, pulse, polar rotation
+    stars.js              the star field: the catalogue and its vertex buffer
     dither.js             blue-noise output dither
     gl/
       context.js          context creation, loss and restore
@@ -176,11 +176,22 @@ flowchart LR
   A["t, place"] --> B["solar + lunar<br/>altitude, azimuth, phase"]
   B --> E["sky table<br/>sun x view x azimuth<br/>built once"]
   B --> X["auto-exposure<br/>from the table"]
-  E --> F["sky pass<br/>lookup + phase functions"]
-  X --> F
-  F --> G["ground below the horizon"]
-  G --> H["tone map, sRGB, dither"]
+  E --> F["1. sky pass<br/>lookup + phase + ground + airglow"]
+  A --> S["2. star pass<br/>sidereal rotation, added as light"]
+  F --> T["half-float buffer<br/>linear radiance"]
+  S --> T
+  T --> H["3. composite<br/>expose, tone map, sRGB, dither"]
+  X --> H
 ```
+
+**Three passes, summed before tone mapping.** The sky and the stars write
+linear radiance into a half-float buffer, and the whole sum is tone mapped
+once on the way to the screen. This is not an optimisation, it is what makes
+the stars behave: a star drawn over an already tone-mapped sky could never be
+dimmer than the sky under it, so stars would still be visible at noon. Added
+as light, in the same units as the sky, they are simply outshone - and they
+emerge through twilight in order of brightness without a rule being written
+for it.
 
 Two timescales, deliberately separated. The **scattering table**
 (`sky/atmosphere.js`) is the expensive part - a ray-marched integration

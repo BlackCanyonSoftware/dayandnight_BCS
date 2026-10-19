@@ -42,13 +42,31 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is lit, and the angle its crescent sits at - which depends on where you are
   standing, not only on where the moon is. Nothing draws it yet.
 
+- **Stars.** Four thousand of them, turning about the celestial pole at the
+  real sidereal rate for wherever you are - so they rise in the east, tilt by
+  your latitude, and are circumpolar if you live far enough north. They
+  twinkle more near the horizon than overhead, because that is where the air
+  is thickest. They are added to the sky as light rather than painted over it,
+  so they appear through twilight and vanish at dawn on their own.
+- **A night sky that is not black.** Airglow - the faint light the upper
+  atmosphere gives off, plus the glow of stars too faint to resolve - so the
+  hours either side of midnight read as a dark blue sky rather than a dead
+  rectangle. The control doubles as a light-pollution dial.
+
 ### Known limitations
 
 These are real and are tracked in `docs/ROADMAP.md`; none of them is presented
 as finished.
 
-- **The sky is a gradient, not a sky.** The scattering model and the colour
-  grade arrive in Milestone 1, along with the sun, the moon and the stars.
+- **The constellations are not real.** The stars are generated rather than
+  catalogued: the sky turns exactly as it should, but you will not find Orion
+  in it. A real catalogue is a later change and needs no new rendering.
+- **The sun and the moon are not drawn yet.** The sun's glow is there, because
+  it falls out of the scattering, but neither disc is. Next.
+- **Deep twilight is darker than it should be.** The scattering model runs out
+  of lit atmosphere about eight degrees below the horizon, so the blue glow
+  that lingers towards the sunset through nautical twilight is missing. The
+  airglow floor keeps it from being black.
 - **It costs more than it should.** At 20 frames a second on two screens it
   used about 8.5% of one CPU core against a budget of 2%, and about 570 MB.
   Measured, not estimated; see `docs/ARCHITECTURE.md`. The application now

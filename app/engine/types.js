@@ -59,6 +59,10 @@
  * @property {number} horizon where the horizon sits down the span, 0..1
  * @property {number} fieldOfView degrees of sky across the whole span
  * @property {number} groundAlbedo how much light the ground returns, 0..1
+ * @property {number} starBrightness a multiplier on the stars' real brightnesses
+ * @property {number} starSize base point size in device pixels
+ * @property {number} twinkle how much the stars shimmer, 0..1
+ * @property {number} airglow the night sky's own faint radiance
  * @property {number} whitePoint how bright something must be to reach white
  */
 

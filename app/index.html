@@ -190,6 +190,75 @@
           </details>
 
           <details class="sec" open>
+            <summary>Stars</summary>
+            <div class="sec-body">
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Brightness</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How bright the stars are. This scales their real relative brightnesses rather than replacing them, so turning it up brings fainter stars out of the dark without flattening the difference between them. They are added to the sky as light, so they vanish in daylight on their own."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="starBrightnessVal">1.0&times;</span>
+                </label>
+                <input id="starBrightness" type="range" min="0" max="4" step="0.05" value="1" />
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Size</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How large each star is drawn, in pixels. Below about two, a star's peak falls between pixels and the sky dims and shimmers as the stars drift. Larger is softer and more photographic."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="starSizeVal">2.6 px</span>
+                </label>
+                <input id="starSize" type="range" min="1" max="5" step="0.1" value="2.6" />
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Twinkle</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How much the stars shimmer. Real twinkling is light bending through moving air, so it is strongest near the horizon and almost absent overhead - that part is handled for you whatever this is set to."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="twinkleVal">60%</span>
+                </label>
+                <input id="twinkle" type="range" min="0" max="1" step="0.01" value="0.6" />
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Night sky glow</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="The faint light the night sky has of its own, from airglow high in the atmosphere and from stars too faint to resolve. Raise it to stand in for a town nearby; drop it to nothing for a sky as dark as a desert."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="airglowVal">1.1</span>
+                </label>
+                <input id="airglow" type="range" min="0" max="6" step="0.05" value="1.1" />
+              </div>
+            </div>
+          </details>
+
+          <details class="sec" open>
             <summary>Screens</summary>
             <div class="sec-body">
               <div class="row">
