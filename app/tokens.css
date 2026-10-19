@@ -1,0 +1,145 @@
+/* ==========================================================================
+   Design tokens. The only place a colour, radius, duration or step is defined.
+
+   A one-off value in a component is a bug: see docs/DESIGN.md. Both themes
+   define the same names, so no component knows which theme it is in.
+
+   The palette is the hour either side of the horizon - deep twilight blue
+   surfaces, warm amber accent - because that is what the product is about.
+   ========================================================================== */
+
+:root {
+  /* ------------------------------------------------------------ typography */
+  --font:
+    "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, Roboto, "Helvetica Neue",
+    sans-serif;
+  --font-mono: "Cascadia Mono", ui-monospace, Consolas, "Courier New", monospace;
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-lg: 15px;
+  --text-xl: 20px;
+
+  --leading-tight: 1.3;
+  --leading: 1.45;
+
+  /* ----------------------------------------------------------------- space */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+
+  /* ---------------------------------------------------------------- radius */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-full: 999px;
+
+  /* ---------------------------------------------------------------- motion */
+  --dur-fast: 120ms;
+  --dur: 180ms;
+  --dur-slow: 320ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  /* ---------------------------------------------------------------- layout */
+  --sidebar: 360px;
+
+  /* --------------------------------------------------------- colour: dark */
+  /* Dark is the default: this is a tool you use in the evening. */
+  --bg: #0a0d14;
+  --panel: #111622;
+  --panel-2: #171d2b;
+  --line: #273044;
+  --line-soft: #1d2433;
+  --ink: #e4e8f2;
+  --ink-dim: #97a1b8;
+  --ink-faint: #5f6980;
+  --accent: #ffb257;
+  --accent-2: #7c6cff;
+  --warn: #ffb454;
+  --bad: #ff6b6b;
+  --ok: #5fe0a8;
+
+  /* Text that sits on an accent fill. Amber is bright, so it takes dark ink. */
+  --on-accent: #241502;
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-2: 0 4px 14px rgb(0 0 0 / 0.5);
+  --shadow-3: 0 18px 48px rgb(0 0 0 / 0.6);
+
+  /* The faint weave behind the stage. */
+  --weave: rgb(158 200 255 / 0.1);
+  --weave-soft: rgb(158 200 255 / 0.062);
+}
+
+/* ---------------------------------------------------------- colour: light */
+/* The accents are not the dark ones lightened: an accent chosen on a dark
+   background disappears on white. They are darkened until they clear 4.5:1
+   as text on --panel, which is the trap the brand kit's notes call out. */
+:root[data-theme="light"] {
+  --bg: #f4f6fa;
+  --panel: #ffffff;
+  --panel-2: #eef1f7;
+  --line: #d9dfea;
+  --line-soft: #e7ebf3;
+  --ink: #141821;
+  --ink-dim: #525b6d;
+  --ink-faint: #79839a;
+  --accent: #9a5a00;
+  --accent-2: #51389e;
+  --warn: #8a5200;
+  --bad: #b42020;
+  --ok: #0a6b48;
+
+  --on-accent: #ffffff;
+
+  --shadow-1: 0 1px 2px rgb(20 24 33 / 0.08);
+  --shadow-2: 0 6px 18px rgb(20 24 33 / 0.12);
+  --shadow-3: 0 20px 52px rgb(20 24 33 / 0.18);
+
+  --weave: rgb(40 60 100 / 0.055);
+  --weave-soft: rgb(40 60 100 / 0.035);
+}
+
+/* `system` follows Windows. The guard means an explicit choice always wins:
+   with data-theme="dark" or "light" set, this block does not apply. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]):not([data-theme="light"]) {
+    --bg: #f4f6fa;
+    --panel: #ffffff;
+    --panel-2: #eef1f7;
+    --line: #d9dfea;
+    --line-soft: #e7ebf3;
+    --ink: #141821;
+    --ink-dim: #525b6d;
+    --ink-faint: #79839a;
+    --accent: #9a5a00;
+    --accent-2: #51389e;
+    --warn: #8a5200;
+    --bad: #b42020;
+    --ok: #0a6b48;
+
+    --on-accent: #ffffff;
+
+    --shadow-1: 0 1px 2px rgb(20 24 33 / 0.08);
+    --shadow-2: 0 6px 18px rgb(20 24 33 / 0.12);
+    --shadow-3: 0 20px 52px rgb(20 24 33 / 0.18);
+
+    --weave: rgb(40 60 100 / 0.055);
+    --weave-soft: rgb(40 60 100 / 0.035);
+  }
+}
+
+/* NFR-6. The wallpaper's own rates are damped by a preset setting; this covers
+   the editor's chrome. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur: 0ms;
+    --dur-slow: 0ms;
+  }
+}

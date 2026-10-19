@@ -1,0 +1,561 @@
+/* dayandnight / styles.css
+   Every value comes from tokens.css. See docs/DESIGN.md. */
+
+@import url("tokens.css");
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: var(--text-base) / var(--leading) var(--font);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* A visible focus ring everywhere, on the accent so it reads against both
+   themes. NFR-6: keyboard operation is not optional. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* ------------------------------------------------------------------ layout */
+
+#app {
+  display: flex;
+  height: 100%;
+}
+
+#side {
+  width: var(--sidebar);
+  flex: 0 0 var(--sidebar);
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#stage {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  isolation: isolate;
+  background: radial-gradient(90% 70% at 50% 40%, var(--panel-2) 0%, var(--bg) 70%);
+}
+
+/* A faint diagonal weave behind the preview, masked at the corners so it reads
+   as a surface rather than graph paper. */
+#stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(45deg, var(--weave) 0 1px, transparent 1px 18px),
+    repeating-linear-gradient(-45deg, var(--weave-soft) 0 1px, transparent 1px 18px);
+  mask-image: radial-gradient(125% 115% at 50% 45%, #000 55%, transparent 100%);
+}
+
+/* ------------------------------------------------------------- brand slot */
+
+/* Deliberately empty and deliberately sized: it holds its space so the layout
+   does not shift when the owner's mark arrives. See app/brand/README.md. */
+.brand {
+  min-height: 76px;
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+}
+
+.brand .brandmark {
+  flex: 0 0 50px;
+  height: 50px;
+  border-radius: var(--r-md);
+  border: 1px dashed var(--line);
+  display: grid;
+  place-items: center;
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
+
+.brand .brandtext {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
+
+/* ---------------------------------------------------------------- top bar */
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+button.ghost {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  border-radius: var(--r-sm);
+  padding: var(--s-1) var(--s-2);
+  min-height: 26px;
+  cursor: pointer;
+  transition:
+    background var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+
+button.ghost:hover:not(:disabled) {
+  background: var(--line-soft);
+  color: var(--ink);
+}
+
+button.ghost:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button.iconbtn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  padding: 0;
+}
+
+button.primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--on-accent);
+  border-radius: var(--r-sm);
+  padding: var(--s-2) var(--s-3);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.primary:hover {
+  filter: brightness(1.08);
+}
+
+/* ---------------------------------------------------------------- sections */
+
+#panels {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Reserve the scrollbar's width up front. Without this the bar appears
+     after layout, steals 11px, and the content it has already sized then
+     overflows horizontally - a scrollbar caused by a scrollbar. */
+  scrollbar-gutter: stable;
+}
+
+.sec {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.sec > summary {
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  background: var(--panel);
+}
+
+.sec > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sec > summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.6px solid var(--ink-faint);
+  border-bottom: 1.6px solid var(--ink-faint);
+  transform: rotate(-45deg);
+  transition: transform var(--dur) var(--ease);
+}
+
+.sec[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.sec-body {
+  padding: var(--s-2) var(--s-3) var(--s-3);
+  background: var(--panel-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+/* -------------------------------------------------------------------- rows */
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.row > label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-2);
+  font-size: var(--text-sm);
+  color: var(--ink-dim);
+}
+
+.labelleft {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+
+.val {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.row input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  margin: 0;
+}
+
+.row select,
+.row input[type="number"],
+.row input[type="text"],
+.row input[type="date"] {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: var(--r-sm);
+  padding: var(--s-1) var(--s-2);
+  min-height: 28px;
+}
+
+/* .meta is nowrap because the stage-bar readouts must not reflow as numbers
+   change. Inside a panel it is prose, so it wraps. */
+.sec-body .meta,
+#wallState {
+  white-space: normal;
+}
+
+.rowpair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-2);
+}
+
+/* --------------------------------------------------------------- info dot */
+
+/* The only place extra words live (US-023). Hover, focus and touch all open
+   it; Escape closes it. */
+.info {
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-style: normal;
+  cursor: help;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.info:hover,
+.info:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.info::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  top: calc(100% + var(--s-2));
+  z-index: 40;
+  width: 258px;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading);
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--dur) var(--ease);
+  pointer-events: none;
+}
+
+.info:hover::after,
+.info:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ------------------------------------------------------- wallpaper toggle */
+
+/* Pinned above the footer because "is this actually on my desktop?" is the
+   question a user has most often, and it should never need hunting for. */
+#wallBox {
+  border-top: 1px solid var(--line);
+  padding: var(--s-3);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+#wallBtn {
+  width: 100%;
+}
+
+#wallState {
+  font-size: var(--text-xs);
+  color: var(--ink-dim);
+  min-height: 2.6em;
+}
+
+#wallState .host-fallback {
+  color: var(--warn);
+}
+
+#wallState .host-ok {
+  color: var(--ok);
+}
+
+.sidefoot {
+  padding: var(--s-2) var(--s-3);
+  border-top: 1px solid var(--line-soft);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-2);
+}
+
+/* ------------------------------------------------------------- stage bar */
+
+.stagebar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  flex-wrap: wrap;
+}
+
+.stagebar .spacer {
+  flex: 1 1 auto;
+}
+
+.meta {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------- time scrubber */
+
+/* The day's actual shape, drawn into the control: twilight bands in the
+   colours the sky will really be. The scrubber is the summary and the control
+   at once. See "The time scrubber" in docs/DESIGN.md. */
+.scrub-wrap {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 200px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+}
+
+#scrubBands {
+  position: absolute;
+  inset: 6px 0;
+  width: 100%;
+  height: 18px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  display: block;
+  pointer-events: none;
+}
+
+/* The native track is removed so the day's bands, painted on the canvas
+   underneath, are what the user actually sees. Removing the appearance also
+   removes the thumb, so that is drawn by hand below. */
+#scrub {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 30px;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+#scrub::-webkit-slider-runnable-track {
+  background: transparent;
+  border: none;
+  height: 30px;
+}
+
+#scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 3px;
+  height: 26px;
+  border-radius: 2px;
+  border: 1px solid rgb(0 0 0 / 0.6);
+  background: #fff;
+  box-shadow: 0 0 6px rgb(0 0 0 / 0.5);
+  cursor: ew-resize;
+}
+
+#scrub::-moz-range-track {
+  background: transparent;
+  border: none;
+  height: 30px;
+}
+
+#scrub::-moz-range-thumb {
+  width: 3px;
+  height: 26px;
+  border-radius: 2px;
+  border: 1px solid rgb(0 0 0 / 0.6);
+  background: #fff;
+  cursor: ew-resize;
+}
+
+/* ----------------------------------------------------------------- preview */
+
+#view {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--s-4);
+}
+
+#previewWrap {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  box-shadow: var(--shadow-3);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  line-height: 0;
+}
+
+#preview {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Monitor boundaries drawn over the preview, so a span reads as screens
+   rather than as one wide picture. */
+#previewSplits {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#previewSplits span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgb(255 255 255 / 0.35);
+}
+
+.stagefoot {
+  padding: var(--s-2) var(--s-3);
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-3);
+  min-height: 34px;
+  align-items: center;
+}
+
+/* ------------------------------------------------------------------ notice */
+
+#notice {
+  margin: 0 var(--s-3) var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--bad);
+  background: color-mix(in oklab, var(--bad) 14%, var(--panel));
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+#notice[hidden] {
+  display: none;
+}
+
+/* ------------------------------------------------------------- small width */
+
+/* The editor is a desktop application. Below 900px the sidebar becomes a
+   drawer rather than reflowing: the window can be made small, but this is not
+   a phone target (docs/DESIGN.md). */
+@media (max-width: 900px) {
+  #side {
+    position: absolute;
+    z-index: 30;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    box-shadow: var(--shadow-3);
+    transform: translateX(-100%);
+    transition: transform var(--dur) var(--ease);
+  }
+
+  #app.drawer-open #side {
+    transform: none;
+  }
+}

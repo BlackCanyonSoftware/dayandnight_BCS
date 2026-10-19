@@ -11,13 +11,13 @@ of [`../../docs/DESIGN.md`](../../docs/DESIGN.md).
 
 Following Pixel Galaxy Studio's arrangement:
 
-| File | Used for |
-|---|---|
-| `mark-256.png` | The square mark, top-left of the sidebar |
-| `wordmark.svg` | The full wordmark beside the mark |
-| `wordmark-plain.svg` | A flat, single-colour wordmark for the footer and the About window |
-| `blackcanyon-wordmark.svg` | The company wordmark, for the footer |
-| `favicon.png` | The window icon |
+| File                       | Used for                                                           |
+| -------------------------- | ------------------------------------------------------------------ |
+| `mark-256.png`             | The square mark, top-left of the sidebar                           |
+| `wordmark.svg`             | The full wordmark beside the mark                                  |
+| `wordmark-plain.svg`       | A flat, single-colour wordmark for the footer and the About window |
+| `blackcanyon-wordmark.svg` | The company wordmark, for the footer                               |
+| `favicon.png`              | The window icon                                                    |
 
 The wordmark is loaded as a shipped SVG rather than set as type in CSS, so that
 the application and the brand kit cannot drift apart.

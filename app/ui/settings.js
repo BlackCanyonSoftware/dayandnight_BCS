@@ -1,0 +1,189 @@
+// @ts-check
+/**
+ * Settings documents: their shape, their version, and how an old one becomes a
+ * new one.
+ *
+ * A document is `{ app, version, savedAt, cfg, ui }`, the same arrangement as
+ * Pixel Galaxy Studio. The version is the shape of the *document*, moved only
+ * when a key is renamed or changes meaning, and each move is one entry in the
+ * migration table. A newer application opens every older file; an older one
+ * refuses a newer file and says so rather than guessing.
+ *
+ * Everything that loads settings - the file at boot, a user's .json, a test -
+ * goes through `readDocument`, so there is exactly one path in.
+ *
+ * @module ui/settings
+ */
+
+import { defaultPreset } from "../engine/index.js";
+
+/** @typedef {import("../engine/types.js").Place} Place */
+/** @typedef {import("../engine/types.js").Preset} Preset */
+/** @typedef {import("./theme.js").Theme} Theme */
+
+export const APP = "dayandnight";
+export const VERSION = 1;
+
+/**
+ * @typedef {object} SettingsDoc
+ * @property {string} app
+ * @property {number} version
+ * @property {string} savedAt ISO 8601
+ * @property {{ preset: Preset, place: Place, fps: number }} cfg
+ * @property {{ theme: Theme }} ui
+ */
+
+/**
+ * One entry per version step. `migrate[n]` takes a document at version `n` and
+ * returns it at version `n + 1`.
+ *
+ * Empty because nothing has shipped yet. The table exists now so that the
+ * first migration is an entry rather than an afternoon of archaeology.
+ *
+ * @type {Record<number, (doc: SettingsDoc) => SettingsDoc>}
+ */
+const MIGRATIONS = {};
+
+/**
+ * Build a document from the current state.
+ *
+ * @param {{ preset: Preset, place: Place, fps: number, theme: Theme }} from
+ * @param {number} now timestamp, passed in rather than read from the clock
+ * @returns {SettingsDoc}
+ */
+export function writeDocument(from, now) {
+  return {
+    app: APP,
+    version: VERSION,
+    savedAt: new Date(now).toISOString(),
+    cfg: {
+      preset: { ...from.preset },
+      place: { ...from.place },
+      fps: from.fps
+    },
+    ui: { theme: from.theme }
+  };
+}
+
+/**
+ * @typedef {object} ReadResult
+ * @property {SettingsDoc | null} doc null when there was nothing usable
+ * @property {string | null} problem a sentence for the user, or null
+ */
+
+/**
+ * Validate, migrate and normalise whatever was handed to us.
+ *
+ * Nothing here trusts its input. A settings file is the one piece of outside
+ * data this application reads, it may have been edited by hand or written by
+ * an older build, and a bad value must not be able to put the application into
+ * a state it cannot start from. So every field is checked and anything missing
+ * or out of range falls back to a default rather than failing the load.
+ *
+ * @param {unknown} raw
+ * @returns {ReadResult}
+ */
+export function readDocument(raw) {
+  if (raw === null || typeof raw !== "object") return { doc: null, problem: null };
+
+  const asRecord = /** @type {Record<string, unknown>} */ (raw);
+
+  if (asRecord["app"] !== APP) {
+    return { doc: null, problem: "That file is not a Day and Night settings file." };
+  }
+
+  const version = asRecord["version"];
+  if (typeof version !== "number" || !Number.isInteger(version) || version < 1) {
+    return { doc: null, problem: "That settings file does not say which version it is." };
+  }
+
+  if (version > VERSION) {
+    return {
+      doc: null,
+      problem: `Those settings were saved by a newer version of Day and Night (file version ${version}, this build reads ${VERSION}). Update the application to open them.`
+    };
+  }
+
+  /** @type {SettingsDoc} */
+  let doc = {
+    app: APP,
+    version,
+    savedAt: typeof asRecord["savedAt"] === "string" ? asRecord["savedAt"] : "",
+    cfg: normaliseCfg(asRecord["cfg"]),
+    ui: normaliseUi(asRecord["ui"])
+  };
+
+  while (doc.version < VERSION) {
+    const step = MIGRATIONS[doc.version];
+    if (!step) {
+      return {
+        doc: null,
+        problem: `Those settings are version ${doc.version}, and this build has no way to bring them forward. Defaults have been loaded instead.`
+      };
+    }
+    doc = step(doc);
+  }
+
+  return { doc, problem: null };
+}
+
+/* ----------------------------------------------------------- normalisation */
+
+/**
+ * @param {unknown} raw
+ * @returns {SettingsDoc["cfg"]}
+ */
+function normaliseCfg(raw) {
+  const cfg = isRecord(raw) ? raw : {};
+  const presetRaw = isRecord(cfg["preset"]) ? cfg["preset"] : {};
+  const placeRaw = isRecord(cfg["place"]) ? cfg["place"] : {};
+
+  return {
+    preset: {
+      exposure: num(presetRaw["exposure"], defaultPreset().exposure, -8, 8)
+    },
+    place: {
+      // Latitude stops just short of the poles: at exactly 90 the azimuth
+      // transform divides by cos(lat), which is zero.
+      lat: num(placeRaw["lat"], 39.7, -89.9, 89.9),
+      lon: num(placeRaw["lon"], -105, -180, 180)
+    },
+    fps: Math.round(num(cfg["fps"], 20, 1, 60))
+  };
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {SettingsDoc["ui"]}
+ */
+function normaliseUi(raw) {
+  const ui = isRecord(raw) ? raw : {};
+  const theme = ui["theme"];
+  return {
+    theme: theme === "light" || theme === "dark" || theme === "system" ? theme : "dark"
+  };
+}
+
+/**
+ * A finite number in range, or the fallback. Rejects NaN and Infinity, which
+ * is the whole point: an Infinity in a uniform turns the screen black and
+ * gives no clue why.
+ *
+ * @param {unknown} value
+ * @param {number} fallback
+ * @param {number} lo
+ * @param {number} hi
+ * @returns {number}
+ */
+function num(value, fallback, lo, hi) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(hi, Math.max(lo, value));
+}
+
+/**
+ * @param {unknown} v
+ * @returns {v is Record<string, unknown>}
+ */
+function isRecord(v) {
+  return typeof v === "object" && v !== null;
+}

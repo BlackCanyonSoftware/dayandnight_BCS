@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Day and Night</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="side">
+        <!-- The brand slot holds its space and ships empty until the owner
+             supplies the mark and wordmark. See app/brand/README.md. -->
+        <div class="brand">
+          <span class="brandmark" aria-hidden="true">mark</span>
+          <div class="brandtext">Brand slot reserved</div>
+        </div>
+
+        <div class="topbar">
+          <button id="saveBtn" class="ghost" title="Download these settings as a .json file">
+            Save
+          </button>
+          <button id="loadBtn" class="ghost" title="Load a settings .json">Load</button>
+          <button id="resetBtn" class="ghost" title="Put every control back to its default">
+            Reset
+          </button>
+          <span style="flex: 1 1 auto"></span>
+          <button
+            id="themeBtn"
+            class="ghost iconbtn"
+            title="Light, dark, or follow Windows"
+            aria-label="Switch theme"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              width="14"
+              height="14"
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            >
+              <circle class="ico-sun" cx="8" cy="8" r="3.2" />
+              <g class="ico-sun">
+                <path
+                  d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3 3l1.1 1.1M11.9 11.9 13 13M13 3l-1.1 1.1M4.1 11.9 3 13"
+                />
+              </g>
+              <path
+                class="ico-moon"
+                d="M13 9.6A5.6 5.6 0 0 1 6.4 3a5.6 5.6 0 1 0 6.6 6.6Z"
+                hidden
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div id="panels">
+          <details class="sec" open>
+            <summary>Place</summary>
+            <div class="sec-body">
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Latitude</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="Degrees north of the equator; negative for the southern hemisphere. This is what decides how high the sun climbs and how long twilight lasts, so it changes the look of the whole day more than any other setting here."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="latVal">0.0&deg;</span>
+                </label>
+                <input id="lat" type="range" min="-89" max="89" step="0.1" value="39.7" />
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Longitude</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="Degrees east of Greenwich; negative for the west. This sets what time the sun is overhead, which is why a city at the eastern edge of a time zone sees noon well before the clock says so."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="lonVal">0.0&deg;</span>
+                </label>
+                <input id="lon" type="range" min="-180" max="180" step="0.1" value="-105" />
+              </div>
+
+              <div class="row">
+                <button id="guessBtn" class="ghost" type="button">Guess from my time zone</button>
+                <div class="meta" id="guessNote"></div>
+              </div>
+            </div>
+          </details>
+
+          <details class="sec" open>
+            <summary>Sky</summary>
+            <div class="sec-body">
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Exposure</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How much light reaches the picture, in stops, as on a camera. Negative is darker. Reach for it if the night is too bright to sit behind desktop icons, or the day is washing out."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="exposureVal">0.0 EV</span>
+                </label>
+                <input id="exposure" type="range" min="-3" max="3" step="0.1" value="0" />
+              </div>
+
+              <div class="row">
+                <div class="meta">
+                  Milestone 0 draws a gradient, not a sky. The scattering model and the grade arrive
+                  in Milestone 1.
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="sec" open>
+            <summary>Screens</summary>
+            <div class="sec-body">
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Detected</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="Every screen Windows reports, and the span - the box that contains all of them. One sky is composed for the span and each screen shows its own slice, which is why the sun crosses from one monitor to the next over the day."
+                      >i</span
+                    ></span
+                  >
+                </label>
+                <div class="meta" id="monList">&mdash;</div>
+              </div>
+            </div>
+          </details>
+
+          <details class="sec">
+            <summary>Performance</summary>
+            <div class="sec-body">
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Frame rate</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How often the wallpaper redraws. The goal is never stuttering while you work rather than a high number: a sky has nothing fast in it, and 20 is already generous. Lower it if you want the cost lower."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="fpsVal">20 fps</span>
+                </label>
+                <input id="fps" type="range" min="5" max="30" step="1" value="20" />
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div id="wallBox">
+          <button id="wallBtn" class="primary" type="button">Turn the wallpaper on</button>
+          <div id="wallState">Not running.</div>
+        </div>
+
+        <footer class="sidefoot">
+          <span>Day and Night</span>
+          <span>&copy;&nbsp;2026 Black Canyon Software</span>
+        </footer>
+      </aside>
+
+      <main id="stage">
+        <div class="stagebar">
+          <button
+            id="playBtn"
+            class="ghost iconbtn"
+            title="Play / pause (space)"
+            aria-label="Play or pause"
+          >
+            &#9208;
+          </button>
+          <button id="ffBtn" class="ghost" title="Run a whole day in about thirty seconds">
+            Fast&nbsp;forward
+          </button>
+          <button id="nowBtn" class="ghost" title="Snap back to the real time now">Now</button>
+
+          <div class="scrub-wrap">
+            <canvas id="scrubBands" width="600" height="18" aria-hidden="true"></canvas>
+            <input
+              id="scrub"
+              type="range"
+              min="0"
+              max="1439"
+              step="1"
+              value="720"
+              title="Time of day"
+              aria-label="Time of day in minutes"
+            />
+          </div>
+
+          <input id="date" type="date" title="Which date to show" style="width: 140px" />
+
+          <span class="spacer"></span>
+          <span class="meta" id="readout">&mdash;</span>
+        </div>
+
+        <div id="view">
+          <div id="previewWrap">
+            <canvas id="preview"></canvas>
+            <div id="previewSplits"></div>
+          </div>
+        </div>
+
+        <div id="notice" hidden></div>
+
+        <div class="stagefoot">
+          <span class="meta" id="hostNote">&mdash;</span>
+          <span class="meta" id="spanNote">&mdash;</span>
+        </div>
+      </main>
+    </div>
+
+    <script type="module" src="ui/index.js"></script>
+  </body>
+</html>
