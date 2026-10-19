@@ -87,11 +87,11 @@ export default [
     }
   },
 
-  /* The measurement tool drives a real browser, so its evaluate() callbacks
-     are serialised and run in the page. Node globals plus browser globals,
-     the same as a test. */
+  /* These tools drive a real browser, so their evaluate() callbacks are
+     serialised and run in the page. Node globals plus browser globals, the
+     same as a test. */
   {
-    files: ["tools/measure-cost.js"],
+    files: ["tools/measure-cost.js", "tools/verify-package.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "commonjs",

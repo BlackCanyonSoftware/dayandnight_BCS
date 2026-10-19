@@ -26,6 +26,7 @@ and the user's coordinates. **Rigor tier: MVP.**
 | `npm run build`                   | Build the Windows installer into `dist/`. Opens nothing, takes minutes.  |
 | `node tools/probe-host.js`        | Check the WorkerW technique on this machine. Opens nothing.              |
 | `node tools/measure-cost.js`      | Measure NFR-1. **Opens windows, takes minutes.**                         |
+| `node tools/verify-package.js`    | Check a packaged build really works. **Opens windows.**                  |
 
 **Ask the user before running anything marked "opens windows".** The
 application takes over the desktop background and raises windows; running it

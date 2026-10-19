@@ -96,6 +96,14 @@ directory rather than matching a path, so a koffi upgrade that moves the binary
 still passes while a packaging change that loses it fails the build. The hook
 does the same for the legal documents, as PGS's does.
 
+That check proves the binary is in the right place and cannot prove it loads,
+which needs the packaged application to be launched. `tools/verify-package.js`
+does that: it starts `dist/win-unpacked`, which installs nothing, and checks
+the custom scheme survived packaging, the engine renders inside the archive,
+and the host reports `workerw` rather than the fallback. It passed on
+2026-10-19 - twelve checks, two screens, a sky on the real desktop - so the
+packaging described here is verified rather than merely built.
+
 ## Options considered
 
 **For licensing:**

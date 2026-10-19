@@ -24,9 +24,11 @@ turning at the sidereal rate, and a grade over the top.
 - **Licensing and packaging: decided and built** (OQ-4, ADR 0006). Proprietary,
   the same seven-document shape as Pixel Galaxy Studio, adapted; a Windows NSIS
   installer from `npm run build`. The installer builds green and bundles its
-  documents. **A build is not releasable yet** for two reasons that are both
-  owner decisions rather than work: there is no icon, because there is no brand,
-  and there is no code-signing certificate.
+  documents, and `node tools/verify-package.js` confirms the packaged
+  application puts a sky on the real desktop - twelve checks, all passing.
+  **A build is not releasable yet** for two reasons that are both owner
+  decisions rather than work: there is no icon, because there is no brand, and
+  there is no code-signing certificate.
 - **CI:** written, **never run**, because nothing has been pushed.
 
 ## Milestone 1, what it left behind
@@ -51,12 +53,11 @@ Two things to know before changing any of it:
 ## Next steps
 
 1. **Verify by hand what only a person can:** a full-screen game pausing the
-   wallpaper, a system time-zone change with the application running, and now
-   **the installed build putting a sky on the desktop**. The third is new: the
-   packaging work can prove the native binary is in the right place but not that
-   it loads, because that needs the installed application to be launched. The
-   installer is at `dist/dayandnight-0.1.0-win-x64.exe`; the unpacked build at
-   `dist/win-unpacked/Day and Night.exe` runs without installing anything.
+   wallpaper, and a system time-zone change with the application running. These
+   are the last two unobserved claims in the project. The packaged build used to
+   be a third; it is now checked by `node tools/verify-package.js`, which leaves
+   only running the installer itself, on a machine that has never had the
+   project.
 2. Then **Milestone 2**: the span across several screens, the full pause policy,
    the tray icon and autostart, monitor hot-plug, the About window that opens
    the documents the build already ships, and NFR-1 re-measured with three
@@ -117,6 +118,28 @@ Two things to know before changing any of it:
 - **Never attribute anything to an assistant**, and **never push**.
 
 ## Session log
+
+### 2026-10-19 - the packaged build verified, not just built
+
+- **A sky reached the real desktop from the packaged application**, which is
+  the claim the previous session could set up but not check. Twelve checks, two
+  screens, `host: workerw`.
+- Written as `tools/verify-package.js` rather than as a throwaway script,
+  because Milestone 2 carries this as an exit criterion and because the
+  interesting part is not repeatable by hand: `desktop/build/check-bundle.js`
+  can prove koffi's native binary sits outside the asar archive, and only
+  launching the packaged application proves it loads. The tool also catches two
+  things that would survive a successful build - the custom scheme failing
+  under asar, and WebGL failing inside the package.
+- It runs `dist/win-unpacked`, which installs nothing, so checking a build
+  leaves nothing in Installed Programs. It turns the wallpaper off again before
+  exiting rather than relying on the process ending to restore the desktop.
+- Extended the ESLint override that gives `tools/measure-cost.js` browser
+  globals, since this tool has the same `evaluate()` callbacks, and used the
+  project's own `DayAndNightWallpaperState` type rather than a hand-rolled
+  shape - which typecheck caught, because the hand-rolled one had `reason` as
+  `string | undefined` where the real contract is `string | null`.
+- **Still not checked:** the installer itself, and any machine but this one.
 
 ### 2026-10-19 - OQ-4 settled: proprietary, and a Windows installer that exists
 

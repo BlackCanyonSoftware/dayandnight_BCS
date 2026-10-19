@@ -191,9 +191,11 @@ paperwork.
 - Every pause signal verified by hand, each with the observed result written
   down.
 - NFR-1 re-measured with three monitors active.
-- The installed build - not the one run from source - puts a sky on the desktop
-  on a machine that has never had the project. This is the one claim ADR 0006's
-  packaging work could not verify for itself.
+- The build from the installer - not the one run from source - puts a sky on the
+  desktop on a machine that has never had the project. **Half done:**
+  `node tools/verify-package.js` confirms the packaged application works, and
+  did so on 2026-10-19 on the development machine. What is left is a clean
+  machine, and the installer rather than the unpacked build.
 
 ## Later
 

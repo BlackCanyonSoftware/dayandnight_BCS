@@ -148,3 +148,15 @@ Writes a Windows installer to `dist/`. It is unsigned unless `CSC_LINK` and
 `CSC_KEY_PASSWORD` are in the environment, and it carries Electron's default
 icon, because there is no brand yet - so a build made today is for a test
 machine, not for release.
+
+Then check that the build actually works, which is a different question from
+whether it built:
+
+```
+node tools/verify-package.js
+```
+
+It launches `dist/win-unpacked`, which needs no installing, and confirms the
+editor opens from the custom scheme, the engine renders, and a sky reaches the
+real desktop - which is the only way to know that koffi's native binary loads
+from outside the asar archive. **It briefly replaces your desktop background.**
