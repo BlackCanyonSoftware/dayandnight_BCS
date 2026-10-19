@@ -1,0 +1,44 @@
+{
+  "name": "dayandnight",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A live Windows desktop wallpaper that renders the real sky for your own time and place.",
+  "author": "Black Canyon Software",
+  "license": "UNLICENSED",
+  "main": "desktop/main.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "electron .",
+    "desktop": "electron .",
+    "serve": "node tools/serve.js 5178",
+    "start": "node tools/serve.js 5178 --open --auto-exit",
+    "build": "electron-builder",
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.{js,mjs,cjs,css,html,md,json,yml}\"",
+    "format:check": "prettier --check \"**/*.{js,mjs,cjs,css,html,md,json,yml}\"",
+    "typecheck": "tsc -p jsconfig.json",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "node --test \"tests/unit/**/*.test.mjs\"",
+    "test:e2e": "playwright test --config playwright.config.mjs",
+    "test:e2e:update": "playwright test --config playwright.config.mjs --update-snapshots",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm test",
+    "test:desktop": "playwright test --config playwright.desktop.config.mjs"
+  },
+  "dependencies": {
+    "koffi": "^3.3.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^24.10.1",
+    "electron": "^44.9.0",
+    "electron-builder": "^26.15.3",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "^7.0.2"
+  }
+}
