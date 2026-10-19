@@ -35,9 +35,28 @@ const { execFileSync } = require("node:child_process");
 const os = require("node:os");
 const path = require("node:path");
 
-const SECONDS = Number(process.argv[2]) || 20;
-const SETTLE_SECONDS = 6;
+const SECONDS = Number(process.argv[2]) || 30;
 const ROOT = path.join(__dirname, "..");
+
+/**
+ * How long to let a scenario settle before believing it.
+ *
+ * The first run of this tool used six seconds and produced two impossible
+ * samples - an idle reading above a 5 fps reading - because start-up work was
+ * still landing inside the measurement window. Twelve is enough for shader
+ * compilation, the first presents and Chromium's own start-up to finish.
+ */
+const SETTLE_SECONDS = 12;
+
+/**
+ * Each scenario is measured as several short windows rather than one long one.
+ *
+ * A single window cannot tell a real number from a contaminated one. Several
+ * can: the median ignores a window that caught a background task, and the
+ * spread between them says whether the machine was quiet enough to believe
+ * any of it.
+ */
+const REPEATS = 5;
 
 /**
  * Total processor-seconds and working set across the application's processes.
@@ -76,28 +95,73 @@ function wait(seconds) {
 }
 
 /**
+ * @param {number[]} values
+ * @returns {number}
+ */
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  if (sorted.length === 0) return 0;
+  return sorted.length % 2 === 0
+    ? ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2
+    : (sorted[middle] ?? 0);
+}
+
+/**
+ * @typedef {object} Row
+ * @property {string} label
+ * @property {number} perCore median across the windows
+ * @property {number} spread highest window minus lowest
+ * @property {number[]} windows every window's figure, so a bad one is visible
+ * @property {number} memoryMb
+ * @property {number} processes
+ */
+
+/**
+ * Measure one scenario as several short windows, and report the median.
+ *
  * @param {string} label
- * @returns {Promise<{ label: string, perCore: number, memoryMb: number, processes: number }>}
+ * @returns {Promise<Row>}
  */
 async function measure(label) {
   await wait(SETTLE_SECONDS);
 
-  const before = sample();
-  const startedAt = Date.now();
-  await wait(SECONDS);
-  const after = sample();
+  const windowSeconds = SECONDS / REPEATS;
+  /** @type {number[]} */
+  const windows = [];
 
-  const elapsed = (Date.now() - startedAt) / 1000;
-  const perCore = ((after.cpuSeconds - before.cpuSeconds) / elapsed) * 100;
+  let last = sample();
+  for (let i = 0; i < REPEATS; i += 1) {
+    const startedAt = Date.now();
+    await wait(windowSeconds);
+    const now = sample();
 
+    const elapsed = (Date.now() - startedAt) / 1000;
+    windows.push(((now.cpuSeconds - last.cpuSeconds) / elapsed) * 100);
+    last = now;
+  }
+
+  const perCore = median(windows);
+  const spread = Math.max(...windows) - Math.min(...windows);
+
+  /** @type {Row} */
   const row = {
     label,
     perCore,
-    memoryMb: after.workingSetMb,
-    processes: after.processes
+    spread,
+    windows,
+    memoryMb: last.workingSetMb,
+    processes: last.processes
   };
+
+  // The spread is printed next to every figure on purpose. A median with a
+  // wide spread behind it is not a measurement, and the first run of this
+  // tool would have shown that rather than hiding it in a single number.
+  const noisy = spread > Math.max(1, perCore * 0.5) ? "  <- noisy" : "";
   console.log(
-    `  ${label.padEnd(34)} ${perCore.toFixed(2).padStart(6)} %core   ${row.memoryMb.toFixed(0).padStart(4)} MB   ${row.processes} proc`
+    `  ${label.padEnd(30)} ${perCore.toFixed(2).padStart(6)} %core ` +
+      `(spread ${spread.toFixed(2).padStart(5)})   ` +
+      `${row.memoryMb.toFixed(0).padStart(4)} MB   ${row.processes} proc${noisy}`
   );
   return row;
 }
@@ -136,10 +200,17 @@ async function main() {
   console.log(
     `machine : ${os.cpus()[0]?.model?.trim() ?? "unknown"} (${os.cpus().length} threads)`
   );
-  console.log(`window  : ${SECONDS}s per scenario, after ${SETTLE_SECONDS}s settling`);
+  console.log(
+    `method  : ${REPEATS} windows of ${(SECONDS / REPEATS).toFixed(0)}s per scenario, ` +
+      `after ${SETTLE_SECONDS}s settling; the median is reported`
+  );
+
+  const scenarios = 6;
+  const minutes = ((SETTLE_SECONDS + SECONDS) * scenarios) / 60;
+  console.log(`runtime : about ${minutes.toFixed(0)} minutes. Leave the machine alone.`);
   console.log("");
 
-  /** @type {{ label: string, perCore: number, memoryMb: number, processes: number }[]} */
+  /** @type {Row[]} */
   const rows = [];
 
   // 1. The floor: the application running with nothing drawing at all.
@@ -182,25 +253,72 @@ async function main() {
     rows.push(await measure(`wallpaper on, ${String(fps).padStart(2)} fps`));
   }
 
-  // The slope, from the two ends of the frame-rate range.
+  // The slope, taken from 30 and 10 rather than from the extremes: the 1 fps
+  // end is where a contaminated window does the most damage to a gradient.
   const at30 = rows.find((r) => r.label.includes("30 fps"));
+  const at10 = rows.find((r) => r.label.includes("10 fps"));
   const at1 = rows.find((r) => r.label.includes(" 1 fps"));
   const idle = rows[0];
 
   console.log("");
+
+  // Sanity, before any conclusion is drawn from the numbers. A scenario that
+  // draws cannot cost less than one that draws nothing; if it appears to, the
+  // run was contaminated and the figures should not be quoted. The first run
+  // of this tool hit exactly this and it was only caught by reading carefully.
+  /** @type {string[]} */
+  const impossible = [];
+  if (idle) {
+    for (const row of rows.slice(1)) {
+      if (row.perCore < idle.perCore - 0.2) {
+        impossible.push(
+          `${row.label} (${row.perCore.toFixed(2)}) is below idle (${idle.perCore.toFixed(2)})`
+        );
+      }
+    }
+  }
+  const noisy = rows.filter((r) => r.spread > Math.max(1, r.perCore * 0.5));
+
+  if (impossible.length > 0 || noisy.length > 0) {
+    console.log("!!! THIS RUN IS NOT TRUSTWORTHY ".padEnd(61, "!"));
+    for (const line of impossible) console.log(`  impossible: ${line}`);
+    for (const row of noisy) {
+      console.log(
+        `  noisy     : ${row.label} spread ${row.spread.toFixed(2)} across [${row.windows.map((w) => w.toFixed(1)).join(", ")}]`
+      );
+    }
+    console.log("  Close other applications and run it again.");
+    console.log("");
+  }
+
   console.log("=== NFR-1 ===================================================");
-  if (at30 && at1 && idle) {
-    const perFrame = (at30.perCore - at1.perCore) / (30 - 1);
+  if (at30 && at10 && idle) {
+    const perFrame = (at30.perCore - at10.perCore) / (30 - 10);
     console.log(`floor (app, nothing drawing) : ${idle.perCore.toFixed(2)} % of one core`);
     console.log(`cost per frame per second    : ${perFrame.toFixed(3)} % of one core`);
     console.log(`  so at 20 fps, drawing costs: ${(perFrame * 20).toFixed(2)} %`);
     console.log(`  and the floor is           : ${idle.perCore.toFixed(2)} %`);
+    if (at1) {
+      console.log(`nearly-still (1 fps)         : ${at1.perCore.toFixed(2)} % of one core`);
+    }
   }
   console.log(`screens                      : ${state.screens}`);
   console.log(`GPU                          : not measured`);
+  console.log(
+    `verdict                      : ${
+      impossible.length > 0 || noisy.length > 0 ? "UNRELIABLE - re-run" : "usable"
+    }`
+  );
   console.log("=============================================================");
 
   await app.close();
 }
 
-void main();
+// Guarded so the pieces can be exercised without launching anything: this
+// tool is the one that decides whether NFR-1 is met, so its arithmetic should
+// be checkable without taking over somebody's desktop.
+if (require.main === module) {
+  void main();
+}
+
+module.exports = { sample, median };
