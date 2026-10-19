@@ -82,6 +82,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Nothing here touches the network. The time zone is already on your machine,
   and your address is not the application&rsquo;s business.
 
+- **Seven looks to start from**, each a complete appearance over the same
+  physical sky: Clear, Hazy, Desert night, Edge of town, Cinematic, Quiet and
+  Wide horizon. Where you are and how often it redraws are not part of a look,
+  so switching never moves your sky or changes what it costs. Change any
+  control and it says Custom.
+
 ### Known limitations
 
 These are real and are tracked in `docs/ROADMAP.md`; none of them is presented

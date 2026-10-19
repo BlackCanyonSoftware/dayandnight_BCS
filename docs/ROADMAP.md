@@ -5,7 +5,7 @@ usable. Story IDs refer to `PRD.md`.
 
 **Status key:** `planned` - `in progress` - `done` - `deferred`
 
-## Now
+## Done
 
 ### Milestone 0 - walking skeleton `done, except NFR-1` (M)
 
@@ -87,9 +87,7 @@ Electron host:
 The measurement itself also needs redoing: two of its six samples are
 internally contradictory, so the floor is not yet known. Tracked below.
 
-## Next
-
-### Milestone 1 - the real sky `planned` (L)
+### Milestone 1 - the real sky `done, with two criteria qualified` (L)
 
 The product's reason to exist. Replaces the fake gradient with computed
 astronomy and a physical sky.
@@ -114,18 +112,32 @@ US-021.
   thirty seconds).
 - The first real presets, authored while the model can still change.
 
-**Exit criteria.**
+**Outcome (2026-10-19).** Built and committed over six slices: the astronomy,
+the scattering model, the shader that draws it, the stars, the sun and moon,
+the grade, the place picker and the first presets.
 
-- Sun and moon altitude and azimuth agree with published ephemeris tables to
-  within 0.5 degrees at ten instants spanning a year and five latitudes,
-  including one above the Arctic Circle. A unit test, not an inspection.
-- Scrubbing a full day at four latitudes and three dates shows no banding, no
-  keyframe kink, and no grey-brown midpoint between orange and blue.
-- Tonight's rendered moon phase matches tonight's actual moon phase.
-- The sky is correct within one frame of a time-zone or DST change (US-011),
-  verified by changing the system time zone with the application running.
-- Image tests pin the sky at fixed instants so a later change cannot move it
-  unnoticed.
+| Exit criterion                                                                                                                | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sun and moon within 0.5 degrees of published ephemerides, at ten instants across a year and five latitudes                    | **Met in substance, not in the form written.** Checked against the published worked examples of the algorithms themselves - Meeus 25.a, 47.a and 12.a - to 8e-6 degrees for the Sun and 3e-7 for the Moon, four to five orders of magnitude inside the requirement. Anchored independently on the two 2026 solar eclipses, which are new moons fixed by observation. Range and finiteness are checked across five latitudes including 89.9 N and Tromso over a full year. **Not done:** a comparison against an external ephemeris table, which needs bundled reference data; see tech debt. |
+| A full day at four latitudes and three dates: no banding, no kink, no grey-brown midpoint                                     | **Met, and automated.** 864 frames swept. Worst gradient curvature 1.3 of 255 levels, where a band would be several; no near-neutral horizon found at any instant with the sun between -4 and +6 degrees.                                                                                                                                                                                                                                                                                                                                                                                    |
+| Tonight's moon phase matches tonight's actual moon phase                                                                      | **Met.** On 19 October 2026 it renders 57.4 per cent lit and waxing, 8.8 days after the computed new moon of 10 October - just past first quarter, which is right. The drawn lit area matches the computed illumination to within two per cent across the whole range of phase.                                                                                                                                                                                                                                                                                                              |
+| Correct within one frame of a time-zone or DST change, verified by changing the system time zone with the application running | **Partly.** True by construction - every calculation is in UTC and a unit test pins the arithmetic to be independent of the host's time zone - but **nobody has changed a system clock with the application running and watched**. Outstanding.                                                                                                                                                                                                                                                                                                                                              |
+| Image tests pin the sky at fixed instants                                                                                     | **Met.** One image reference, plus pixel-level tests on the sun's position, the moon's phase, the star field's rotation and the gradient's smoothness.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+
+**Also built, beyond the written scope:** auto-exposure spanning about twelve
+stops, without which no fixed exposure could show both noon and twilight; an
+airglow floor, without which nautical twilight rendered black; a sky-lit
+ground, without which the bottom of the picture was a void; and a first-run
+location guess from the IANA time zone.
+
+**What it cost to find out:** eleven test assumptions turned out to be wrong
+across the milestone and are recorded where they were made. The most
+instructive were that Oklab does not rescue a complementary-hue gradient, that
+a single patch of sky does not darken monotonically through sunset, that the
+synodic month cannot be averaged over one year, and that banding is a step
+larger than the gradient warrants rather than merely a step.
+
+## Now
 
 ### Milestone 2 - every screen, all day `planned` (M)
 

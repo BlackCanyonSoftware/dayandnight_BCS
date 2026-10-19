@@ -5,109 +5,53 @@ session with no memory of this one. Newest session first.
 
 ## Current state
 
-**Milestone 0 is done. Milestone 1 is under way: the astronomy and the sky
-model are built and tested, but nothing draws with the new sky yet.**
-
-The application runs and puts a live computed sky on the Windows desktop
-behind the icons on every screen. What it _draws_ is still the Milestone 0
-nine-stop gradient; the scattering model exists beside it, unused by the
-renderer, waiting on the shader slice.
+**Milestones 0 and 1 are done.** The application runs, puts a computed sky on
+the Windows desktop behind the icons on every screen, and the sky is the real
+one: scattering for its colour, Meeus astronomy for the sun and moon, stars
+turning at the sidereal rate, and a grade over the top.
 
 - **Branch:** `main`
 - **Remote:** `origin` is `github.com/BlackCanyonSoftware/dayandnight_BCS`.
   **Nothing has been pushed.** The owner pushes.
 - **Tier:** MVP
-- **Checks:** lint, format, typecheck clean. 71 unit, 11 browser (one image
-  reference), 7 desktop tests, all passing.
-- **CI:** written (`.github/workflows/ci.yml`, Windows runner) but **never
-  run**, because nothing has been pushed. Report it as unverified.
+- **Checks:** lint, format, typecheck clean. 99 unit and 19 browser tests
+  passing. 7 desktop tests exist and **have not been run since Milestone 0** -
+  they open windows on the desktop, which the owner asked not to have
+  interrupted. They cover the host and the window lifecycle, none of which has
+  changed since.
+- **CI:** written, **never run**, because nothing has been pushed.
 
-## The open question, and it blocks Milestone 1
+## Milestone 1, what it left behind
 
-**NFR-1 is not met.** At the default 20 fps on two screens the application
-costs about **8.5% of one CPU core** against a budget of 2%, and about
-**570 MB** against a budget of 160 MB for two screens.
+Done: `engine/astro/` (Meeus), `engine/sky/atmosphere.js` (scattering),
+`engine/sky/grade.js`, `engine/stars.js`, `engine/bodies.js`, the three-pass
+renderer, `ui/place.js` with a city list, and `ui/presets.js` with seven
+looks. The roadmap carries the exit-criteria table, including the two
+criteria that are qualified rather than fully met.
 
-The Milestone 0 shader is a vertical gradient with a dither, so this is the
-Electron host's cost, not the sky's - a more complex sky will not make it much
-worse, and a simpler one will not make it better. Drawing _less often_ does
-scale it: 5 fps nearly reaches the budget.
+Two things to know before changing any of it:
 
-ADR 0001 said this decision would reopen if the budget failed at Milestone 0.
-It has, at exactly the moment intended: before any art depends on it. The four
-options, with the recommendation, are in `docs/ROADMAP.md` under Milestone 0's
-outcome. **The owner chooses before Milestone 1 builds further on this host.**
-
-Two caveats on the measurement itself, both honest:
-
-- Two of its six samples (idle, and 1 fps) are internally contradictory - they
-  sit above the 5 fps sample, which is impossible - so **the floor is not yet
-  known** and the "floor plus per-frame" split is not trustworthy. The
-  headline does not depend on those rows. Re-measure with a longer settling
-  window on a quiet machine.
-- GPU time was not measured at all. There is no dependency-free way to read it
-  on Windows.
-
-## What exists
-
-```
-app/engine/     the renderer. Pure, no DOM, no Electron, no state between frames
-  astro/solar.js    PLACEHOLDER sun position, 1-2 degrees (M1 replaces it)
-  sky/oklab.js      the only colour conversions in the project
-  sky/palette.js    PLACEHOLDER nine-stop gradient (M1 replaces it)
-  gl/               the only files that know what WebGL is
-app/ui/         the editor: panel, scrubber, preview, theme, settings
-app/wallpaper.js  one monitor's surface; ~160 lines, and that is the point
-desktop/        the Electron shell
-  host-win32.js   the WorkerW sequence; the ONLY Win32 caller
-  pause.js        lock, suspend, battery, full-screen detection
-tools/          probe-host.js (safe), measure-cost.js (opens windows), serve.js
-```
-
-## Decisions already made
-
-Settled with the owner and recorded as ADRs. Do not relitigate without a
-reason the ADR does not already cover.
-
-| Decision                                              | Where    | Status after M0                    |
-| ----------------------------------------------------- | -------- | ---------------------------------- |
-| Electron shell over a static ES-module web app        | ADR 0001 | **Reopened by the budget failure** |
-| Win32 through koffi, one module                       | ADR 0002 | Proven on hardware, first attempt  |
-| WebGL2 now, WebGPU later                              | ADR 0003 | Holds                              |
-| Physical sky with an authored grade                   | ADR 0004 | Not yet built (M1)                 |
-| Stateless scene, independent windows, no sync channel | ADR 0005 | Holds, and paid off repeatedly     |
-
-## Milestone 1, where it stands
-
-Done and committed:
-
-- **`engine/astro/`** - real astronomy. Meeus for the Sun (ch. 25), the Moon
-  (47, 48), sidereal time (12), obliquity, nutation and refraction. Agrees
-  with the published worked examples to four orders of magnitude better than
-  US-001 needs. The Moon brings distance, illuminated fraction, phase, and the
-  angle its crescent sits at for the observer.
-- **`engine/sky/atmosphere.js`** - the scattering model from ADR 0004.
-  Rayleigh, Mie and ozone, integrated, with multiple scattering approximated
-  on top and an auto-exposure reference baked alongside. A 288 KB 3D table,
-  built once in about 780 ms.
-
-Next, in order:
-
-1. **The shader slice.** Upload the table as a 3D texture, map screen position
-   to a view direction, apply the phase functions and auto-exposure per pixel,
-   tone-map, keep the dither. This is what finally replaces
-   `engine/sky/palette.js`, and it is the first point at which any of the last
-   two slices becomes visible.
-2. **The grade** (ADR 0004): exposure, a three-band lift/gamma/gain in Oklab,
-   an altitude-keyed tint ramp, turbidity and ground albedo. Turbidity also
-   closes the undersaturated-sunset limitation.
-3. **Bodies**: sun and moon discs, bloom, the lunar phase mask.
-4. **Stars**: catalogue, glow and pulse, rotation about the celestial pole.
-   This is also where the black-below-minus-eight-degrees limitation stops
-   mattering, because the night's interest moves to the stars.
-5. **`ui/place.js`**: the city picker and the optional lookup.
+- **The scattering table is built once per process and shared.** Sun elevation
+  is one of its axes, so it never needs rebuilding. Anything that would need
+  it rebuilt - turbidity, say - has to be applied in the shader instead, and
+  turbidity is applied by scaling the Mie channel the table already keeps
+  separate.
+- **Everything is summed as linear light and tone mapped once.** That single
+  decision is why stars vanish at noon and emerge through twilight with no
+  rule written for it. A layer that tone maps itself would break that.
 
 ## Next steps
+
+1. **Re-measure NFR-1.** Frame-skipping removed 99.7% of the redrawing and the
+   CPU saving has never been measured. This is the one thing that decides
+   whether ADR 0001 stands. It needs a quiet machine; `tools/measure-cost.js`
+   now refuses to report a contaminated run.
+2. **Verify by hand what only a person can:** a full-screen game pausing the
+   wallpaper, and a system time-zone change with the application running.
+3. Then **Milestone 2**: the span across several screens, the full pause
+   policy, the tray icon and autostart.
+
+### Older, still open
 
 1. **The owner picks an option for NFR-1** (`docs/ROADMAP.md`, Milestone 0
    outcome). Recommended first: redraw only when the scene has meaningfully
@@ -161,6 +105,23 @@ Next, in order:
 - **Never attribute anything to an assistant**, and **never push**.
 
 ## Session log
+
+### 2026-10-19 - Milestone 1 finished: shader, stars, bodies, grade, place, presets
+
+- Drew the real sky: the table as a 3D texture, a cylindrical projection, and
+  auto-exposure spanning about twelve stops. Deleted the Milestone 0 gradient.
+- Added stars (sidereal rotation, pinned by comparing a render with one
+  exactly one sidereal day later), the sun and moon (the moon's phase drawn as
+  geometry, its lit area matching the computed illumination to two per cent),
+  the grade (haze, a tint ramp, saturation and contrast in Oklab), the place
+  picker, and seven presets.
+- Several things had to be added that were not in the written scope because
+  without them the product did not work: auto-exposure, an airglow floor, and
+  a sky-lit ground.
+- Nine more test assumptions turned out to be wrong and are recorded where
+  they were made. The longest-running was banding: it took four attempts to
+  arrive at the measure that distinguishes a band from a star, from the sun's
+  glare, and from a steep gradient.
 
 ### 2026-10-18 - Milestone 1, slices 1 and 2: astronomy and the atmosphere
 

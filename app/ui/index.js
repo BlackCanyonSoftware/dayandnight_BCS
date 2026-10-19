@@ -15,6 +15,7 @@ import * as shell from "./desktop.js";
 import { createPreview } from "./preview.js";
 import { drawBands } from "./scrubber.js";
 import { guessPlace, labelFor, nearestCity, resolveCity, suggest } from "./place.js";
+import { LOOKS, lookIdFor, presetFor } from "./presets.js";
 import { readDocument, writeDocument } from "./settings.js";
 import {
   clock,
@@ -39,6 +40,7 @@ import {
   fmtTime,
   input,
   notice,
+  select,
   toDateInputValue
 } from "./util.js";
 
@@ -131,6 +133,21 @@ async function loadSaved() {
 /* --------------------------------------------------------------- controls */
 
 function wireControls() {
+  fillLookList();
+
+  select("look").addEventListener("change", (event) => {
+    const chosen = presetFor(/** @type {HTMLSelectElement} */ (event.target).value);
+    if (!chosen) return;
+
+    // A look replaces the whole appearance rather than patching it, so
+    // switching away from an edited preset does not leave fragments of the
+    // old one behind.
+    replacePreset(chosen);
+    bandsDirty = true;
+    paintFromState();
+    save();
+  });
+
   bindRange("lat", (v) => {
     setPlace({ lat: v });
     bandsDirty = true;
@@ -246,6 +263,30 @@ function wireControls() {
       togglePlay();
     }
   });
+}
+
+/**
+ * Fill the look list, once.
+ *
+ * "Custom" is the first entry and is what the list shows whenever the preset
+ * matches none of the shipped looks - which is worked out by comparison, so it
+ * cannot fall out of step with what is on screen.
+ */
+function fillLookList() {
+  const list = select("look");
+  list.replaceChildren();
+
+  const custom = document.createElement("option");
+  custom.value = "";
+  custom.textContent = "Custom";
+  list.append(custom);
+
+  for (const look of LOOKS) {
+    const option = document.createElement("option");
+    option.value = look.id;
+    option.textContent = look.name;
+    list.append(option);
+  }
 }
 
 /**
@@ -457,6 +498,18 @@ function paintFromState() {
   $("#twinkleVal").textContent = `${Math.round(preset.twinkle * 100)}%`;
   $("#airglowVal").textContent = (preset.airglow * 1e6).toFixed(1);
   $("#fpsVal").textContent = `${fps} fps`;
+
+  // Which look this is, by comparison rather than by memory.
+  const look = lookIdFor(preset);
+  select("look").value = look ?? "";
+
+  const described = LOOKS.find((entry) => entry.id === look);
+  $("#lookHint").setAttribute(
+    "data-tip",
+    described
+      ? `${described.hint} Change any control and this returns to Custom.`
+      : "A complete look, laid over the defaults. Where you are and how often the wallpaper redraws are not part of it, so switching never moves your sky or changes what it costs. Change any control afterwards and this returns to Custom."
+  );
 
   pushRuntime();
 }

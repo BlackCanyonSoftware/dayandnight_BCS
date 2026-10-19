@@ -23,15 +23,22 @@ By [Black Canyon Software](https://github.com/BlackCanyonSoftware).
 
 ## Status
 
-**Milestone 0 is built: a walking skeleton.** The application runs, puts a
-live computed sky on the Windows desktop behind the icons on every screen, and
-the editor drives it. What it draws is a gradient rather than a sky - the
-scattering model, the sun, the moon and the stars arrive in Milestone 1.
+**Milestones 0 and 1 are built.** The application runs, puts a sky on the
+Windows desktop behind the icons on every screen, and that sky is computed
+rather than painted: atmospheric scattering for its colour, real solar and
+lunar positions, four thousand stars turning at the sidereal rate, and a grade
+on top for haze, colour and contrast. It knows roughly where you are from your
+time zone, and you can search a city or type coordinates.
 
-One thing is not met: the application costs about 8.5% of one CPU core at its
-default settings, against a budget of 2%. That is measured, written up in
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and is the open question being
-decided before more is built. See [`docs/ROADMAP.md`](docs/ROADMAP.md).
+Two things are open. The application costs about 8.5% of one CPU core where
+the budget is 2% - measured, written up in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and partly addressed by only
+redrawing when the picture changes, which removed 99.7% of the work but has
+not been re-measured. And a handful of smaller gaps are listed honestly in
+[`CHANGELOG.md`](CHANGELOG.md) under Known limitations - no clouds yet, no
+horizon silhouettes, and constellations that are generated rather than real.
+
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what is next.
 
 ## Quick start
 

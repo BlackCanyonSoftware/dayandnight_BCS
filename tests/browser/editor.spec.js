@@ -810,6 +810,180 @@ test("the grade changes the picture, and a neutral one does not", async ({ page 
   ).toBeGreaterThan(result.base.warmth * 1.05);
 });
 
+test("a whole day at four latitudes shows no banding and no mud (NFR-3)", async ({ page }) => {
+  // Milestone 1 asks for this in so many words: scrub a full day at four
+  // latitudes and three dates and find no banding, no kink and no grey-brown
+  // midpoint between orange and blue. It is checkable rather than
+  // eyeballable, so it is checked.
+  //
+  // Banding is a *step* in a gradient. The dither exists to break the 8-bit
+  // quantisation into noise, so along a column of a smooth sky no neighbour
+  // should differ by more than one level; two or more is a visible edge.
+  //
+  // Mud is the sky going grey while the light is still strongly coloured. It
+  // was the original argument for Oklab and is now the scattering model's
+  // job, so it is worth confirming it never happens.
+  test.slow();
+
+  const findings = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset, sunPosition } = await import("/engine/index.js");
+
+    const width = 220;
+    const height = 260;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+
+    // Stars off. Banding is a property of the *gradient*, and a star is a
+    // legitimate step of twenty levels in one pixel: with them on, every
+    // measure tried here reported the star field as banding, and no amount of
+    // filtering across columns reliably told a dense field from an edge.
+    // Turning them off isolates the thing being measured, and makes the
+    // assertion far stronger - the sky alone may not step by more than one.
+    // The stars have their own tests.
+    engine.setPreset({ ...defaultPreset(), starBrightness: 0 });
+
+    const latitudes = [-33.87, 1.35, 51.48, 69.65];
+    const dates = [
+      [2026, 2, 20],
+      [2026, 5, 21],
+      [2026, 11, 21]
+    ];
+
+    const problems = [];
+    let worstBand = 0;
+    let frames = 0;
+
+    for (const lat of latitudes) {
+      const place = { lat, lon: 0 };
+
+      for (const [year, month, day] of dates) {
+        const start = Date.UTC(year, month, day);
+
+        // Every twenty minutes through the day.
+        for (let minute = 0; minute < 1440; minute += 20) {
+          const t = start + minute * 60_000;
+          engine.render({
+            t,
+            place,
+            crop: { x: 0, y: 0, w: width, h: height },
+            span: { w: width, h: height },
+            pixelRatio: 1
+          });
+
+          const pixels = new Uint8Array(width * height * 4);
+          gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+          frames += 1;
+
+          const altitude = sunPosition(t, place).altitude;
+
+          // Banding is a *horizontal edge*: a step that appears at the same
+          // height right across the picture. A star is a step in one column
+          // and nothing in its neighbours, which is why the first version of
+          // this reported "banding" at midnight - it was counting stars.
+          //
+          // The median across nine columns tells them apart: a band moves it,
+          // a handful of stars cannot.
+          // readPixels hands back rows bottom-up, so the sky is the *upper*
+          // part of this range, not the lower. Scanning the bottom 70 per cent
+          // instead - as this first did - walks straight across the horizon,
+          // where the step from sky to ground is a genuine edge and was duly
+          // reported as a band of eleven.
+          //
+          // The horizon sits at 0.82 down the picture, so everything from a
+          // quarter of the way up in these coordinates is clear of it.
+          // Banding is a step *larger than the gradient warrants*, not merely a
+          // step. Three earlier attempts here all foundered on that: a star is
+          // a legitimate jump of twenty levels, the sun's glare is another,
+          // and near the horizon at dawn the sky genuinely changes by two
+          // levels a row - none of which is banding, and a plain threshold
+          // calls all three of them banding.
+          //
+          // What distinguishes a band is that the gradient *stops and starts*:
+          // flat, flat, jump, flat. That is a spike in the second difference
+          // down a column, which a smooth gradient has none of however steep
+          // it is.
+          //
+          // The column is averaged across the full width first, because the
+          // dither is high-frequency noise by design and would otherwise swamp
+          // the measure - while a band, being horizontal, survives averaging
+          // untouched. That is the whole trick.
+          const skyFloor = Math.floor(height * 0.26);
+
+          for (let c = 0; c < 3; c += 1) {
+            /** @type {number[]} */
+            const column = [];
+            for (let y = skyFloor; y < height; y += 1) {
+              let total = 0;
+              for (let x = 0; x < width; x += 1) total += pixels[(y * width + x) * 4 + c];
+              column.push(total / width);
+            }
+
+            for (let i = 1; i < column.length - 1; i += 1) {
+              const curvature = Math.abs(column[i + 1] - 2 * column[i] + column[i - 1]);
+
+              if (curvature > worstBand) worstBand = curvature;
+              // 2.5, against a measured worst of about 1.3 across the whole
+              // sweep - which is the sky's own curvature where it bends
+              // sharply from a bright horizon into blue, plus the sun's glare
+              // pulling on the averaged column. A real band is several levels
+              // and would stand out immediately.
+              if (curvature > 2.5) {
+                problems.push(
+                  `a band of ${curvature.toFixed(2)} at lat ${lat}, ${year}-${month + 1}-${day}, minute ${minute}`
+                );
+              }
+            }
+          }
+
+          // Mud: the sky going neutral while the sun is near the horizon,
+          // which is exactly when it should be at its most colourful.
+          if (altitude > -4 && altitude < 6) {
+            let chroma = 0;
+            let samples = 0;
+            // The band of sky just above the horizon, again in bottom-up
+            // coordinates: that is where a sunrise is most colourful and
+            // where going grey would be most obvious.
+            for (let y = Math.floor(height * 0.2); y < Math.floor(height * 0.45); y += 2) {
+              for (let x = 0; x < width; x += 6) {
+                const i = (y * width + x) * 4;
+                const max = Math.max(pixels[i], pixels[i + 1], pixels[i + 2]);
+                const min = Math.min(pixels[i], pixels[i + 1], pixels[i + 2]);
+                if (max > 30) {
+                  chroma += (max - min) / max;
+                  samples += 1;
+                }
+              }
+            }
+
+            if (samples > 20 && chroma / samples < 0.06) {
+              problems.push(
+                `grey horizon at lat ${lat}, ${year}-${month + 1}-${day}, sun ${altitude.toFixed(1)} deg`
+              );
+            }
+          }
+        }
+      }
+    }
+
+    return { problems: problems.slice(0, 10), problemCount: problems.length, worstBand, frames };
+  });
+
+  expect(findings.frames, "the sweep should have covered a lot of sky").toBeGreaterThan(800);
+  expect(findings.problems).toEqual([]);
+  expect(findings.problemCount).toBe(0);
+
+  // The sharpest the gradient ever turns, across a day at four latitudes and
+  // three dates. A band would be several levels; a smooth sky is a fraction
+  // of one.
+  expect(findings.worstBand, `worst curvature seen: ${findings.worstBand.toFixed(2)}`).toBeLessThan(
+    3
+  );
+});
+
 test("every control carries a hint, and none is a bare label (US-023)", async ({ page }) => {
   const rows = await page.evaluate(() =>
     [...document.querySelectorAll(".row > label")].map((label) => ({

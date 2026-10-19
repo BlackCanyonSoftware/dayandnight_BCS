@@ -31,6 +31,14 @@ export function input(id) {
 }
 
 /**
+ * @param {string} id
+ * @returns {HTMLSelectElement}
+ */
+export function select(id) {
+  return $(`#${id}`);
+}
+
+/**
  * @param {number} v
  * @param {number} lo
  * @param {number} hi
