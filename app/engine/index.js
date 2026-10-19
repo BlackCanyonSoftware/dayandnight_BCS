@@ -24,6 +24,7 @@ import { createFullScreenTriangle, createProgram } from "./gl/program.js";
 import { SKY_FRAG, SKY_VERT } from "./shaders.js";
 import { skyColors } from "./sky/palette.js";
 import { defaultPreset } from "./defaults.js";
+import { frameSignature } from "./signature.js";
 
 /** @typedef {import("./types.js").FrameInfo} FrameInfo */
 /** @typedef {import("./types.js").FrameRequest} FrameRequest */
@@ -31,6 +32,7 @@ import { defaultPreset } from "./defaults.js";
 
 export { sunPosition, twilightBand };
 export { defaultPreset };
+export { frameSignature };
 
 export class DayNightEngine {
   /** @param {WebGL2RenderingContext} gl */
@@ -84,6 +86,45 @@ export class DayNightEngine {
     this.quad?.dispose();
     this.sky = null;
     this.quad = null;
+  }
+
+  /**
+   * What a frame at this instant *would* be, without drawing it.
+   *
+   * Cheap and GPU-free. The host needs this every tick even when it is
+   * skipping the draw, because the clock keeps moving and the readout must
+   * follow it - a time and a sun altitude that freeze whenever the colour
+   * stops changing would be a worse bug than the cost they save.
+   *
+   * @param {FrameRequest} request
+   * @returns {FrameInfo}
+   */
+  describe(request) {
+    const sun = sunPosition(request.t, request.place);
+    return {
+      sunAltitude: sun.altitude,
+      sunAzimuth: sun.azimuth,
+      band: twilightBand(sun.altitude)
+    };
+  }
+
+  /**
+   * Would a frame drawn now differ from one drawn at the last signature?
+   *
+   * Pure, and cheap - a few hundred floating-point operations, against a full
+   * present. The host keeps the previous value and skips the frame when it
+   * matches; the engine remembers nothing (architecture invariants 1 and 2).
+   *
+   * @param {FrameRequest} request
+   * @returns {string}
+   */
+  signature(request) {
+    return frameSignature(
+      this.preset,
+      request,
+      this.gl.drawingBufferWidth,
+      this.gl.drawingBufferHeight
+    );
   }
 
   /**

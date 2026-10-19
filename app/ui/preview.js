@@ -43,9 +43,11 @@ export function createPreview(canvas, onFrame) {
       // Nothing to save. The engine's GPU objects are gone, so drop our
       // handles on them and let the next frame rebuild (ADR 0005).
       engine.release();
+      shown = null;
     },
     onRestored: () => {
       engine.build();
+      shown = null;
     }
   });
 
@@ -57,13 +59,20 @@ export function createPreview(canvas, onFrame) {
   let last = null;
   let lastRealNow = 0;
 
+  /**
+   * The signature of the frame currently on screen, or null to force a draw.
+   * Kept by the host rather than the engine, which remembers nothing.
+   * @type {string | null}
+   */
+  let shown = null;
+
   function sizeCanvas() {
     const s = span();
     const aspect = s.h === 0 ? 16 / 9 : s.w / s.h;
     const w = Math.min(MAX_PREVIEW_WIDTH, s.w);
     const h = Math.max(1, Math.round(w / aspect));
     canvas.style.aspectRatio = `${s.w} / ${s.h}`;
-    resizeToSurface(managed.gl, w, h, 1);
+    if (resizeToSurface(managed.gl, w, h, 1)) shown = null;
   }
 
   function frame() {
@@ -77,14 +86,28 @@ export function createPreview(canvas, onFrame) {
     const s = span();
 
     engine.setPreset(preset);
-    last = engine.render({
+
+    /** @type {import("../engine/types.js").FrameRequest} */
+    const request = {
       t,
       place,
       // The preview is the whole span, so its crop is the span itself.
       crop: { x: 0, y: 0, w: s.w, h: s.h },
       span: s,
       pixelRatio: 1
-    });
+    };
+
+    // The readout follows the clock every tick, whether or not anything is
+    // redrawn: a frozen time would be a worse bug than the cost it saves.
+    last = engine.describe(request);
+
+    // The draw is skipped when the result would be identical to what is
+    // already on screen - which, for a sky, is most ticks.
+    const signature = engine.signature(request);
+    if (signature !== shown) {
+      shown = signature;
+      engine.render(request);
+    }
 
     onFrame(last, t);
   }
@@ -102,6 +125,9 @@ export function createPreview(canvas, onFrame) {
     start() {
       if (timer !== null) return;
       lastRealNow = 0;
+      // A hidden preview's drawing buffer is not guaranteed to survive, so a
+      // resumed loop always draws once rather than trusting what is there.
+      shown = null;
       sizeCanvas();
       tick();
     },

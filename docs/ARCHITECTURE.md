@@ -420,3 +420,42 @@ budget.
 
 GPU time was **not measured**: there is no dependency-free way to read it on
 Windows, and a figure derived from a frame counter would not be a measurement.
+
+### Drawing only when the picture changes
+
+The owner's answer to the above was to stop redrawing frames that are
+identical, which is the first option in the roadmap's list.
+
+`engine/signature.js` builds a value from everything the fragment shader
+reads - the two gradient colours after exposure, quantised to the 8 bits a
+display can actually show, plus the gradient's shape and the geometry. The
+host keeps the last signature and presents a frame only when it changes. The
+engine itself remembers nothing, so invariants 1 and 2 both hold: the
+signature is a pure function, and the _host_ still decides when to draw.
+
+Comparing colours rather than elapsed time or a rounded sun altitude avoids
+choosing a threshold, which would have to be wrong somewhere - the sky changes
+far faster at sunrise than at noon. This is exactly as sensitive as the display
+is, and it follows the sky's own pace: nearly static through the night, every
+frame through sunrise. Because consecutive drawn frames differ by at most one
+quantisation step, "redraws rarely" and "looks continuous" are the same
+statement rather than a trade-off.
+
+Over 21 June at Denver, sampled at 20 fps:
+
+|                          |           |
+| ------------------------ | --------- |
+| Ticks in a day at 20 fps | 1,728,000 |
+| Frames actually drawn    | 5,432     |
+| Reduction                | 99.7 %    |
+| Average draws per second | 0.06      |
+
+**The CPU figure has not been re-measured yet** - that needs the owner's
+desktop, and doing it while someone is working interrupts them. The draw-count
+reduction above is measured; the CPU saving it should produce is not, and NFR-1
+stays open until it is. The expectation is that the per-frame component
+(about 0.29 % of one core per fps across two screens, so roughly 4.4 % at the
+default) very nearly disappears, leaving whatever the floor turns out to be -
+and the floor is the number the contradictory samples left unknown. If it is
+genuinely around 4.5 %, drawing less will not be enough on its own and the
+remaining options in the roadmap come back into play.

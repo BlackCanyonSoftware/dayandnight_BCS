@@ -68,23 +68,44 @@ let fps = 20;
 /** @type {number | null} */
 let timer = null;
 
+/**
+ * The signature of the frame currently on screen, or null to force a draw.
+ *
+ * This is where skipping unchanged frames actually earns its keep: a
+ * wallpaper redraws for years, and the sky it is drawing changes colour by
+ * less than one 8-bit step for seconds at a time. Kept here rather than in
+ * the engine, which remembers nothing (architecture invariants 1 and 2).
+ *
+ * @type {string | null}
+ */
+let shown = null;
+
 const managed = createContext(canvas, {
-  onLost: () => engine.release(),
-  onRestored: () => engine.build()
+  onLost: () => {
+    engine.release();
+    shown = null;
+  },
+  onRestored: () => {
+    engine.build();
+    shown = null;
+  }
 });
 
 const engine = new DayNightEngine(managed.gl);
 
 function frame() {
-  resizeToSurface(
+  const resized = resizeToSurface(
     managed.gl,
     canvas.clientWidth || geometry.crop.w,
     canvas.clientHeight || geometry.crop.h,
     geometry.pixelRatio
   );
+  if (resized) shown = null;
 
   engine.setPreset(preset);
-  engine.render({
+
+  /** @type {import("./engine/types.js").FrameRequest} */
+  const request = {
     // The live wallpaper always renders the real now. Only the editor ever
     // chooses a different timestamp.
     t: Date.now(),
@@ -92,7 +113,13 @@ function frame() {
     crop: geometry.crop,
     span: geometry.span,
     pixelRatio: geometry.pixelRatio
-  });
+  };
+
+  const signature = engine.signature(request);
+  if (signature === shown) return;
+
+  shown = signature;
+  engine.render(request);
 }
 
 function tick() {
@@ -116,7 +143,12 @@ function tick() {
  */
 function setRunning(running) {
   if (running) {
-    if (timer === null) tick();
+    if (timer === null) {
+      // The drawing buffer is not guaranteed to survive a pause, so a resumed
+      // loop always draws once rather than trusting what is on screen.
+      shown = null;
+      tick();
+    }
     return;
   }
   if (timer !== null) {
@@ -142,6 +174,8 @@ async function boot() {
       // so a preset change is visible immediately rather than up to a frame
       // later, which at 5 fps is a fifth of a second of staleness.
       if (!changed && timer !== null) frame();
+      // A new preset changes the signature, so the next frame draws itself;
+      // nothing needs forcing here.
     });
 
     api.onGeometry((next) => {

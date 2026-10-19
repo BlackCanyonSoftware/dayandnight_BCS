@@ -41,6 +41,8 @@ as finished.
   quarter of an hour out. Milestone 1 replaces the arithmetic and holds it to
   the half-degree the product promises.
 - **It costs more than it should.** At 20 frames a second on two screens it
-  uses about 8.5% of one CPU core against a budget of 2%, and about 570 MB.
-  Measured, not estimated; see `docs/ARCHITECTURE.md`. This is the open
-  question of Milestone 0 and is being decided before more is built on it.
+  used about 8.5% of one CPU core against a budget of 2%, and about 570 MB.
+  Measured, not estimated; see `docs/ARCHITECTURE.md`. The application now
+  skips frames that would look identical, which removes 99.7% of the
+  redrawing over a day - but **the resulting CPU saving has not been measured
+  yet**, so the budget is still formally unmet.
