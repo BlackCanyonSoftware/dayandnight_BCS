@@ -127,6 +127,24 @@ Windows 10 1903 or later, and a GPU with working WebGL2.
 
 ## Licence
 
-Not yet decided - it is open question OQ-4 in [`docs/PRD.md`](docs/PRD.md), and
-is needed before Milestone 2. Third-party notices, when there are any, will go
-in `licenses/`.
+Proprietary. All rights reserved. This repository being visible grants no
+licence to copy, modify or use it - the terms are in
+[`LICENSE`](LICENSE) and [`licenses/SOURCE-LICENSE.md`](licenses/SOURCE-LICENSE.md).
+
+A released build is licensed to the person who installs it under
+[`licenses/EULA.md`](licenses/EULA.md), with the disclaimers, the privacy notice
+and the third-party notices beside it. [`licenses/README.md`](licenses/README.md)
+says which document applies where, and what is still to be filled in before a
+release. [ADR 0006](docs/adr/0006-proprietary-licence-and-nsis-installer.md)
+records the decision.
+
+## Building the installer
+
+```
+npm run build
+```
+
+Writes a Windows installer to `dist/`. It is unsigned unless `CSC_LINK` and
+`CSC_KEY_PASSWORD` are in the environment, and it carries Electron's default
+icon, because there is no brand yet - so a build made today is for a test
+machine, not for release.

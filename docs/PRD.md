@@ -250,8 +250,11 @@ accounts or any server; video export; audio reactivity.
   theme by default, or the sun altitude it is already computing? The second is a
   better joke and a worse default. Recommendation: follow Windows, offer the
   other.
-- **OQ-4** Licensing and distribution: the same EULA and installer shape as
-  Pixel Galaxy Studio, or different? Needed before Milestone 2.
+- **OQ-4** ~~Licensing and distribution: the same EULA and installer shape as
+  Pixel Galaxy Studio, or different?~~ **Decided 2026-10-19:** the same shape,
+  adapted rather than copied, and a Windows NSIS installer and nothing else in
+  v1. See [ADR 0006](adr/0006-proprietary-licence-and-nsis-installer.md) for
+  what changed and why, and `licenses/` for the documents.
 
 ## 11. Glossary
 

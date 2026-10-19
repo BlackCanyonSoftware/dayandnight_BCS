@@ -21,6 +21,12 @@ turning at the sidereal rate, and a grade over the top.
 - **NFR-1: met.** 0.15 % of one core against a 2 % budget, on two screens with
   the editor closed. See `ARCHITECTURE.md` under Measurement, Milestone 1. GPU
   time and GPU memory are still unmeasured.
+- **Licensing and packaging: decided and built** (OQ-4, ADR 0006). Proprietary,
+  the same seven-document shape as Pixel Galaxy Studio, adapted; a Windows NSIS
+  installer from `npm run build`. The installer builds green and bundles its
+  documents. **A build is not releasable yet** for two reasons that are both
+  owner decisions rather than work: there is no icon, because there is no brand,
+  and there is no code-signing certificate.
 - **CI:** written, **never run**, because nothing has been pushed.
 
 ## Milestone 1, what it left behind
@@ -45,13 +51,16 @@ Two things to know before changing any of it:
 ## Next steps
 
 1. **Verify by hand what only a person can:** a full-screen game pausing the
-   wallpaper, and a system time-zone change with the application running. These
-   are the last two unobserved claims in the project.
-2. **Decide OQ-4, licensing and the installer.** It blocks Milestone 2 and
-   there is still no `LICENSE` file; `package.json` says `UNLICENSED`.
-3. Then **Milestone 2**: the span across several screens, the full pause
-   policy, the tray icon and autostart, monitor hot-plug, and NFR-1 re-measured
-   with three screens active.
+   wallpaper, a system time-zone change with the application running, and now
+   **the installed build putting a sky on the desktop**. The third is new: the
+   packaging work can prove the native binary is in the right place but not that
+   it loads, because that needs the installed application to be launched. The
+   installer is at `dist/dayandnight-0.1.0-win-x64.exe`; the unpacked build at
+   `dist/win-unpacked/Day and Night.exe` runs without installing anything.
+2. Then **Milestone 2**: the span across several screens, the full pause policy,
+   the tray icon and autostart, monitor hot-plug, the About window that opens
+   the documents the build already ships, and NFR-1 re-measured with three
+   screens active.
 
 ### Older, still open
 
@@ -68,8 +77,12 @@ Two things to know before changing any of it:
 - **OQ-2** How many cities in the bundled picker? (Recommend 1,000.)
 - **OQ-3** Editor theme follows Windows or the sun? (Recommend Windows; it is
   built and defaults to dark with a three-way toggle.)
-- **OQ-4** Licensing and installer shape. **Needed before Milestone 2.** There
-  is no `LICENSE` file yet and `package.json` says `UNLICENSED`.
+- ~~**OQ-4** Licensing and installer shape.~~ **Decided 2026-10-19:**
+  proprietary, PGS's document shape adapted, Windows NSIS installer. ADR 0006.
+  What is left is not a question but four `[[ ]]` placeholders only the owner can
+  fill - publisher legal name and form, governing law and venue, support address,
+  whether any mark is registered - plus a lawyer's single pass over `EULA.md` and
+  `DISCLAIMER.md`. None of it blocks Milestone 2; all of it blocks a release.
 - **The brand.** `app/brand/` is empty by design and the sidebar slot holds its
   space. There is still no `dayandnight-bcs` brand in the kit at
   `C:\Users\Kpier\Documents\brand logos`.
@@ -104,6 +117,41 @@ Two things to know before changing any of it:
 - **Never attribute anything to an assistant**, and **never push**.
 
 ## Session log
+
+### 2026-10-19 - OQ-4 settled: proprietary, and a Windows installer that exists
+
+- **Decided and built both halves of OQ-4** (ADR 0006). Licensing is Pixel
+  Galaxy Studio's shape - a short root `LICENSE` pointing into seven documents
+  in `licenses/` - and distribution is a Windows NSIS installer, not one-click,
+  with no auto-update and signing from the environment only.
+- **Adapted the documents rather than copying them**, which was most of the
+  work. Day and Night is legally smaller than PGS - no video, so no codec or
+  format clauses; no bundled fonts, so no OFL - and technically riskier, so
+  `DISCLAIMER.md` has three sections PGS has no need for: what it means to leave
+  a nearly-still picture on an OLED screen all day, that the astronomy is
+  decoration and must not be relied on for navigation or observance, and that
+  drawing behind the desktop icons uses undocumented Windows behaviour that can
+  stop working. Every Steam-specific paragraph was dropped, since nothing ships
+  through Steam.
+- **Kept ADR 0002's promise**, finally: koffi and its prebuilt binary are in
+  `licenses/THIRD-PARTY-NOTICES.md` with their licence texts. The notices file
+  also records that the city list was typed by hand rather than taken from a
+  gazetteer, which is a licensing fact as much as an accuracy one.
+- **Built the installer and it works**: 112 MB, `dist/`. The one risk specific
+  to this product is that koffi's native binary cannot be loaded from inside an
+  asar archive, so `desktop/build/check-bundle.js` now asserts a `.node` exists
+  under `resources/app.asar.unpacked` by walking the directory, alongside the
+  legal-document check it inherited. Verified the asar entry really is marked
+  `unpacked: true` and that the installer really is `NotSigned`, rather than
+  trusting either.
+- **electron-builder's own warning is wrong.** It calls `directories.app: .`
+  "superfluous or wrong configuration"; removing it makes the build fail,
+  because it then finds the directory literally named `app/` and treats that as
+  the application package. The line is back, with the reason written beside it
+  so nobody obliges the warning again.
+- **Not verified, and it cannot be from here:** that the _installed_ build puts
+  a sky on the desktop. Packaging can prove the binary is in the right place,
+  not that it loads. It needs someone to launch it.
 
 ### 2026-10-19 - NFR-1 measured and met, and the harness that was measuring it wrong
 

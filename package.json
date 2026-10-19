@@ -4,7 +4,7 @@
   "private": true,
   "description": "A live Windows desktop wallpaper that renders the real sky for your own time and place.",
   "author": "Black Canyon Software",
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "main": "desktop/main.js",
   "type": "commonjs",
   "engines": {
@@ -15,7 +15,7 @@
     "desktop": "electron .",
     "serve": "node tools/serve.js 5178",
     "start": "node tools/serve.js 5178 --open --auto-exit",
-    "build": "electron-builder",
+    "build": "electron-builder --win",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{js,mjs,cjs,css,html,md,json,yml}\"",
     "format:check": "prettier --check \"**/*.{js,mjs,cjs,css,html,md,json,yml}\"",

@@ -164,7 +164,10 @@ larger than the gradient warrants rather than merely a step.
 
 Makes it something a person can actually leave running.
 
-**Scope.** US-012, US-013, plus OQ-1 (tray icon and autostart).
+**Scope.** US-012, US-013, plus OQ-1 (tray icon and autostart). The
+licensing and packaging half of what used to block this milestone is done
+ahead of it - see ADR 0006 - so what is left here is the product, not the
+paperwork.
 
 - Span arithmetic and per-monitor crop rectangles, ported from Pixel Galaxy
   Studio's `ui/output.js`.
@@ -173,6 +176,10 @@ Makes it something a person can actually leave running.
 - Tray icon and autostart.
 - Monitor hot-plug: a screen arriving or leaving adds or removes its window
   without disturbing the others.
+- The About window, which shows the EULA, the disclaimers, the privacy notice
+  and the third-party notices that `electron-builder.yml` already copies next
+  to the application. The documents ship today and nothing in the application
+  opens them yet.
 
 **Exit criteria.**
 
@@ -184,6 +191,9 @@ Makes it something a person can actually leave running.
 - Every pause signal verified by hand, each with the observed result written
   down.
 - NFR-1 re-measured with three monitors active.
+- The installed build - not the one run from source - puts a sky on the desktop
+  on a machine that has never had the project. This is the one claim ADR 0006's
+  packaging work could not verify for itself.
 
 ## Later
 
@@ -224,13 +234,18 @@ WCAG 2.2 AA.
 
 Every TODO in the code has an entry here.
 
-| Item                                                                                                                                     | Why it was accepted                                                                                                                                                                | Where                       | Severity |
-| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------- |
-| **No comparison against an external ephemeris table.** Accuracy is checked against the algorithms' own published worked examples instead | A bundled reference table is licensed data and a decision of its own. The margin is four to five orders of magnitude inside the requirement, so this buys confidence, not accuracy | `tests/unit/solar`, `lunar` | Low      |
-| **GPU time and GPU memory are not measured**, so NFR-1's 4 % GPU and 80 MB-per-screen lines are unverified rather than met               | There is no dependency-free way to read either on Windows, and a figure derived from a frame counter would not be a measurement                                                    | `tools/measure-cost.js`     | Medium   |
-| **Working set is about 488 MB** across the shell and two surfaces, roughly double ADR 0001's 150-250 MB estimate                         | It is not the quantity NFR-1 budgets, and the CPU budget - the one that decides whether the product can run all day - is met with room. Worth a pass, not worth blocking on        | the Electron host           | Low      |
-| **The city list is typed by hand**, about a hundred entries at a tenth of a degree                                                       | A real gazetteer is a licensed data file. The tests check every entry against its own time zone and against the sun's seasonal swing, so an error is caught rather than trusted    | `app/ui/cities.js`          | Low      |
-| **The moon is drawn about 30x dimmer than life**                                                                                         | At its true radiance it blows out the tone map and washes the stars out of a night sky, which is the opposite of what people recognise. Documented at the constant                 | `app/engine/bodies.js`      | Low      |
+| Item                                                                                                                                     | Why it was accepted                                                                                                                                                                                           | Where                       | Severity |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------- |
+| **No comparison against an external ephemeris table.** Accuracy is checked against the algorithms' own published worked examples instead | A bundled reference table is licensed data and a decision of its own. The margin is four to five orders of magnitude inside the requirement, so this buys confidence, not accuracy                            | `tests/unit/solar`, `lunar` | Low      |
+| **GPU time and GPU memory are not measured**, so NFR-1's 4 % GPU and 80 MB-per-screen lines are unverified rather than met               | There is no dependency-free way to read either on Windows, and a figure derived from a frame counter would not be a measurement                                                                               | `tools/measure-cost.js`     | Medium   |
+| **Working set is about 488 MB** across the shell and two surfaces, roughly double ADR 0001's 150-250 MB estimate                         | It is not the quantity NFR-1 budgets, and the CPU budget - the one that decides whether the product can run all day - is met with room. Worth a pass, not worth blocking on                                   | the Electron host           | Low      |
+| **The city list is typed by hand**, about a hundred entries at a tenth of a degree                                                       | A real gazetteer is a licensed data file. The tests check every entry against its own time zone and against the sun's seasonal swing, so an error is caught rather than trusted                               | `app/ui/cities.js`          | Low      |
+| **A build has no icon**, so it carries Electron's default and is not releasable                                                          | `app/brand/` is empty by design, awaiting the owner's logo. A placeholder graphic would be worse: it would look finished and would ship if nobody remembered. `win.icon` is deliberately absent and commented | `electron-builder.yml`      | High     |
+| **The installer is unsigned**, so Windows shows a SmartScreen warning                                                                    | A code-signing certificate is a purchase and an owner decision. The configuration takes one from `CSC_LINK` at release time, so this is a release step and not a code change                                  | `electron-builder.yml`      | High     |
+| **Four `[[ ]]` placeholders in `licenses/`**: publisher legal name and form, governing law and venue, support address, registered marks  | Only the owner can supply them, and a lawyer reads `EULA.md` and `DISCLAIMER.md` once before release. They block a release and nothing before it                                                              | `licenses/`                 | High     |
+| **No auto-update.** A user who installs v1 stays on v1 until they download the next one                                                  | There is no update server, and a wallpaper that replaces itself while running is a problem to solve deliberately. Revisit when there is a second version to ship                                              | `electron-builder.yml`      | Medium   |
+| **The Microsoft Store route is unproven.** A packaged app's restrictions may forbid `SetParent` into Explorer's window tree              | ADR 0006 rejected MSIX for v1 on this risk rather than measuring it. Worth an afternoon before any plan depends on the Store                                                                                  | `desktop/host-win32.js`     | Low      |
+| **The moon is drawn about 30x dimmer than life**                                                                                         | At its true radiance it blows out the tone map and washes the stars out of a night sky, which is the opposite of what people recognise. Documented at the constant                                            | `app/engine/bodies.js`      | Low      |
 
 ## Deliberately not doing
 

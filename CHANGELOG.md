@@ -29,6 +29,17 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Settings are kept in the OS app-data folder and written atomically, and can
   be saved out as a file.
 
+- **A Windows installer**, built with one command. It lets you choose where it
+  goes rather than installing itself silently, and it carries the licence, the
+  disclaimers, the privacy notice and the third-party notices next to the
+  application.
+- **The legal documents the product ships with**, in `licenses/`: what you may
+  do with it, what it does with your location (nothing leaves your computer),
+  and three things worth knowing before you leave a picture on a screen all
+  day - image retention, that the sun and moon are decoration rather than an
+  instrument, and that drawing behind your desktop icons relies on undocumented
+  Windows behaviour that can stop working.
+
 ### Changed
 
 - **The wallpaper now costs almost nothing to leave running.** It redraws only

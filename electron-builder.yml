@@ -1,0 +1,81 @@
+# The Windows build, from one command: npm run build
+#
+# Windows only, deliberately. The PRD's non-goals say v1 is Windows 10 and 11,
+# and the whole product rests on parenting a window into Explorer's desktop
+# window tree (ADR 0002), which has no equivalent elsewhere. The engine is
+# written so that another platform is a host swap rather than a rewrite, so
+# when there is a macOS host there will be a `mac:` section here.
+#
+# Signing is by environment, never by a file in the repository:
+#   CSC_LINK / CSC_KEY_PASSWORD   (a code-signing certificate)
+# Without them the build still runs and the result is unsigned, which is fine
+# for a test machine and not for a release: an unsigned installer earns a
+# SmartScreen warning, which on a wallpaper that asks to start at login is the
+# difference between a download and an uninstall.
+appId: com.blackcanyonsoftware.dayandnight
+productName: Day and Night
+copyright: Copyright © 2026 Black Canyon Software
+artifactName: ${name}-${version}-${os}-${arch}.${ext}
+
+directories:
+  # The project root is the app. electron-builder prints "superfluous or wrong
+  # configuration" for this line and is mistaken: without it, it finds the
+  # directory literally named app/ and treats THAT as the application package,
+  # which fails with "Please specify name in the package.json" because
+  # app/package.json exists only to mark the page as ES modules for Node. The
+  # warning is the cost of the line; dropping it costs the build.
+  app: .
+  output: dist
+  buildResources: desktop/build
+
+# the page, the shell and nothing else; the dev tooling, tests and docs stay out
+files:
+  - app/**/*
+  - desktop/**/*
+  - "!desktop/build/**"
+  - package.json
+  - "!**/*.map"
+
+# the legal documents, next to the app. licenses/README.md is left out on
+# purpose: it is written for contributors, and the four documents a customer is
+# entitled to are listed in check-bundle.js, which fails the build without them.
+extraResources:
+  - from: licenses
+    to: licenses
+    filter:
+      - "**/*"
+      - "!README.md"
+      - "!SOURCE-LICENSE.md"
+
+asar: true
+
+# koffi's native binary cannot be loaded from inside an asar archive, so it has
+# to sit outside it. This is the one thing this build does that Pixel Galaxy
+# Studio's never had to: it ships no native code. check-bundle.js asserts the
+# binary actually landed, because the failure mode otherwise is an installed
+# application that starts and then cannot find the desktop.
+asarUnpack:
+  - "**/*.node"
+  - "**/node_modules/@koromix/**"
+
+afterPack: desktop/build/check-bundle.js
+compression: normal
+
+# No auto-update in v1. There is no update server, and a wallpaper that
+# replaces itself while running is a problem to solve deliberately rather than
+# by switching a flag on.
+publish: null
+
+win:
+  target:
+    - nsis
+  # No `icon:` yet. There is no brand: app/brand/ is empty by design, awaiting
+  # the owner's logo, so a build made today carries Electron's default icon.
+  # That is fine for a test machine and is NOT releasable - see the roadmap.
+nsis:
+  # Not one-click: a wallpaper is something people want to put where they
+  # choose, and a silent installer that just happens is the wrong first
+  # impression for a program that is going to run all day.
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: Day and Night

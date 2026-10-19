@@ -23,6 +23,7 @@ and the user's coordinates. **Rigor tier: MVP.**
 | `npm run test:e2e`                | Playwright, the editor in a browser                                      |
 | `npm run test:desktop`            | Playwright, the real Electron app. **Opens windows.**                    |
 | `npm run check`                   | lint + format + typecheck + unit + e2e                                   |
+| `npm run build`                   | Build the Windows installer into `dist/`. Opens nothing, takes minutes.  |
 | `node tools/probe-host.js`        | Check the WorkerW technique on this machine. Opens nothing.              |
 | `node tools/measure-cost.js`      | Measure NFR-1. **Opens windows, takes minutes.**                         |
 

@@ -151,7 +151,11 @@ A deliberate change to the look refreshes the image references
 Justify every one: maintenance, size, licence. Verify the exact package name
 and publisher before installing - look-alike and invented package names are a
 real supply-chain risk. Anything third-party goes in
-`licenses/THIRD-PARTY-NOTICES.md` in the commit that adds it.
+`licenses/THIRD-PARTY-NOTICES.md` in the commit that adds it, with its licence
+text in `licenses/third-party/`; if it ships, it also goes in `REQUIRED` in
+`desktop/build/check-bundle.js`, so that a build which drops its licence fails
+instead of shipping. `licenses/README.md` has the full rule, including which
+licences need the owner's decision.
 
 The runtime dependency list is one entry long (`koffi`, for five Win32 calls,
 ADR 0002). Keep it short.
