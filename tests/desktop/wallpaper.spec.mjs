@@ -1,0 +1,191 @@
+import { _electron as electron } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+/**
+ * Milestone 0's exit criteria, checked against the real application.
+ *
+ * These are the tests that justify the milestone: whether Electron can hold a
+ * window behind the desktop icons at all (ADR 0001, ADR 0002), and whether the
+ * editor and the wallpaper draw the same sky from the same engine.
+ *
+ * They run on Windows only. Everywhere else the host falls back by design, and
+ * asserting the fallback on a platform that has no desktop to attach to would
+ * test nothing.
+ */
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+/** @type {import("@playwright/test").ElectronApplication} */
+let app;
+/** @type {import("@playwright/test").Page} */
+let editor;
+
+test.beforeEach(async () => {
+  app = await electron.launch({
+    args: [root],
+    cwd: root
+  });
+  editor = await app.firstWindow();
+  await editor.waitForLoadState("domcontentloaded");
+});
+
+test.afterEach(async () => {
+  await app.close();
+});
+
+test("the editor opens and renders a sky through the engine", async () => {
+  await expect(editor.locator("#preview")).toBeVisible();
+
+  // The page API is the contract the editor promises a test or a script.
+  const frame = await editor.evaluate(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    return window.DayAndNight.lastFrame();
+  });
+
+  expect(frame, "the engine should have rendered at least one frame").not.toBeNull();
+  expect(Number.isFinite(frame.sunAltitude)).toBe(true);
+  expect(frame.sunAltitude).toBeGreaterThanOrEqual(-90);
+  expect(frame.sunAltitude).toBeLessThanOrEqual(90);
+  expect(["day", "civil", "nautical", "astronomical", "night"]).toContain(frame.band);
+});
+
+test("it is served from the application's own secure scheme, not file://", async () => {
+  // ADR 0001: a custom standard scheme rather than file://, which is not a
+  // secure context and would cost ES modules and a well-behaved WebGL context.
+  expect(editor.url()).toMatch(/^dayandnight:\/\/app\/index\.html$/);
+  expect(await editor.evaluate(() => window.isSecureContext)).toBe(true);
+});
+
+test("the renderer is locked down", async () => {
+  // contextIsolation on, nodeIntegration off, sandbox on. If any of these
+  // regress, a bug in the page becomes a bug on the user's machine.
+  const exposure = await editor.evaluate(() => ({
+    node: typeof globalThis.require,
+    process: typeof globalThis.process,
+    bridge: typeof globalThis.dayAndNight
+  }));
+
+  expect(exposure.node, "require must not be reachable from the page").toBe("undefined");
+  expect(exposure.process, "process must not be reachable from the page").toBe("undefined");
+  expect(exposure.bridge, "the named bridge should be there").toBe("object");
+});
+
+test("the editor reports the screens the shell sees", async () => {
+  const monitors = await editor.evaluate(() => window.dayAndNight.getMonitors());
+
+  expect(Array.isArray(monitors)).toBe(true);
+  expect(monitors.length).toBeGreaterThan(0);
+
+  for (const monitor of monitors) {
+    expect(monitor.bounds.w).toBeGreaterThan(0);
+    expect(monitor.bounds.h).toBeGreaterThan(0);
+    expect(monitor.scale).toBeGreaterThan(0);
+  }
+  expect(monitors.filter((m) => m.primary).length).toBe(1);
+});
+
+test("turning the wallpaper on puts a window behind the desktop icons", async () => {
+  test.skip(process.platform !== "win32", "the desktop host is Windows-only");
+
+  const before = await editor.evaluate(() => window.dayAndNight.getWallpaperState());
+  expect(before.on).toBe(false);
+
+  await editor.locator("#wallBtn").click();
+
+  // The surfaces are created at once but can only attach to the desktop once
+  // each is ready to show, so wait for the host to settle rather than for the
+  // windows to exist. "starting" is exactly the state that distinguishes them.
+  await expect
+    .poll(async () => (await editor.evaluate(() => window.dayAndNight.getWallpaperState())).host, {
+      timeout: 20_000
+    })
+    .not.toBe("starting");
+
+  const state = await editor.evaluate(() => window.dayAndNight.getWallpaperState());
+  expect(state.on).toBe(true);
+
+  expect(state.screens, "one surface per screen").toBeGreaterThan(0);
+
+  // The real assertion of the milestone. "fallback" is a supported degraded
+  // mode, but on a healthy Windows desktop it means the technique broke, so
+  // this must be the real thing.
+  expect(
+    state.host,
+    `expected the WorkerW host; got "${state.host}"${state.reason ? ` (${state.reason})` : ""}`
+  ).toBe("workerw");
+
+  // One BrowserWindow per screen, plus the editor.
+  const windowCount = await app.evaluate(
+    ({ BrowserWindow }) => BrowserWindow.getAllWindows().length
+  );
+  expect(windowCount).toBe(state.screens + 1);
+});
+
+test("the wallpaper surface draws the same engine as the preview", async () => {
+  test.skip(process.platform !== "win32", "the desktop host is Windows-only");
+
+  await editor.locator("#wallBtn").click();
+  await expect
+    .poll(async () => (await editor.evaluate(() => window.dayAndNight.getWallpaperState())).host, {
+      timeout: 20_000
+    })
+    .not.toBe("starting");
+
+  const windows = app.windows();
+  const surface = windows.find((w) => w.url().includes("wallpaper.html"));
+  expect(surface, "a wallpaper window should exist").toBeTruthy();
+
+  await surface.waitForLoadState("domcontentloaded");
+
+  // The surface has no page API - it is deliberately the smallest possible
+  // document - so it is checked by reading the pixels it actually drew.
+  const pixel = await surface.evaluate(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const canvas = document.getElementById("surface");
+    const gl = canvas.getContext("webgl2");
+    const data = new Uint8Array(4);
+    gl.readPixels(
+      Math.floor(gl.drawingBufferWidth / 2),
+      Math.floor(gl.drawingBufferHeight / 2),
+      1,
+      1,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      data
+    );
+    return { rgba: Array.from(data), w: gl.drawingBufferWidth, h: gl.drawingBufferHeight };
+  });
+
+  expect(pixel.w, "the surface should be sized to its monitor").toBeGreaterThan(0);
+  expect(pixel.rgba[3], "the sky is opaque").toBe(255);
+
+  // It drew *something*: a sky is never pure black, even at astronomical
+  // night, because the zenith keyframe is #05070f rather than #000000.
+  const brightness = pixel.rgba[0] + pixel.rgba[1] + pixel.rgba[2];
+  expect(brightness, "the surface should have drawn a sky, not stayed blank").toBeGreaterThan(0);
+});
+
+test("turning it off takes every surface away", async () => {
+  test.skip(process.platform !== "win32", "the desktop host is Windows-only");
+
+  await editor.locator("#wallBtn").click();
+  await expect
+    .poll(async () => (await editor.evaluate(() => window.dayAndNight.getWallpaperState())).host, {
+      timeout: 20_000
+    })
+    .not.toBe("starting");
+
+  await editor.locator("#wallBtn").click();
+  await expect
+    .poll(async () => (await editor.evaluate(() => window.dayAndNight.getWallpaperState())).on, {
+      timeout: 10_000
+    })
+    .toBe(false);
+
+  const windowCount = await app.evaluate(
+    ({ BrowserWindow }) => BrowserWindow.getAllWindows().length
+  );
+  expect(windowCount, "only the editor should be left").toBe(1);
+});
