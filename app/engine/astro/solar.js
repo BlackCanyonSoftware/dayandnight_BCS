@@ -2,41 +2,43 @@
 /**
  * Where the sun is.
  *
- * ---------------------------------------------------------------------------
- * MILESTONE 0 PLACEHOLDER. This is not the real algorithm.
+ * Meeus, *Astronomical Algorithms*, chapter 25 ("Solar Coordinates"), the
+ * lower-accuracy series - which is still good to about 0.01 degrees, fifty
+ * times finer than the half-degree US-001 asks for and far finer than anything
+ * a sky gradient can show.
  *
- * It is accurate to roughly 1-2 degrees, which is enough to drive a walking
- * skeleton and to make a gradient move convincingly over a day, and is **not**
- * enough for US-001, which requires better than 0.5 degrees.
+ * This replaces the Milestone 0 placeholder, which was good to a degree or two
+ * and ignored the equation of time. What that means in practice: the sun now
+ * arrives at the right place at the right *minute*, where before the whole day
+ * could be a quarter of an hour out.
  *
- * What is wrong with it, specifically:
+ * The chain is always the same, and every function here is a step of it:
  *
- * - **The equation of time is ignored.** Real solar noon drifts from clock
- *   noon by up to about 16 minutes over the year (the analemma). This treats
- *   them as the same, so the whole day can be a quarter of an hour out.
- * - **Declination is a cosine approximation** against day-of-year rather than
- *   the sun's true longitude, worth another degree or so, and worst at the
- *   equinoxes - where it matters most, because that is when the sun crosses
- *   the horizon fastest.
- * - **No refraction.** The real sun is visible when it is geometrically about
- *   0.57 degrees below the horizon, which is why sunrise is earlier than the
- *   geometry says.
- * - **No parallax, no nutation, no aberration.** All small, all real.
- *
- * Milestone 1 replaces this file with a Meeus-grade implementation and the
- * unit tests that hold it to 0.5 degrees against published ephemerides. The
- * *interface* below is final; only the arithmetic changes. Tracked in
- * docs/ROADMAP.md under tech debt.
- * ---------------------------------------------------------------------------
+ *   timestamp -> Julian Day -> ephemeris day -> the Sun's ecliptic longitude
+ *   -> right ascension and declination -> altitude and azimuth here, now
  *
  * @module engine/astro/solar
  */
 
-const DEG = Math.PI / 180;
-const RAD = 180 / Math.PI;
+import {
+  eclipticToEquatorial,
+  equatorialToHorizontal,
+  meanObliquity,
+  nutation,
+  refraction
+} from "./coords.js";
+import {
+  cosDeg,
+  julianCenturies,
+  sinDeg,
+  toEphemerisDay,
+  toJulianDay,
+  wrap180,
+  wrap360
+} from "./julian.js";
+import { localSiderealTime } from "./sidereal.js";
 
-/** Earth's axial tilt, degrees. */
-const OBLIQUITY = 23.4397;
+/** @typedef {import("./coords.js").Equatorial} Equatorial */
 
 /**
  * @typedef {object} Place
@@ -46,94 +48,137 @@ const OBLIQUITY = 23.4397;
 
 /**
  * @typedef {object} SunPosition
- * @property {number} altitude degrees above the horizon; negative below
+ * @property {number} altitude degrees above the horizon, refracted; negative below
+ * @property {number} trueAltitude degrees, geometric, before refraction
  * @property {number} azimuth degrees clockwise from north, 0..360
- * @property {number} declination degrees; the sun's tilt for this date
- * @property {number} hourAngle degrees; negative before solar noon
+ * @property {number} declination degrees
+ * @property {number} rightAscension degrees
+ * @property {number} hourAngle degrees, negative before solar noon
+ * @property {number} distance astronomical units
+ * @property {number} eclipticLongitude degrees, apparent
  */
 
 /**
- * The sun's apparent position for an instant and a place.
+ * The Sun's apparent position for an instant and a place.
  *
- * Takes the timestamp as an argument and never reads the clock, so that the
- * live wallpaper and the editor's time scrubber are the same code path
- * (architecture invariant 1).
+ * Takes the timestamp as an argument and never reads the clock, so the live
+ * wallpaper and the editor's scrubber are the same code path (architecture
+ * invariant 1).
  *
  * @param {number} t milliseconds since the Unix epoch, UTC
  * @param {Place} place
  * @returns {SunPosition}
  */
 export function sunPosition(t, place) {
-  const lat = place.lat * DEG;
+  const jd = toJulianDay(t);
+  const T = julianCenturies(toEphemerisDay(jd));
 
-  const declination = solarDeclination(t);
-  const dec = declination * DEG;
+  const { longitude, distance } = solarEcliptic(T);
 
-  const hourAngle = solarHourAngle(t, place.lon);
-  const H = hourAngle * DEG;
+  const trueObliquity = meanObliquity(T) + nutation(T).obliquity;
+  const equatorial = eclipticToEquatorial(longitude, 0, trueObliquity);
 
-  // The standard altitude-azimuth transform from the hour angle.
-  const sinAlt = Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec) * Math.cos(H);
-  const altitude = Math.asin(clamp(sinAlt, -1, 1));
+  const lst = localSiderealTime(jd, place.lon);
+  const horizontal = equatorialToHorizontal(equatorial, lst, place.lat);
 
-  // Azimuth from north. acos gives 0..180, which is the morning half; the
-  // afternoon is its mirror, chosen by the sign of the hour angle.
-  const cosAz =
-    (Math.sin(dec) - Math.sin(altitude) * Math.sin(lat)) / (Math.cos(altitude) * Math.cos(lat));
-  let azimuth = Math.acos(clamp(cosAz, -1, 1)) * RAD;
-  if (hourAngle > 0) azimuth = 360 - azimuth;
+  // The refracted altitude is what a person actually sees, and is what the
+  // sky should be drawn from: it is the reason sunrise happens while the Sun
+  // is still geometrically below the horizon.
+  const altitude = horizontal.altitude + refraction(horizontal.altitude);
 
   return {
-    altitude: altitude * RAD,
-    azimuth,
-    declination,
-    hourAngle
+    altitude,
+    trueAltitude: horizontal.altitude,
+    azimuth: horizontal.azimuth,
+    declination: equatorial.declination,
+    rightAscension: equatorial.rightAscension,
+    hourAngle: wrap180(lst - equatorial.rightAscension),
+    distance,
+    eclipticLongitude: longitude
   };
 }
 
 /**
- * The sun's declination, degrees.
+ * The Sun's apparent ecliptic longitude and distance.
  *
- * Placeholder: a cosine against day-of-year, with the phase set so that the
- * minimum lands near the December solstice. Good to one or two degrees.
+ * Meeus 25.2 onwards. The Sun has no ecliptic latitude worth the name - under
+ * a second of arc - so it is taken as zero throughout.
  *
- * @param {number} t
- * @returns {number}
+ * @param {number} T Julian centuries since J2000, in TT
+ * @returns {{ longitude: number, distance: number, trueAnomaly: number, meanAnomaly: number }}
  */
-export function solarDeclination(t) {
-  const n = dayOfYearUtc(t);
-  // 10 days: the offset from 1 January back to the December solstice.
-  return -OBLIQUITY * Math.cos(((2 * Math.PI) / 365.25) * (n + 10));
+export function solarEcliptic(T) {
+  // Geometric mean longitude, referred to the mean equinox of the date.
+  const L0 = wrap360(280.46646 + T * (36000.76983 + T * 0.0003032));
+
+  // Mean anomaly: where the Sun would be if the orbit were circular.
+  const M = wrap360(357.52911 + T * (35999.05029 - T * 0.0001537));
+
+  // Eccentricity of Earth's orbit. Slowly decreasing.
+  const e = 0.016708634 - T * (0.000042037 + T * 0.0000001267);
+
+  // The equation of the centre: the correction for the orbit being an ellipse
+  // rather than a circle. This is the larger half of the equation of time,
+  // and the half the Milestone 0 placeholder was missing entirely.
+  const C =
+    (1.914602 - T * (0.004817 + T * 0.000014)) * sinDeg(M) +
+    (0.019993 - 0.000101 * T) * sinDeg(2 * M) +
+    0.000289 * sinDeg(3 * M);
+
+  const trueLongitude = L0 + C;
+  const trueAnomaly = M + C;
+
+  // The radius vector, in astronomical units (Meeus 25.5).
+  const distance = (1.000001018 * (1 - e * e)) / (1 + e * cosDeg(trueAnomaly));
+
+  // Apparent longitude: corrected for nutation and for aberration, the
+  // apparent displacement caused by the Earth's own motion.
+  const omega = 125.04 - 1934.136 * T;
+  const longitude = wrap360(trueLongitude - 0.00569 - 0.00478 * sinDeg(omega));
+
+  return { longitude, distance, trueAnomaly, meanAnomaly: M };
 }
 
 /**
- * The solar hour angle, degrees. Zero at local solar noon, negative in the
- * morning, positive in the afternoon, 15 degrees per hour.
+ * The equation of time: apparent solar time minus mean solar time.
  *
- * Placeholder: clock noon is treated as solar noon, ignoring the equation of
- * time. Longitude is handled properly, so the sun is in the right place
- * east-to-west; it is only the time of day that can be minutes out.
+ * Why a sundial disagrees with a clock, by up to about 16 minutes either way
+ * over the year. Exposed because it is the single clearest check that the new
+ * arithmetic is doing something the placeholder was not - the placeholder's
+ * value was exactly zero, every day of the year.
  *
- * @param {number} t
- * @param {number} lon degrees east
- * @returns {number}
+ * @param {number} t milliseconds since the Unix epoch, UTC
+ * @returns {number} minutes
  */
-export function solarHourAngle(t, lon) {
-  const d = new Date(t);
-  const utcHours =
-    d.getUTCHours() +
-    d.getUTCMinutes() / 60 +
-    d.getUTCSeconds() / 3600 +
-    d.getUTCMilliseconds() / 3_600_000;
+export function equationOfTime(t) {
+  const T = julianCenturies(toEphemerisDay(toJulianDay(t)));
+  const { meanAnomaly } = solarEcliptic(T);
 
-  const solarHours = utcHours + lon / 15;
-  return wrap180((solarHours - 12) * 15);
+  const L0 = wrap360(280.46646 + T * (36000.76983 + T * 0.0003032));
+  const e = 0.016708634 - T * (0.000042037 + T * 0.0000001267);
+  const trueObliquity = meanObliquity(T) + nutation(T).obliquity;
+
+  // y = tan^2(epsilon / 2), Meeus 28.3.
+  const y = Math.pow(Math.tan((trueObliquity / 2) * (Math.PI / 180)), 2);
+
+  const E =
+    y * sinDeg(2 * L0) -
+    2 * e * sinDeg(meanAnomaly) +
+    4 * e * y * sinDeg(meanAnomaly) * cosDeg(2 * L0) -
+    0.5 * y * y * sinDeg(4 * L0) -
+    1.25 * e * e * sinDeg(2 * meanAnomaly);
+
+  // E comes out in radians; four minutes of time to the degree.
+  return E * (180 / Math.PI) * 4;
 }
 
 /**
- * Which twilight band an altitude falls in. The boundaries are the standard
- * ones and are the reason the scene is driven by altitude rather than by the
- * clock: they come out of the geometry for free, at every latitude and season.
+ * Which twilight band an altitude falls in.
+ *
+ * The boundaries are the standard ones, and they are the reason the scene is
+ * driven by altitude rather than by the clock: they come out of the geometry
+ * for free, at every latitude and season, including the ones where a day never
+ * reaches one of them at all.
  *
  * @param {number} altitude degrees
  * @returns {"day" | "civil" | "nautical" | "astronomical" | "night"}
@@ -144,37 +189,4 @@ export function twilightBand(altitude) {
   if (altitude > -12) return "nautical";
   if (altitude > -18) return "astronomical";
   return "night";
-}
-
-/* ------------------------------------------------------------------ helpers */
-
-/**
- * Day of the year in UTC, 0-based, fractional.
- * @param {number} t
- * @returns {number}
- */
-function dayOfYearUtc(t) {
-  const d = new Date(t);
-  const startOfYear = Date.UTC(d.getUTCFullYear(), 0, 1);
-  return (t - startOfYear) / 86_400_000;
-}
-
-/**
- * @param {number} v
- * @param {number} lo
- * @param {number} hi
- * @returns {number}
- */
-function clamp(v, lo, hi) {
-  return v < lo ? lo : v > hi ? hi : v;
-}
-
-/**
- * Fold an angle into -180..180.
- * @param {number} deg
- * @returns {number}
- */
-function wrap180(deg) {
-  const a = (((deg + 180) % 360) + 360) % 360;
-  return a - 180;
 }

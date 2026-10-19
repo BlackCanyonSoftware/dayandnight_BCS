@@ -19,8 +19,13 @@ export default defineConfig({
 
   expect: {
     toHaveScreenshot: {
-      maxDiffPixelRatio: 0.02,
-      threshold: 0.2
+      // Tight, because both CI and a developer's machine render through the
+      // same SwiftShader rasteriser (forced in launchOptions below), so the
+      // output is deterministic rather than driver-dependent. The loose
+      // tolerance this started with was wide enough to miss a one-degree
+      // change in the sun's position, which made the test decorative.
+      maxDiffPixelRatio: 0.002,
+      threshold: 0.1
     }
   },
 

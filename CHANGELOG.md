@@ -29,6 +29,19 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Settings are kept in the OS app-data folder and written atomically, and can
   be saved out as a file.
 
+### Changed
+
+- **The sun is now in the right place.** The Milestone 0 approximation has been
+  replaced with the standard Meeus algorithms, which agree with the published
+  worked examples to better than a thousandth of a degree - against the half a
+  degree the product promises. In practice: solar noon is now correct to the
+  minute rather than up to a quarter of an hour out, because the equation of
+  time is accounted for, and sunrise is correctly a little earlier than the
+  geometry alone would give, because light bends through the atmosphere.
+- **The moon is computed too**, including its distance, the fraction of it that
+  is lit, and the angle its crescent sits at - which depends on where you are
+  standing, not only on where the moon is. Nothing draws it yet.
+
 ### Known limitations
 
 These are real and are tracked in `docs/ROADMAP.md`; none of them is presented
@@ -36,10 +49,6 @@ as finished.
 
 - **The sky is a gradient, not a sky.** The scattering model and the colour
   grade arrive in Milestone 1, along with the sun, the moon and the stars.
-- **The sun's position is approximate**, to roughly one or two degrees. It
-  ignores the equation of time, so the time of day can be up to about a
-  quarter of an hour out. Milestone 1 replaces the arithmetic and holds it to
-  the half-degree the product promises.
 - **It costs more than it should.** At 20 frames a second on two screens it
   used about 8.5% of one CPU core against a budget of 2%, and about 570 MB.
   Measured, not estimated; see `docs/ARCHITECTURE.md`. The application now

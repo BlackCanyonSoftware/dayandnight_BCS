@@ -35,7 +35,7 @@ while someone is working interrupts them.
 ```
 app/            the web app, loaded by every window
   engine/       the renderer. No DOM, no Electron, no timers, no state between frames
-    astro/      where the sun and moon are
+    astro/      where the sun and moon are (Meeus; see the tests before changing)
     sky/        scattering, grade, oklab, palette
     gl/         context, program - the only files that know what WebGL is
   ui/           the editor
@@ -120,9 +120,9 @@ accident:
 - **Never weaken a test to get a passing run** - no skipping, no hardcoded
   outputs, no `--no-verify`, no disabling a lint rule or type check to get
   green. If a test is wrong, say why before changing it.
-- **Never present a placeholder as finished.** `engine/astro/solar.js` and
-  `engine/sky/palette.js` are Milestone 0 placeholders and say so at the top;
-  anything similar gets the same treatment, plus an entry in the roadmap.
+- **Never present a placeholder as finished.** `engine/sky/palette.js` is a
+  Milestone 0 placeholder and says so at the top; anything similar gets the
+  same treatment, plus an entry in the roadmap.
 - **Never claim something works that you have not run.** If you cannot run it
   here, say so and give the exact command.
 

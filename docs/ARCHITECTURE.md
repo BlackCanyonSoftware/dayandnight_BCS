@@ -95,10 +95,11 @@ app/                      the web app; everything a window loads
   engine/                 the renderer. No DOM, no Electron, no timers, no state between frames
     index.js              assembles the Engine; the public surface
     astro/
-      solar.js            sun altitude, azimuth, declination from (t, lat, lon)
-      lunar.js            moon position, phase, illuminated fraction, terminator angle
+      julian.js           civil time to Julian day; UT against TT; the degree-based trig
+      coords.js           obliquity, nutation, the three frames and the transforms between them
+      solar.js            the Sun: ecliptic position, altitude, azimuth, equation of time
+      lunar.js            the Moon: position, distance, phase, illuminated fraction, limb angle
       sidereal.js         Greenwich and local sidereal time; the star field's rotation
-      julian.js           civil time to Julian day and back; the one place dates are converted
     sky/
       scattering.js       the physical sky: Rayleigh and Mie from sun direction
       grade.js            the user's colour transform over the physical result
