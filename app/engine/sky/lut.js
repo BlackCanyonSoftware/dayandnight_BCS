@@ -26,7 +26,7 @@ import {
   rayleighPhase
 } from "./atmosphere.js";
 
-/** @typedef {{ data: Float32Array, reference: Float32Array }} Baked */
+/** @typedef {{ data: Float32Array, reference: Float32Array, transmittance: Float32Array }} Baked */
 
 /** @type {Baked | null} */
 let baked = null;
@@ -82,6 +82,35 @@ export function autoExposure(sunAltitude, targetBrightness, maxGain) {
 
   if (brightness <= 0) return maxGain;
   return Math.min(maxGain, targetBrightness / brightness);
+}
+
+/**
+ * How much of a body's light survives the air between it and the viewer.
+ *
+ * The table is indexed by elevation, so reading it at the moon's elevation
+ * gives the right answer for the moon: extinction depends on how much air the
+ * light crossed, not on which body sent it. This is why both a setting sun
+ * and a rising moon turn orange.
+ *
+ * @param {number} elevation degrees
+ * @returns {[number, number, number]} 0..1 per channel
+ */
+export function transmittanceFor(elevation) {
+  const { transmittance } = skyLut();
+
+  const u = encodeElevation(elevation, SUN_MIN, SUN_MAX) * LUT_SUN - 0.5;
+  const i = Math.floor(u);
+  const t = Math.min(1, Math.max(0, u - i));
+
+  const lo = Math.min(LUT_SUN - 1, Math.max(0, i)) * 3;
+  const hi = Math.min(LUT_SUN - 1, Math.max(0, i + 1)) * 3;
+
+  return [
+    (transmittance[lo] ?? 0) + ((transmittance[hi] ?? 0) - (transmittance[lo] ?? 0)) * t,
+    (transmittance[lo + 1] ?? 0) +
+      ((transmittance[hi + 1] ?? 0) - (transmittance[lo + 1] ?? 0)) * t,
+    (transmittance[lo + 2] ?? 0) + ((transmittance[hi + 2] ?? 0) - (transmittance[lo + 2] ?? 0)) * t
+  ];
 }
 
 /**

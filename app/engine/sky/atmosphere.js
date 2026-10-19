@@ -214,13 +214,20 @@ export function decodeElevation(u, min, max) {
  * function of the sun's position rather than of anything remembered between
  * frames.
  *
- * @returns {{ data: Float32Array, reference: Float32Array }}
+ * `transmittance` is what survives of the sun's own light at each elevation,
+ * which is what colours its disc - white overhead, orange at the horizon,
+ * from the same extinction the sky uses rather than from a painted ramp.
+ *
+ * @returns {{ data: Float32Array, reference: Float32Array, transmittance: Float32Array }}
  */
 export function bakeScatteringLut() {
   const data = new Float32Array(LUT_SUN * LUT_VIEW * LUT_AZIMUTH * 4);
 
   /** The reference brightness of each sun elevation, for auto-exposure. */
   const reference = new Float32Array(LUT_SUN);
+
+  /** What is left of the sun's own light at each elevation, for its disc. */
+  const transmittance = new Float32Array(LUT_SUN * 3);
 
   for (let x = 0; x < LUT_SUN; x += 1) {
     const sunElevation = decodeElevation((x + 0.5) / LUT_SUN, SUN_MIN, SUN_MAX);
@@ -251,9 +258,14 @@ export function bakeScatteringLut() {
     // so exposure would have crept the wrong way through the afternoon.
     const skyAverage = averageOverSky(sunElevation, ambient);
     reference[x] = 0.2126 * skyAverage[0] + 0.7152 * skyAverage[1] + 0.0722 * skyAverage[2];
+
+    const survives = sunTransmittance(sunElevation);
+    transmittance[x * 3] = survives[0];
+    transmittance[x * 3 + 1] = survives[1];
+    transmittance[x * 3 + 2] = survives[2];
   }
 
-  return { data, reference };
+  return { data, reference, transmittance };
 }
 
 /**
@@ -427,6 +439,42 @@ export function scatter(viewElevationDeg, sunElevationDeg, azimuthDeg, ambient) 
   }
 
   return { rayleigh, mie };
+}
+
+/**
+ * How much of the sun's own light survives the journey to the viewer.
+ *
+ * This is what colours the sun's disc, and it is the reason a setting sun is
+ * orange while a midday one is white: at the horizon the light has come
+ * through a dozen times as much air, and air removes blue first. Nothing about
+ * that is drawn by hand - it is the same extinction the sky model already
+ * uses, read out along one ray.
+ *
+ * Returns zero once the sun is below the horizon, where the planet is in the
+ * way and there is no disc to draw.
+ *
+ * @param {number} sunElevationDeg
+ * @returns {[number, number, number]} 0..1 per channel
+ */
+export function sunTransmittance(sunElevationDeg) {
+  const d = Math.PI / 180;
+  const origin = [0, 0, EARTH_RADIUS + VIEW_HEIGHT];
+  const sun = [Math.cos(sunElevationDeg * d), 0, Math.sin(sunElevationDeg * d)];
+
+  const depth = sunOpticalDepth(origin, sun);
+  if (depth === null) return [0, 0, 0];
+
+  return /** @type {[number, number, number]} */ (
+    [0, 1, 2].map((c) =>
+      Math.exp(
+        -(
+          RAYLEIGH_SCATTERING[c] * depth.rayleigh +
+          MIE_EXTINCTION * depth.mie +
+          OZONE_ABSORPTION[c] * depth.ozone
+        )
+      )
+    )
+  );
 }
 
 /**

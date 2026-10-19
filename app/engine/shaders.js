@@ -11,7 +11,8 @@
  *
  * 1. **Sky** fills a half-float buffer with linear radiance.
  * 2. **Stars** add into the same buffer, in the same units.
- * 3. **Composite** exposes the sum, tone maps it once, and writes sRGB.
+ * 3. **Bodies** - the sun and the moon - add into it too.
+ * 4. **Composite** exposes the sum, tone maps it once, and writes sRGB.
  *
  * Summing before tone mapping is what makes the stars behave. A star drawn
  * over an already tone-mapped sky could never be dimmer than the sky it sits
@@ -351,6 +352,145 @@ void main() {
   float halo = exp(-r2 * 1.2) * 0.25;
 
   fragColor = vec4(vColour * vRadiance * (core + halo), 1.0);
+}
+`;
+
+/**
+ * The sun and the moon, vertex half.
+ *
+ * One point, positioned entirely from uniforms - there is no vertex buffer,
+ * because there is nothing to put in it. The sprite is made far larger than
+ * the disc so that the glare has somewhere to live: at a wide field of view
+ * the sun is only a handful of pixels across, and what makes it read as the
+ * sun is everything around it rather than the disc itself.
+ */
+export const BODY_VERT = /* glsl */ `#version 300 es
+precision highp float;
+${VIEW}
+
+uniform vec4 uCrop;
+uniform vec2 uSpan;
+
+uniform float uAltitude;
+uniform float uAzimuth;
+uniform float uSpriteRadius;   // half the sprite, in degrees
+
+uniform float uBearing;
+uniform float uHorizon;
+uniform float uFieldOfView;
+
+void main() {
+  // Degrees of sky to pixels of span, which is the scale everything here
+  // works in.
+  float pixelsPerDegree = uSpan.x / uFieldOfView;
+
+  float spanFracX = wrap180(uAzimuth - uBearing) / uFieldOfView + 0.5;
+  float spanFracY = uHorizon - uAltitude / degreesPerSpanY(uFieldOfView, uSpan);
+
+  vec2 spanPixel = vec2(spanFracX * uSpan.x, spanFracY * uSpan.y);
+  vec2 inWindow = (spanPixel - uCrop.xy) / uCrop.zw;
+
+  gl_Position = vec4(inWindow.x * 2.0 - 1.0, (1.0 - inWindow.y) * 2.0 - 1.0, 0.0, 1.0);
+  gl_PointSize = 2.0 * uSpriteRadius * pixelsPerDegree;
+}
+`;
+
+/**
+ * The sun and the moon, fragment half.
+ *
+ * Three things happen here, and the second is the interesting one.
+ *
+ * **The disc** is a circle of the body's true angular radius - about a
+ * quarter of a degree for both, which is far smaller than people remember.
+ *
+ * **The phase** is drawn as geometry, not as brightness. The terminator - the
+ * line between lit and unlit - is the edge of a sphere's shadow seen in
+ * projection, which is half an ellipse: its width across the disc is the
+ * cosine of the phase angle. So a quarter moon is a straight line, a crescent
+ * bows one way and a gibbous moon the other, and all three come out of the
+ * same expression without being special-cased. The whole figure is then
+ * turned to face the sun as the *observer* sees it, which is why the same
+ * crescent stands upright in the tropics and lies on its side in Norway.
+ *
+ * **The glare** is the wide falloff outside the disc. Two power curves rather
+ * than one: a tight one for the bright ring that hugs the sun, and a broad
+ * shallow one for the haze that reaches across the sky.
+ */
+export const BODY_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+
+uniform float uAltitude;
+uniform float uSpriteRadius;   // half the sprite, in degrees
+uniform float uAngularRadius;  // the disc itself, in degrees
+uniform vec3 uRadiance;
+uniform float uPhase;          // cos of the phase angle: 1 full, 0 half, -1 new
+uniform float uLimbAngle;      // degrees from up, towards the lit side
+uniform float uGlare;
+uniform float uPixelsPerDegree;
+
+out vec4 fragColor;
+
+const float RADIANS = 3.14159265358979 / 180.0;
+
+void main() {
+  // gl_PointCoord runs down the sprite, so y is flipped to put up at the top.
+  vec2 offset = vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y) * 2.0 - 1.0;
+  vec2 fromCentre = offset * uSpriteRadius;
+  float distance = length(fromCentre);
+
+  // The sprite is a square and the glare is not. Without this the glare is
+  // cut off at the square's edge and the sun wears a visible box.
+  float inSprite = distance / uSpriteRadius;
+  if (inSprite > 1.0) discard;
+
+  // Anything below the horizon is behind the ground, which is how a body
+  // sets: the disc is cut off rather than fading out.
+  if (uAltitude + fromCentre.y < 0.0) discard;
+
+  // A soft edge about a pixel wide, so the disc is anti-aliased without being
+  // blurred. Measured against the *sprite* instead, as this first did, the
+  // edge came out at a sixth of the disc's radius - the moon was mostly
+  // gradient, and its lit area read about ten per cent too large.
+  float edge = max(uAngularRadius * 0.02, 0.7 / max(uPixelsPerDegree, 0.001));
+  float disc = 1.0 - smoothstep(uAngularRadius - edge, uAngularRadius + edge, distance);
+
+  float lit = disc;
+  if (disc > 0.0 && uPhase < 0.999) {
+    // Into the frame where the lit side is +x, so the terminator is an
+    // ellipse about the origin.
+    float limb = uLimbAngle * RADIANS;
+    vec2 towardsSun = vec2(sin(limb), cos(limb));
+    vec2 unit = fromCentre / max(uAngularRadius, 1e-6);
+
+    float along = dot(unit, towardsSun);
+    float across = dot(unit, vec2(towardsSun.y, -towardsSun.x));
+
+    // The terminator: half an ellipse whose width is the cosine of the phase
+    // angle. Full moon (uPhase = 1) puts it off the disc entirely; new moon
+    // (-1) puts it on the far limb and nothing is lit.
+    float terminator = -uPhase * sqrt(max(0.0, 1.0 - across * across));
+
+    // Softened a little, because a real terminator is a gradient: that line
+    // is sunrise crossing the moon, striking the ground at a grazing angle,
+    // not a switch. Centred on the true terminator, so the lit area is still
+    // exactly right.
+    lit = disc * smoothstep(terminator - 0.035, terminator + 0.035, along);
+  }
+
+  // Glare. A tight ring plus a broad haze; both fall away from the disc's own
+  // edge rather than from its centre, so a larger body glares more.
+  float beyond = max(distance, uAngularRadius) / uAngularRadius;
+  float tight = pow(beyond, -3.4);
+  float broad = pow(beyond, -1.5) * 0.22;
+
+  // Faded out well before the sprite's edge. A power falloff never actually
+  // reaches zero, and at the sun's brightness even a thousandth of it is a
+  // visible rim - which is the box this used to draw.
+  float fade = 1.0 - smoothstep(0.5, 1.0, inSprite);
+
+  float glare = uGlare * (tight + broad) * (1.0 - disc) * fade;
+
+  fragColor = vec4(uRadiance * (lit + glare), 1.0);
 }
 `;
 

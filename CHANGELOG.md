@@ -48,6 +48,17 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   twinkle more near the horizon than overhead, because that is where the air
   is thickest. They are added to the sky as light rather than painted over it,
   so they appear through twilight and vanish at dawn on their own.
+- **The sun and the moon.** Both at their true positions and true angular
+  size - about half a degree, which is far smaller than most people remember,
+  so there is a control to draw them larger. The sun takes its colour from the
+  air it shines through, which is why it yellows and then reddens as it
+  descends, and the moon reddens the same way when it rises. Both set behind
+  the horizon rather than fading out.
+- **The moon's real phase**, drawn as geometry rather than as a picture: the
+  terminator is the edge of a sphere's shadow in projection, so a crescent
+  bows one way and a gibbous moon the other, and the whole figure leans the
+  way it actually leans from where you are standing. The same crescent sits
+  upright in the tropics and on its side in Norway.
 - **A night sky that is not black.** Airglow - the faint light the upper
   atmosphere gives off, plus the glow of stars too faint to resolve - so the
   hours either side of midnight read as a dark blue sky rather than a dead
@@ -61,8 +72,13 @@ as finished.
 - **The constellations are not real.** The stars are generated rather than
   catalogued: the sky turns exactly as it should, but you will not find Orion
   in it. A real catalogue is a later change and needs no new rendering.
-- **The sun and the moon are not drawn yet.** The sun's glow is there, because
-  it falls out of the scattering, but neither disc is. Next.
+- **The sun's disc is off-screen at sunrise and sunset.** The view is as wide
+  as it can be without the sky turning into a fisheye dome, and the sun rises
+  and sets a little outside it. The glow is there throughout; the disc comes
+  into frame later in the morning. Turning the view west with Facing shows a
+  sunset in full.
+- **Moonlight does not light the sky**, and the moon is drawn dimmer than life
+  so its phase stays readable against a dark sky.
 - **Deep twilight is darker than it should be.** The scattering model runs out
   of lit atmosphere about eight degrees below the horizon, so the blue glow
   that lingers towards the sunset through nautical twilight is missing. The

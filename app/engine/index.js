@@ -26,10 +26,19 @@ import { createRenderTarget } from "./gl/target.js";
 import { createSkyTexture } from "./gl/texture.js";
 import { localSiderealTime } from "./astro/sidereal.js";
 import { toJulianDay } from "./astro/julian.js";
-import { COMPOSITE_FRAG, FULLSCREEN_VERT, SKY_FRAG, STAR_FRAG, STAR_VERT } from "./shaders.js";
+import {
+  BODY_FRAG,
+  BODY_VERT,
+  COMPOSITE_FRAG,
+  FULLSCREEN_VERT,
+  SKY_FRAG,
+  STAR_FRAG,
+  STAR_VERT
+} from "./shaders.js";
+import { moonBody, sunBody } from "./bodies.js";
 import { buildStarCatalogue, createStarBuffer } from "./stars.js";
 import { LUT_AZIMUTH, LUT_SUN, LUT_VIEW } from "./sky/atmosphere.js";
-import { autoExposure, skyLut } from "./sky/lut.js";
+import { autoExposure, skyLut, transmittanceFor } from "./sky/lut.js";
 import { defaultPreset, resolveBearing } from "./defaults.js";
 import { frameSignature } from "./signature.js";
 
@@ -94,6 +103,19 @@ export class DayNightEngine {
     this.starBuffer = null;
 
     /** @type {ReturnType<typeof createProgram> | null} */
+    this.bodies = null;
+
+    /**
+     * An empty vertex array for the body pass.
+     *
+     * The sun and the moon are one point each, positioned entirely from
+     * uniforms, so there is nothing to put in a buffer - but a vertex array
+     * still has to be bound for the draw to be legal.
+     * @type {WebGLVertexArrayObject | null}
+     */
+    this.emptyVao = null;
+
+    /** @type {ReturnType<typeof createProgram> | null} */
     this.composite = null;
 
     /**
@@ -124,7 +146,15 @@ export class DayNightEngine {
    * on the instance.
    */
   build() {
-    if (this.sky && this.quad && this.skyTexture && this.stars && this.composite && this.scene) {
+    if (
+      this.sky &&
+      this.quad &&
+      this.skyTexture &&
+      this.stars &&
+      this.bodies &&
+      this.composite &&
+      this.scene
+    ) {
       return;
     }
     this.release();
@@ -133,7 +163,9 @@ export class DayNightEngine {
 
     this.sky = createProgram(gl, FULLSCREEN_VERT, SKY_FRAG, "sky");
     this.stars = createProgram(gl, STAR_VERT, STAR_FRAG, "stars");
+    this.bodies = createProgram(gl, BODY_VERT, BODY_FRAG, "bodies");
     this.composite = createProgram(gl, FULLSCREEN_VERT, COMPOSITE_FRAG, "composite");
+    this.emptyVao = gl.createVertexArray();
 
     this.quad = createFullScreenTriangle(gl);
     this.skyTexture = createSkyTexture(gl, skyLut().data, LUT_SUN, LUT_VIEW, LUT_AZIMUTH);
@@ -153,7 +185,9 @@ export class DayNightEngine {
   release() {
     this.sky?.dispose();
     this.stars?.dispose();
+    this.bodies?.dispose();
     this.composite?.dispose();
+    if (this.emptyVao) this.gl.deleteVertexArray(this.emptyVao);
     this.quad?.dispose();
     this.skyTexture?.dispose();
     this.starBuffer?.dispose();
@@ -161,7 +195,9 @@ export class DayNightEngine {
 
     this.sky = null;
     this.stars = null;
+    this.bodies = null;
     this.composite = null;
+    this.emptyVao = null;
     this.quad = null;
     this.skyTexture = null;
     this.starBuffer = null;
@@ -240,13 +276,25 @@ export class DayNightEngine {
     this.build();
     const sky = this.sky;
     const stars = this.stars;
+    const bodies = this.bodies;
     const composite = this.composite;
     const quad = this.quad;
     const skyTexture = this.skyTexture;
     const starBuffer = this.starBuffer;
     const scene = this.scene;
+    const emptyVao = this.emptyVao;
 
-    if (!sky || !stars || !composite || !quad || !skyTexture || !starBuffer || !scene) {
+    if (
+      !sky ||
+      !stars ||
+      !bodies ||
+      !composite ||
+      !quad ||
+      !skyTexture ||
+      !starBuffer ||
+      !scene ||
+      !emptyVao
+    ) {
       throw new Error("The sky program could not be built.");
     }
 
@@ -331,7 +379,52 @@ export class DayNightEngine {
     starBuffer.bind();
     starBuffer.draw();
 
-    /* ------------------------------- 3. expose and tone map the sum, once */
+    /* ------------------------- 3. the sun and the moon, added as more light */
+
+    bodies.use();
+    gl.bindVertexArray(emptyVao);
+
+    gl.uniform4f(bodies.uniform("uCrop"), crop.x, crop.y, crop.w, crop.h);
+    gl.uniform2f(bodies.uniform("uSpan"), span.w, span.h);
+    gl.uniform1f(bodies.uniform("uBearing"), bearing);
+    gl.uniform1f(bodies.uniform("uHorizon"), this.preset.horizon);
+    gl.uniform1f(bodies.uniform("uFieldOfView"), this.preset.fieldOfView);
+    gl.uniform1f(bodies.uniform("uGlare"), this.preset.glare);
+
+    // The moon first, so that on the rare occasions they overlap the sun is
+    // in front - which, for an eclipse, is the right way round.
+    for (const body of [
+      moonBody(t, place, transmittanceFor(moonPosition(t, place).altitude)),
+      sunBody(t, place, transmittanceFor(sun.altitude))
+    ]) {
+      // Nothing to draw once a body is far enough down that even its glare
+      // is below the horizon.
+      if (body.altitude < -3) continue;
+
+      const discRadius = body.angularRadius * this.preset.bodyScale;
+
+      gl.uniform1f(bodies.uniform("uAltitude"), body.altitude);
+      gl.uniform1f(bodies.uniform("uAzimuth"), body.azimuth);
+      gl.uniform1f(bodies.uniform("uAngularRadius"), discRadius);
+      // The sprite has to be far wider than the disc or the glare has
+      // nowhere to go.
+      gl.uniform1f(bodies.uniform("uSpriteRadius"), discRadius * 14);
+      gl.uniform3f(
+        bodies.uniform("uRadiance"),
+        body.radiance[0],
+        body.radiance[1],
+        body.radiance[2]
+      );
+      gl.uniform1f(bodies.uniform("uPhase"), body.phase);
+      gl.uniform1f(bodies.uniform("uPixelsPerDegree"), span.w / this.preset.fieldOfView);
+      gl.uniform1f(bodies.uniform("uLimbAngle"), body.limbAngle);
+
+      gl.drawArrays(gl.POINTS, 0, 1);
+    }
+
+    gl.bindVertexArray(null);
+
+    /* ------------------------------- 4. expose and tone map the sum, once */
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, width, height);

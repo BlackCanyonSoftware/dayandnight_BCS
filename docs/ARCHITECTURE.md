@@ -174,17 +174,19 @@ wanted; the engine has no opinion about time passing.
 ```mermaid
 flowchart LR
   A["t, place"] --> B["solar + lunar<br/>altitude, azimuth, phase"]
+  B --> D["3. bodies<br/>sun and moon discs, phase, glare"]
   B --> E["sky table<br/>sun x view x azimuth<br/>built once"]
   B --> X["auto-exposure<br/>from the table"]
   E --> F["1. sky pass<br/>lookup + phase + ground + airglow"]
   A --> S["2. star pass<br/>sidereal rotation, added as light"]
   F --> T["half-float buffer<br/>linear radiance"]
   S --> T
-  T --> H["3. composite<br/>expose, tone map, sRGB, dither"]
+  D --> T
+  T --> H["4. composite<br/>expose, tone map, sRGB, dither"]
   X --> H
 ```
 
-**Three passes, summed before tone mapping.** The sky and the stars write
+**Four passes, summed before tone mapping.** The sky, the stars and the bodies write
 linear radiance into a half-float buffer, and the whole sum is tone mapped
 once on the way to the screen. This is not an optimisation, it is what makes
 the stars behave: a star drawn over an already tone-mapped sky could never be

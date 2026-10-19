@@ -190,6 +190,43 @@
           </details>
 
           <details class="sec" open>
+            <summary>Sun and moon</summary>
+            <div class="sec-body">
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Glare</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How much the sun and moon flare. Both discs are only about half a degree across - a handful of pixels - so the glare is most of what makes the sun read as the sun rather than as a dot."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="glareVal">1.0&times;</span>
+                </label>
+                <input id="glare" type="range" min="0" max="3" step="0.05" value="1" />
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Disc size</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How much larger than life to draw the sun and moon. One is the truth: both are about half a degree across, which is far smaller than most people remember. Anything above one is a pleasant lie, and the moon&rsquo;s phase is easier to see for it."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="bodyScaleVal">1.0&times;</span>
+                </label>
+                <input id="bodyScale" type="range" min="1" max="8" step="0.1" value="1" />
+              </div>
+            </div>
+          </details>
+
+          <details class="sec" open>
             <summary>Stars</summary>
             <div class="sec-body">
               <div class="row">

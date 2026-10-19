@@ -139,6 +139,8 @@ function wireControls() {
     bandsDirty = true;
   });
   bindRange("horizon", (v) => setPreset({ horizon: v }));
+  bindRange("glare", (v) => setPreset({ glare: v }));
+  bindRange("bodyScale", (v) => setPreset({ bodyScale: v }));
   bindRange("starBrightness", (v) => setPreset({ starBrightness: v }));
   bindRange("starSize", (v) => setPreset({ starSize: v }));
   bindRange("twinkle", (v) => setPreset({ twinkle: v }));
@@ -289,6 +291,8 @@ function paintFromState() {
   input("bearing").value = String(preset.bearing === null ? -1 : preset.bearing);
   input("horizon").value = String(preset.horizon);
   input("fieldOfView").value = String(preset.fieldOfView);
+  input("glare").value = String(preset.glare);
+  input("bodyScale").value = String(preset.bodyScale);
   input("starBrightness").value = String(preset.starBrightness);
   input("starSize").value = String(preset.starSize);
   input("twinkle").value = String(preset.twinkle);
@@ -305,6 +309,8 @@ function paintFromState() {
       : compass(preset.bearing);
   $("#horizonVal").textContent = `${Math.round(preset.horizon * 100)}%`;
   $("#fieldOfViewVal").textContent = `${Math.round(preset.fieldOfView)}°`;
+  $("#glareVal").textContent = `${preset.glare.toFixed(1)}×`;
+  $("#bodyScaleVal").textContent = `${preset.bodyScale.toFixed(1)}×`;
   $("#starBrightnessVal").textContent = `${preset.starBrightness.toFixed(1)}×`;
   $("#starSizeVal").textContent = `${preset.starSize.toFixed(1)} px`;
   $("#twinkleVal").textContent = `${Math.round(preset.twinkle * 100)}%`;

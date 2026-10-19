@@ -82,6 +82,17 @@ export function defaultPreset() {
     // rectangle. Raising it also stands in for light pollution.
     airglow: 1.1e-6,
 
+    // How much the sun and moon glare. The disc itself is only about half a
+    // degree across - seven pixels at a wide field of view - so the glare is
+    // most of what makes the sun read as the sun.
+    glare: 1,
+
+    // How much larger than life to draw the discs. One is the truth. People
+    // consistently remember the sun as bigger than it is, so this exists -
+    // but it is the one control here that is honestly a lie, and the hint
+    // says so.
+    bodyScale: 1,
+
     // The tone curve's white point: how bright something has to be before it
     // is allowed to reach pure white. Higher keeps more detail in the sun's
     // glow at the cost of overall contrast.

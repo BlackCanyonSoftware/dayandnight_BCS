@@ -63,6 +63,8 @@
  * @property {number} starSize base point size in device pixels
  * @property {number} twinkle how much the stars shimmer, 0..1
  * @property {number} airglow the night sky's own faint radiance
+ * @property {number} glare how much the sun and moon flare
+ * @property {number} bodyScale how much larger than life the discs are drawn
  * @property {number} whitePoint how bright something must be to reach white
  */
 
