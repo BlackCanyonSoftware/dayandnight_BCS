@@ -5,15 +5,19 @@ session with no memory of this one. Newest session first.
 
 ## Current state
 
-**Milestone 0 is built and verified, except for the performance budget, which
-fails.** The application runs, puts a live computed sky on the Windows desktop
-behind the icons on every screen, and the editor drives it.
+**Milestone 0 is done. Milestone 1 is under way: the astronomy and the sky
+model are built and tested, but nothing draws with the new sky yet.**
+
+The application runs and puts a live computed sky on the Windows desktop
+behind the icons on every screen. What it _draws_ is still the Milestone 0
+nine-stop gradient; the scattering model exists beside it, unused by the
+renderer, waiting on the shader slice.
 
 - **Branch:** `main`
 - **Remote:** `origin` is `github.com/BlackCanyonSoftware/dayandnight_BCS`.
   **Nothing has been pushed.** The owner pushes.
 - **Tier:** MVP
-- **Checks:** lint, format, typecheck clean. 36 unit, 11 browser (one image
+- **Checks:** lint, format, typecheck clean. 71 unit, 11 browser (one image
   reference), 7 desktop tests, all passing.
 - **CI:** written (`.github/workflows/ci.yml`, Windows runner) but **never
   run**, because nothing has been pushed. Report it as unverified.
@@ -73,6 +77,36 @@ reason the ADR does not already cover.
 | Physical sky with an authored grade                   | ADR 0004 | Not yet built (M1)                 |
 | Stateless scene, independent windows, no sync channel | ADR 0005 | Holds, and paid off repeatedly     |
 
+## Milestone 1, where it stands
+
+Done and committed:
+
+- **`engine/astro/`** - real astronomy. Meeus for the Sun (ch. 25), the Moon
+  (47, 48), sidereal time (12), obliquity, nutation and refraction. Agrees
+  with the published worked examples to four orders of magnitude better than
+  US-001 needs. The Moon brings distance, illuminated fraction, phase, and the
+  angle its crescent sits at for the observer.
+- **`engine/sky/atmosphere.js`** - the scattering model from ADR 0004.
+  Rayleigh, Mie and ozone, integrated, with multiple scattering approximated
+  on top and an auto-exposure reference baked alongside. A 288 KB 3D table,
+  built once in about 780 ms.
+
+Next, in order:
+
+1. **The shader slice.** Upload the table as a 3D texture, map screen position
+   to a view direction, apply the phase functions and auto-exposure per pixel,
+   tone-map, keep the dither. This is what finally replaces
+   `engine/sky/palette.js`, and it is the first point at which any of the last
+   two slices becomes visible.
+2. **The grade** (ADR 0004): exposure, a three-band lift/gamma/gain in Oklab,
+   an altitude-keyed tint ramp, turbidity and ground albedo. Turbidity also
+   closes the undersaturated-sunset limitation.
+3. **Bodies**: sun and moon discs, bloom, the lunar phase mask.
+4. **Stars**: catalogue, glow and pulse, rotation about the celestial pole.
+   This is also where the black-below-minus-eight-degrees limitation stops
+   mattering, because the night's interest moves to the stars.
+5. **`ui/place.js`**: the city picker and the optional lookup.
+
 ## Next steps
 
 1. **The owner picks an option for NFR-1** (`docs/ROADMAP.md`, Milestone 0
@@ -127,6 +161,25 @@ reason the ADR does not already cover.
 - **Never attribute anything to an assistant**, and **never push**.
 
 ## Session log
+
+### 2026-10-18 - Milestone 1, slices 1 and 2: astronomy and the atmosphere
+
+- Replaced the placeholder sun with Meeus-grade astronomy and added the Moon.
+  Checked against the published worked examples, and then against physics
+  independently: the equation of time has the right extremes and four zero
+  crossings, the solstices land on the right days, perihelion is in early
+  January, and the 2026 solar eclipses fall on computed new moons.
+- Built the scattering model. Two design decisions came out of measurement
+  rather than reasoning: the lookup table needs a third axis for azimuth
+  (at civil twilight the far sky is 500x dimmer, which a 2D table would have
+  erased), and twilight needs more than one scattering bounce to come out blue
+  instead of red.
+- Six test assumptions turned out to be wrong across the two slices, each
+  recorded in place. Most instructive: a single patch of sky does not darken
+  monotonically through sunset, and the synodic month cannot be averaged over
+  a single year.
+- **Nothing draws with the new sky yet.** The renderer still uses the
+  Milestone 0 gradient.
 
 ### 2026-10-18 - Milestone 0, the walking skeleton
 
