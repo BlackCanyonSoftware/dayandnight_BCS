@@ -139,6 +139,17 @@ function wireControls() {
     bandsDirty = true;
   });
   bindRange("horizon", (v) => setPreset({ horizon: v }));
+  bindRange("turbidity", (v) => {
+    setPreset({ turbidity: v });
+    bandsDirty = true;
+  });
+  bindRange("saturation", (v) => setPreset({ saturation: v }));
+  bindRange("contrast", (v) => setPreset({ contrast: v }));
+
+  bindColour("dayTint", (v) => setPreset({ dayTint: v }));
+  bindColour("twilightTint", (v) => setPreset({ twilightTint: v }));
+  bindColour("nightTint", (v) => setPreset({ nightTint: v }));
+
   bindRange("glare", (v) => setPreset({ glare: v }));
   bindRange("bodyScale", (v) => setPreset({ bodyScale: v }));
   bindRange("starBrightness", (v) => setPreset({ starBrightness: v }));
@@ -193,6 +204,26 @@ function wireControls() {
       event.preventDefault();
       togglePlay();
     }
+  });
+}
+
+/**
+ * Wire a colour input to a setter.
+ *
+ * Separate from bindRange because the value is a string and because a colour
+ * picker fires continuously while it is open, which is what `input` is for -
+ * the sky follows the swatch as it is dragged.
+ *
+ * @param {string} id
+ * @param {(value: string) => void} set
+ */
+function bindColour(id, set) {
+  const element = input(id);
+  element.addEventListener("input", () => {
+    set(element.value);
+    bandsDirty = true;
+    paintFromState();
+    save();
   });
 }
 
@@ -291,6 +322,12 @@ function paintFromState() {
   input("bearing").value = String(preset.bearing === null ? -1 : preset.bearing);
   input("horizon").value = String(preset.horizon);
   input("fieldOfView").value = String(preset.fieldOfView);
+  input("turbidity").value = String(preset.turbidity);
+  input("saturation").value = String(preset.saturation);
+  input("contrast").value = String(preset.contrast);
+  input("dayTint").value = preset.dayTint;
+  input("twilightTint").value = preset.twilightTint;
+  input("nightTint").value = preset.nightTint;
   input("glare").value = String(preset.glare);
   input("bodyScale").value = String(preset.bodyScale);
   input("starBrightness").value = String(preset.starBrightness);
@@ -309,6 +346,9 @@ function paintFromState() {
       : compass(preset.bearing);
   $("#horizonVal").textContent = `${Math.round(preset.horizon * 100)}%`;
   $("#fieldOfViewVal").textContent = `${Math.round(preset.fieldOfView)}°`;
+  $("#turbidityVal").textContent = `${preset.turbidity.toFixed(1)}×`;
+  $("#saturationVal").textContent = preset.saturation.toFixed(1);
+  $("#contrastVal").textContent = preset.contrast.toFixed(1);
   $("#glareVal").textContent = `${preset.glare.toFixed(1)}×`;
   $("#bodyScaleVal").textContent = `${preset.bodyScale.toFixed(1)}×`;
   $("#starBrightnessVal").textContent = `${preset.starBrightness.toFixed(1)}×`;

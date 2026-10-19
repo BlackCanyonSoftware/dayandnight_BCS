@@ -34,6 +34,7 @@
 import { sunPosition } from "./astro/solar.js";
 import { resolveBearing } from "./defaults.js";
 import { autoExposure, sampleSky } from "./sky/lut.js";
+import { tintFor } from "./sky/grade.js";
 import { linearToSrgb1 } from "./sky/oklab.js";
 
 /** @typedef {import("./types.js").FrameRequest} FrameRequest */
@@ -83,6 +84,7 @@ export function frameSignature(preset, request, bufferWidth, bufferHeight) {
   // radiance - which spans ten orders of magnitude and cannot be quantised
   // usefully.
   const exposure = autoExposure(sun.altitude, 0.12, 4000) * Math.pow(2, preset.exposure);
+  const tint = tintFor(preset, sun.altitude);
 
   /** @type {number[]} */
   const parts = [];
@@ -97,10 +99,10 @@ export function frameSignature(preset, request, bufferWidth, bufferHeight) {
     // Quantised to the 8 bits a display can show. A change smaller than one
     // step is invisible by definition, and the output dither turns what is
     // left into noise rather than a band.
-    for (const channel of colour) {
-      const mapped = toneMap(Math.max(0, channel) * exposure, preset.whitePoint);
+    colour.forEach((channel, i) => {
+      const mapped = toneMap(Math.max(0, channel) * exposure * tint[i], preset.whitePoint);
       parts.push(Math.round(linearToSrgb1(Math.min(1, mapped)) * 255));
-    }
+    });
   }
 
   return [
@@ -112,6 +114,13 @@ export function frameSignature(preset, request, bufferWidth, bufferHeight) {
     Math.round(bearing * 100),
     Math.round(preset.horizon * 10000),
     Math.round(preset.fieldOfView * 100),
+    // Turbidity and the Oklab grade change every pixel but are not inside the
+    // probes: the probes sample the table, and turbidity scales the Mie term
+    // in the shader while saturation and contrast are applied after the tone
+    // curve. The tint *is* in the probes, so it is not listed again.
+    Math.round(preset.turbidity * 1000),
+    Math.round(preset.saturation * 1000),
+    Math.round(preset.contrast * 1000),
     // Geometry: a window that moved or resized must redraw even if the sky
     // has not changed at all.
     crop.x,

@@ -103,3 +103,42 @@ texture read regardless of how expensive the model is.
 - Oklab, linear light and output dither are not optional refinements. They are
   the difference between this reading as professional and reading as cheap, and
   they are architecture invariant 4.
+
+## Amendment, 2026-10-19: what the grade actually became
+
+Built as specified except for one control, and the deviation is deliberate.
+
+The ADR called for "a three-band lift / gamma / gain in Oklab, so a user can
+warm the horizon without greying the zenith". That was not built. Three-band
+lift/gamma/gain is a colourist's surface - nine numbers - and it is the wrong
+shape for a settings panel whose rule is that every control has one sentence
+explaining why you would touch it. More to the point, the goal the ADR gave
+for it, warming the horizon without touching the zenith, is what the
+altitude-keyed tint ramp already does, and does more directly.
+
+What was built instead:
+
+- **Turbidity**, as specified, and it turned out to be nearly free. The
+  lookup table keeps the Rayleigh and Mie terms in separate channels, because
+  the phase functions had to be applied to them separately anyway - so haze is
+  one multiply in the shader rather than a rebuild of the table. The sun's own
+  disc gets the extinction too, from a Mie optical depth baked alongside the
+  transmittance. What is _not_ modelled is extra haze removing light along the
+  view ray, which is baked in; at ordinary turbidities that is small, and it
+  is the in-scattering that makes a hazy sky look hazy.
+- **The tint ramp**, as specified, in three stops - day, twilight, night -
+  interpolated in Oklab and keyed to sun altitude. Three rather than a freely
+  editable list, because three is what a panel can hold without becoming a
+  curve editor, and because those are the three states a day has.
+- **Saturation and contrast**, in Oklab, in place of lift/gamma/gain. These
+  are what people reach for, and in a perceptual space they do what their
+  names say rather than dragging hues about.
+- **Ground albedo**, as specified, though it arrived earlier than the rest
+  because the model has no ground and the bottom of the picture was black
+  without it.
+
+The amendment closes the ADR's own worry that a physical sky would feel
+uncustomisable. It does not: the default grade is exactly neutral - a unit
+test pins the tint to (1, 1, 1) and a browser test checks that a neutral
+grade is bit-for-bit the ungraded render - and from there the controls reach
+anything from a documentary clear sky to a lurid red one.

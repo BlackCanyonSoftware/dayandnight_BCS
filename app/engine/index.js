@@ -39,6 +39,7 @@ import { moonBody, sunBody } from "./bodies.js";
 import { buildStarCatalogue, createStarBuffer } from "./stars.js";
 import { LUT_AZIMUTH, LUT_SUN, LUT_VIEW } from "./sky/atmosphere.js";
 import { autoExposure, skyLut, transmittanceFor } from "./sky/lut.js";
+import { tintFor } from "./sky/grade.js";
 import { defaultPreset, resolveBearing } from "./defaults.js";
 import { frameSignature } from "./signature.js";
 
@@ -337,6 +338,7 @@ export class DayNightEngine {
     gl.uniform1f(sky.uniform("uFieldOfView"), this.preset.fieldOfView);
 
     gl.uniform1f(sky.uniform("uGroundAlbedo"), this.preset.groundAlbedo);
+    gl.uniform1f(sky.uniform("uTurbidity"), this.preset.turbidity);
     gl.uniform3f(
       sky.uniform("uAirglow"),
       this.preset.airglow * AIRGLOW_TINT[0],
@@ -394,8 +396,8 @@ export class DayNightEngine {
     // The moon first, so that on the rare occasions they overlap the sun is
     // in front - which, for an eclipse, is the right way round.
     for (const body of [
-      moonBody(t, place, transmittanceFor(moonPosition(t, place).altitude)),
-      sunBody(t, place, transmittanceFor(sun.altitude))
+      moonBody(t, place, transmittanceFor(moonPosition(t, place).altitude, this.preset.turbidity)),
+      sunBody(t, place, transmittanceFor(sun.altitude, this.preset.turbidity))
     ]) {
       // Nothing to draw once a body is far enough down that even its glare
       // is below the horizon.
@@ -436,6 +438,11 @@ export class DayNightEngine {
     gl.uniform2f(composite.uniform("uResolution"), width, height);
     gl.uniform1f(composite.uniform("uExposure"), info.exposure);
     gl.uniform1f(composite.uniform("uWhite"), this.preset.whitePoint);
+
+    const tint = tintFor(this.preset, sun.altitude);
+    gl.uniform3f(composite.uniform("uTint"), tint[0], tint[1], tint[2]);
+    gl.uniform1f(composite.uniform("uSaturation"), this.preset.saturation);
+    gl.uniform1f(composite.uniform("uContrast"), this.preset.contrast);
 
     quad.bind();
     quad.draw();

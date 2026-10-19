@@ -15,6 +15,7 @@ import {
   LUT_AZIMUTH,
   LUT_SUN,
   LUT_VIEW,
+  MIE_EXTINCTION_COEFFICIENT,
   MIE_G,
   SUN_MAX,
   SUN_MIN,
@@ -95,22 +96,28 @@ export function autoExposure(sunAltitude, targetBrightness, maxGain) {
  * @param {number} elevation degrees
  * @returns {[number, number, number]} 0..1 per channel
  */
-export function transmittanceFor(elevation) {
+export function transmittanceFor(elevation, turbidity = 1) {
   const { transmittance } = skyLut();
 
   const u = encodeElevation(elevation, SUN_MIN, SUN_MAX) * LUT_SUN - 0.5;
   const i = Math.floor(u);
   const t = Math.min(1, Math.max(0, u - i));
 
-  const lo = Math.min(LUT_SUN - 1, Math.max(0, i)) * 3;
-  const hi = Math.min(LUT_SUN - 1, Math.max(0, i + 1)) * 3;
+  const lo = Math.min(LUT_SUN - 1, Math.max(0, i)) * 4;
+  const hi = Math.min(LUT_SUN - 1, Math.max(0, i + 1)) * 4;
 
-  return [
-    (transmittance[lo] ?? 0) + ((transmittance[hi] ?? 0) - (transmittance[lo] ?? 0)) * t,
-    (transmittance[lo + 1] ?? 0) +
-      ((transmittance[hi + 1] ?? 0) - (transmittance[lo + 1] ?? 0)) * t,
-    (transmittance[lo + 2] ?? 0) + ((transmittance[hi + 2] ?? 0) - (transmittance[lo + 2] ?? 0)) * t
-  ];
+  /** @param {number} offset */
+  const read = (offset) =>
+    (transmittance[lo + offset] ?? 0) +
+    ((transmittance[hi + offset] ?? 0) - (transmittance[lo + offset] ?? 0)) * t;
+
+  // Extra haze beyond the baked amount removes more light, and removes it
+  // almost evenly across the spectrum - which is why a hazy sun goes white
+  // and dim rather than red. The reddening comes from the Rayleigh term,
+  // which is already in the baked value.
+  const extra = Math.exp(-(turbidity - 1) * MIE_EXTINCTION_COEFFICIENT * read(3));
+
+  return [read(0) * extra, read(1) * extra, read(2) * extra];
 }
 
 /**

@@ -64,6 +64,16 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   hours either side of midnight read as a dark blue sky rather than a dead
   rectangle. The control doubles as a light-pollution dial.
 
+- **The grade**, over a sky that is already physically right. **Haze** for how
+  much dust the air holds, which whitens the sky, widens the sun's glare and
+  is most of what makes a sunset deep red rather than merely warm. A **colour
+  cast in three stops** - day, twilight and night - so you can warm a sunrise
+  without touching the middle of the day. And **saturation** and **contrast**,
+  adjusted in a perceptual space so that raising saturation does not drag the
+  hues around.
+  The default grade is exactly neutral, so a fresh preset shows the sky the
+  physics drew and nothing else.
+
 ### Known limitations
 
 These are real and are tracked in `docs/ROADMAP.md`; none of them is presented

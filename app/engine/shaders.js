@@ -136,6 +136,7 @@ uniform float uFieldOfView;
 
 uniform float uGroundAlbedo;
 uniform vec3 uAirglow;
+uniform float uTurbidity;
 
 out vec4 fragColor;
 
@@ -170,7 +171,18 @@ vec3 skyRadiance(float elevation, float fromSun) {
     sin(elevation * RADIANS) * sin(uSunAltitude * RADIANS) +
     cos(elevation * RADIANS) * cos(uSunAltitude * RADIANS) * cos(fromSun * RADIANS);
 
-  return entry.rgb * rayleighPhase(cosTheta) + vec3(entry.a) * miePhase(cosTheta, MIE_G);
+  // Haze is the Mie term, and the table keeps it in its own channel - which
+  // it does because the phase functions had to be applied separately anyway.
+  // So turbidity costs one multiply here, where changing it in the model
+  // would mean rebuilding the table and most of a second of waiting.
+  //
+  // This scales the light haze scatters *in*. It does not scale what haze
+  // takes *out* along the view ray, which is baked; the sun's own disc does
+  // get the extinction, in transmittanceFor(). At ordinary turbidities the
+  // difference is small, and it is the in-scattering that makes a hazy sky
+  // look hazy.
+  return entry.rgb * rayleighPhase(cosTheta) +
+         vec3(entry.a) * uTurbidity * miePhase(cosTheta, MIE_G);
 }
 
 void main() {
@@ -504,7 +516,51 @@ uniform vec2 uResolution;
 uniform float uExposure;
 uniform float uWhite;
 
+uniform vec3 uTint;
+uniform float uSaturation;
+uniform float uContrast;
+
 out vec4 fragColor;
+
+// Oklab, Bjorn Ottosson. The same matrices as sky/oklab.js, which is the only
+// other place in the project that converts a colour - and a unit test holds
+// the two to each other.
+//
+// The grade is done here rather than in linear light because saturation and
+// contrast mean what their names say in a perceptual space and something else
+// anywhere else: scaling chroma in linear RGB shifts hue, and bending
+// lightness there crushes the shadows long before it looks like it should.
+vec3 linearToOklab(vec3 c) {
+  float l = 0.4122214708 * c.r + 0.5363325363 * c.g + 0.0514459929 * c.b;
+  float m = 0.2119034982 * c.r + 0.6806995451 * c.g + 0.1073969566 * c.b;
+  float s = 0.0883024619 * c.r + 0.2817188376 * c.g + 0.6299787005 * c.b;
+
+  float l_ = sign(l) * pow(abs(l), 1.0 / 3.0);
+  float m_ = sign(m) * pow(abs(m), 1.0 / 3.0);
+  float s_ = sign(s) * pow(abs(s), 1.0 / 3.0);
+
+  return vec3(
+    0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+    1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+    0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+  );
+}
+
+vec3 oklabToLinear(vec3 lab) {
+  float l_ = lab.x + 0.3963377774 * lab.y + 0.2158037573 * lab.z;
+  float m_ = lab.x - 0.1055613458 * lab.y - 0.0638541728 * lab.z;
+  float s_ = lab.x - 0.0894841775 * lab.y - 1.2914855480 * lab.z;
+
+  float l = l_ * l_ * l_;
+  float m = m_ * m_ * m_;
+  float s = s_ * s_ * s_;
+
+  return vec3(
+     4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
+  );
+}
 
 // Extended Reinhard, applied to luminance so that hue survives.
 //
@@ -520,7 +576,24 @@ vec3 toneMap(vec3 colour) {
 
 void main() {
   vec3 radiance = texture(uScene, gl_FragCoord.xy / uResolution).rgb;
-  vec3 colour = toneMap(max(radiance, vec3(0.0)) * uExposure);
+
+  // The tint multiplies light, before the tone curve, so it colours the
+  // picture rather than washing over it. A neutral tint is exactly (1,1,1)
+  // and this line does nothing at all.
+  vec3 colour = toneMap(max(radiance, vec3(0.0)) * uExposure * uTint);
+
+  if (uSaturation != 1.0 || uContrast != 1.0) {
+    vec3 lab = linearToOklab(colour);
+
+    // Contrast pivots about mid-grey in Oklab, where "mid" really is the
+    // middle: 0.5 of L is the lightness halfway between black and white to
+    // the eye, which is not true of 0.5 anywhere else.
+    lab.x = 0.5 + (lab.x - 0.5) * uContrast;
+    lab.yz *= uSaturation;
+
+    colour = oklabToLinear(lab);
+  }
+
   vec3 srgb = linearToSrgb(clamp(colour, 0.0, 1.0));
   fragColor = vec4(dither(srgb, gl_FragCoord.xy), 1.0);
 }

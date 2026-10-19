@@ -706,6 +706,110 @@ test("the sun is drawn where it is, and sets behind the horizon", async ({ page 
   expect(result.down.altitude).toBeLessThan(-10);
 });
 
+test("the grade changes the picture, and a neutral one does not", async ({ page }) => {
+  // The grade sits on top of a sky that is already physically correct, so the
+  // property worth protecting is that it can be absent: a default preset has
+  // to leave the model exactly as it drew things, or the physics stops being
+  // what anyone is looking at.
+  const result = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset } = await import("/engine/index.js");
+
+    const width = 360;
+    const height = 200;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+
+    const place = { lat: 39.7, lon: -105 };
+    // Civil twilight, because that is where the twilight tint applies. An
+    // earlier version of this used midday, where a twilight tint correctly
+    // does nothing at all, and then complained that it did nothing.
+    const t = Date.UTC(2026, 8, 23, 0, 20);
+
+    const shoot = (patch) => {
+      engine.setPreset({ ...defaultPreset(), ...patch });
+      engine.render({
+        t,
+        place,
+        crop: { x: 0, y: 0, w: width, h: height },
+        span: { w: width, h: height },
+        pixelRatio: 1
+      });
+
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+      let saturation = 0;
+      let mean = 0;
+      let red = 0;
+      let blue = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        const max = Math.max(pixels[i], pixels[i + 1], pixels[i + 2]);
+        const min = Math.min(pixels[i], pixels[i + 1], pixels[i + 2]);
+        saturation += max - min;
+        mean += (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+        red += pixels[i];
+        blue += pixels[i + 2];
+      }
+
+      const count = width * height;
+      return {
+        // A slice, only so two renders can be compared for exact equality.
+        // Every measurement below is taken over the whole frame.
+        pixels: Array.from(pixels.slice(0, 4000)),
+        saturation: saturation / count,
+        mean: mean / count,
+        warmth: red / Math.max(blue, 1)
+      };
+    };
+
+    const base = shoot({});
+    return {
+      base,
+      explicitlyNeutral: shoot({
+        dayTint: "#808080",
+        twilightTint: "#808080",
+        nightTint: "#808080",
+        saturation: 1,
+        contrast: 1
+      }),
+      grey: shoot({ saturation: 0 }),
+      vivid: shoot({ saturation: 1.8 }),
+      hazy: shoot({ turbidity: 4 }),
+      warm: shoot({ twilightTint: "#ff8030" })
+    };
+  });
+
+  // A neutral grade has to be bit-for-bit the default, or "no grade" is not a
+  // state the application can actually be in.
+  expect(result.explicitlyNeutral.pixels).toEqual(result.base.pixels);
+
+  expect(result.base.saturation, "the sky should have colour in it to begin with").toBeGreaterThan(
+    8
+  );
+
+  expect(result.grey.saturation, "saturation 0 should leave no colour at all").toBeLessThan(1.5);
+  expect(result.vivid.saturation, "raising saturation should add colour").toBeGreaterThan(
+    result.base.saturation * 1.2
+  );
+
+  // Haze scatters every wavelength more evenly than air does, so more of it
+  // washes the colour out of the sky and brightens it.
+  expect(result.hazy.saturation, "haze should mute the colour").toBeLessThan(
+    result.base.saturation
+  );
+  expect(result.hazy.mean, "haze should brighten the sky").toBeGreaterThan(result.base.mean);
+
+  // And a warm twilight tint should actually warm the twilight.
+  expect(
+    result.warm.warmth,
+    `warmed ${result.warm.warmth.toFixed(3)} against a base of ${result.base.warmth.toFixed(3)}`
+  ).toBeGreaterThan(result.base.warmth * 1.05);
+});
+
 test("every control carries a hint, and none is a bare label (US-023)", async ({ page }) => {
   const rows = await page.evaluate(() =>
     [...document.querySelectorAll(".row > label")].map((label) => ({

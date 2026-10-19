@@ -158,7 +158,13 @@ function normaliseCfg(raw) {
       twinkle: num(presetRaw["twinkle"], defaults.twinkle, 0, 1),
       airglow: num(presetRaw["airglow"], defaults.airglow, 0, 1e-4),
       glare: num(presetRaw["glare"], defaults.glare, 0, 4),
-      bodyScale: num(presetRaw["bodyScale"], defaults.bodyScale, 1, 12)
+      bodyScale: num(presetRaw["bodyScale"], defaults.bodyScale, 1, 12),
+      turbidity: num(presetRaw["turbidity"], defaults.turbidity, 0.2, 8),
+      dayTint: hex(presetRaw["dayTint"], defaults.dayTint),
+      twilightTint: hex(presetRaw["twilightTint"], defaults.twilightTint),
+      nightTint: hex(presetRaw["nightTint"], defaults.nightTint),
+      saturation: num(presetRaw["saturation"], defaults.saturation, 0, 3),
+      contrast: num(presetRaw["contrast"], defaults.contrast, 0.3, 3)
     },
     place: {
       // Latitude stops just short of the poles: at exactly 90 the azimuth
@@ -180,6 +186,21 @@ function normaliseUi(raw) {
   return {
     theme: theme === "light" || theme === "dark" || theme === "system" ? theme : "dark"
   };
+}
+
+/**
+ * A `#rrggbb` colour, or the fallback.
+ *
+ * Checked rather than trusted: a tint reaches a shader as three numbers, and
+ * a malformed one would throw out of the render loop rather than quietly
+ * looking wrong.
+ *
+ * @param {unknown} value
+ * @param {string} fallback
+ * @returns {string}
+ */
+function hex(value, fallback) {
+  return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
 }
 
 /**

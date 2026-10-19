@@ -226,8 +226,15 @@ export function bakeScatteringLut() {
   /** The reference brightness of each sun elevation, for auto-exposure. */
   const reference = new Float32Array(LUT_SUN);
 
-  /** What is left of the sun's own light at each elevation, for its disc. */
-  const transmittance = new Float32Array(LUT_SUN * 3);
+  /**
+   * What is left of the sun's own light at each elevation, and how much haze
+   * it crossed: four values per entry, the last being the Mie optical depth.
+   *
+   * The depth is kept so that turbidity can change the sun's colour without
+   * rebuilding the table. Haze is the one model parameter a user will want to
+   * drag a slider for, and a rebuild is the better part of a second.
+   */
+  const transmittance = new Float32Array(LUT_SUN * 4);
 
   for (let x = 0; x < LUT_SUN; x += 1) {
     const sunElevation = decodeElevation((x + 0.5) / LUT_SUN, SUN_MIN, SUN_MAX);
@@ -260,9 +267,10 @@ export function bakeScatteringLut() {
     reference[x] = 0.2126 * skyAverage[0] + 0.7152 * skyAverage[1] + 0.0722 * skyAverage[2];
 
     const survives = sunTransmittance(sunElevation);
-    transmittance[x * 3] = survives[0];
-    transmittance[x * 3 + 1] = survives[1];
-    transmittance[x * 3 + 2] = survives[2];
+    transmittance[x * 4] = survives[0];
+    transmittance[x * 4 + 1] = survives[1];
+    transmittance[x * 4 + 2] = survives[2];
+    transmittance[x * 4 + 3] = mieDepthTowardsSun(sunElevation);
   }
 
   return { data, reference, transmittance };
@@ -476,6 +484,29 @@ export function sunTransmittance(sunElevationDeg) {
     )
   );
 }
+
+/**
+ * How much haze the sun's light crosses on the way in, as an optical depth.
+ *
+ * Separated out so that turbidity - how dusty the air is - can redden and dim
+ * the sun's own disc without the whole scattering table being rebuilt. Haze
+ * is the parameter a user is most likely to drag a slider for, and a rebuild
+ * takes the better part of a second.
+ *
+ * @param {number} sunElevationDeg
+ * @returns {number}
+ */
+export function mieDepthTowardsSun(sunElevationDeg) {
+  const d = Math.PI / 180;
+  const origin = [0, 0, EARTH_RADIUS + VIEW_HEIGHT];
+  const sun = [Math.cos(sunElevationDeg * d), 0, Math.sin(sunElevationDeg * d)];
+
+  const depth = sunOpticalDepth(origin, sun);
+  return depth === null ? 0 : depth.mie;
+}
+
+/** The Mie extinction coefficient, so callers can scale it with turbidity. */
+export const MIE_EXTINCTION_COEFFICIENT = MIE_EXTINCTION;
 
 /**
  * Optical depth from a point towards the sun, or null if the Earth is in the

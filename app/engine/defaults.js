@@ -93,6 +93,30 @@ export function defaultPreset() {
     // says so.
     bodyScale: 1,
 
+    // How much haze the air holds. One is an ordinary clear day; higher is
+    // hazier, which whitens the sky, widens the glare around the sun and
+    // mutes the blue. A deep red sunset is largely a dusty one.
+    //
+    // Strictly a model parameter rather than a grade, but it sits with the
+    // grade because that is where a user looks for it.
+    turbidity: 1,
+
+    // A colour cast keyed to the sun's altitude, in three stops: full day,
+    // the hour either side of the horizon, and night. Neutral greys leave the
+    // physical sky exactly as it is, which is the default.
+    //
+    // This is the piece of authored expressiveness ADR 0004 kept when it
+    // chose a physical sky over a painted one.
+    dayTint: "#808080",
+    twilightTint: "#808080",
+    nightTint: "#808080",
+
+    // Chroma, in Oklab. One leaves the sky as the physics drew it.
+    saturation: 1,
+
+    // Lightness contrast, in Oklab. One is unchanged.
+    contrast: 1,
+
     // The tone curve's white point: how bright something has to be before it
     // is allowed to reach pure white. Higher keeps more detail in the sun's
     // glow at the cost of overall contrast.

@@ -14,6 +14,7 @@
 import { resolveBearing, sunPosition } from "../engine/index.js";
 import { linearToSrgb } from "../engine/sky/oklab.js";
 import { autoExposure, sampleSky } from "../engine/sky/lut.js";
+import { tintFor } from "../engine/sky/grade.js";
 
 /** @typedef {import("../engine/types.js").Place} Place */
 /** @typedef {import("../engine/types.js").Preset} Preset */
@@ -66,11 +67,17 @@ export function drawBands(canvas, dayStart, place, preset) {
     const exposure =
       autoExposure(sun.altitude, EXPOSURE_TARGET, EXPOSURE_MAX) * Math.pow(2, preset.exposure);
 
+    // The same grade the sky gets, so the bands cannot drift away from the
+    // picture above them. Saturation and contrast are left out: they are
+    // applied after the tone curve and would only make the strip harder to
+    // read as a summary of the day.
+    const tint = tintFor(preset, sun.altitude);
+
     /** @type {[number, number, number]} */
     const mapped = [
-      toneMap(radiance[0] * exposure, preset.whitePoint),
-      toneMap(radiance[1] * exposure, preset.whitePoint),
-      toneMap(radiance[2] * exposure, preset.whitePoint)
+      toneMap(radiance[0] * exposure * tint[0], preset.whitePoint),
+      toneMap(radiance[1] * exposure * tint[1], preset.whitePoint),
+      toneMap(radiance[2] * exposure * tint[2], preset.whitePoint)
     ];
     const srgb = linearToSrgb(mapped);
 
