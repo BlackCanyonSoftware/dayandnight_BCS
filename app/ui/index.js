@@ -14,6 +14,7 @@ import * as timeline from "./clock.js";
 import * as shell from "./desktop.js";
 import { createPreview } from "./preview.js";
 import { drawBands } from "./scrubber.js";
+import { guessPlace, labelFor, nearestCity, resolveCity, suggest } from "./place.js";
 import { readDocument, writeDocument } from "./settings.js";
 import {
   clock,
@@ -103,7 +104,23 @@ async function boot() {
 async function loadSaved() {
   const { doc, problem } = readDocument(await shell.loadSettings());
   if (problem) notice(problem);
-  if (!doc) return;
+
+  if (!doc) {
+    // Nothing saved, so this is a first run. Guess where we are rather than
+    // opening on a default somebody else chose - a sky for the wrong
+    // continent is the first thing a new user would see, and the worst
+    // possible first impression for a product whose whole claim is that it
+    // matches the window (US-010).
+    //
+    // From the time zone, which the machine already knows. Nothing is asked
+    // for and nothing is sent (NFR-5).
+    const guess = guessPlace();
+    if (guess) {
+      setPlace(guess.place);
+      $("#guessNote").textContent = `Set to ${guess.description}.`;
+    }
+    return;
+  }
 
   replacePreset(doc.cfg.preset);
   setPlace(doc.cfg.place);
@@ -164,6 +181,30 @@ function wireControls() {
   bindRange("fieldOfView", (v) => setPreset({ fieldOfView: v }));
   bindRange("fps", (v) => setFps(Math.round(v)));
 
+  // The city field. `input` rather than `change`, so picking from the
+  // suggestion list takes effect at once rather than on blur.
+  const city = input("city");
+  city.addEventListener("input", () => {
+    refreshCitySuggestions(city.value);
+
+    const match = resolveCity(city.value);
+    if (!match) return;
+
+    setPlace({ lat: match.lat, lon: match.lon });
+    bandsDirty = true;
+    paintFromState();
+    save();
+  });
+
+  bindNumber("latNum", (v) => {
+    setPlace({ lat: v });
+    bandsDirty = true;
+  });
+  bindNumber("lonNum", (v) => {
+    setPlace({ lon: v });
+    bandsDirty = true;
+  });
+
   input("scrub").addEventListener("input", (event) => {
     timeline.setMinute(Number(/** @type {HTMLInputElement} */ (event.target).value));
     syncClockControls();
@@ -189,7 +230,7 @@ function wireControls() {
     save();
   });
 
-  $("#guessBtn").addEventListener("click", guessLongitude);
+  $("#guessBtn").addEventListener("click", guessFromTimeZone);
   $("#wallBtn").addEventListener("click", toggleWallpaper);
   $("#resetBtn").addEventListener("click", resetAll);
   $("#saveBtn").addEventListener("click", downloadSettings);
@@ -205,6 +246,46 @@ function wireControls() {
       togglePlay();
     }
   });
+}
+
+/**
+ * Wire a number input to a setter.
+ *
+ * Separate from bindRange because a half-typed number is not a number: "-" on
+ * the way to "-33" parses as NaN, and feeding that to the engine would blank
+ * the sky while somebody was still typing.
+ *
+ * @param {string} id
+ * @param {(value: number) => void} set
+ */
+function bindNumber(id, set) {
+  const element = input(id);
+  element.addEventListener("input", () => {
+    const value = Number(element.value);
+    if (element.value.trim() === "" || !Number.isFinite(value)) return;
+    set(value);
+    paintFromState();
+    save();
+  });
+}
+
+/**
+ * Refill the suggestion list for what has been typed.
+ *
+ * A native datalist, so it is keyboard-navigable and styled by the platform
+ * rather than by us - which for a search field is the right trade.
+ *
+ * @param {string} query
+ */
+function refreshCitySuggestions(query) {
+  const list = $("#cityList");
+  list.replaceChildren();
+
+  for (const match of suggest(query)) {
+    const option = document.createElement("option");
+    option.value = labelFor(match);
+    list.append(option);
+  }
 }
 
 /**
@@ -258,19 +339,31 @@ function togglePlay() {
  * lookup that is the only thing in the application to touch the network arrive
  * in Milestone 1 (US-010).
  */
-function guessLongitude() {
-  // getTimezoneOffset is the minutes to add to local time to reach UTC, so it
-  // is positive west of Greenwich - the opposite sign from longitude.
-  const offsetHours = -new Date().getTimezoneOffset() / 60;
-  setPlace({ lon: Math.max(-180, Math.min(180, offsetHours * 15)) });
+/**
+ * Set the place from this computer's time zone.
+ *
+ * A zone name is a place name, so this gives a latitude as well as a
+ * longitude - which the first version of this could not do, because it worked
+ * from the offset from UTC and every point on a meridian shares one.
+ *
+ * Nothing here touches the network (NFR-5): the zone is already on the
+ * machine.
+ */
+function guessFromTimeZone() {
+  const guess = guessPlace();
 
+  if (!guess) {
+    $("#guessNote").textContent =
+      "Your time zone is not one this build knows a city for. Search for a city, or type the numbers in.";
+    return;
+  }
+
+  setPlace(guess.place);
   bandsDirty = true;
   paintFromState();
   save();
 
-  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "your time zone";
-  $("#guessNote").textContent =
-    `Longitude set from ${zone}. Latitude cannot be guessed from a time zone, so set it yourself.`;
+  $("#guessNote").textContent = `Set to ${guess.description}.`;
 }
 
 async function toggleWallpaper() {
@@ -317,6 +410,8 @@ function downloadSettings() {
 function paintFromState() {
   input("lat").value = String(place.lat);
   input("lon").value = String(place.lon);
+  input("latNum").value = place.lat.toFixed(2);
+  input("lonNum").value = place.lon.toFixed(2);
   input("exposure").value = String(preset.exposure);
   input("whitePoint").value = String(preset.whitePoint);
   input("bearing").value = String(preset.bearing === null ? -1 : preset.bearing);
@@ -338,6 +433,12 @@ function paintFromState() {
 
   $("#latVal").textContent = fmtDegrees(place.lat);
   $("#lonVal").textContent = fmtDegrees(place.lon);
+
+  // Name the place if a city is close enough to be worth naming. Two numbers
+  // say nothing; "near Denver" is checkable against a window.
+  const near = nearestCity(place);
+  const field = input("city");
+  if (document.activeElement !== field) field.value = near ? labelFor(near) : "";
   $("#exposureVal").textContent = `${preset.exposure.toFixed(1)} EV`;
   $("#whitePointVal").textContent = preset.whitePoint.toFixed(1);
   $("#bearingVal").textContent =

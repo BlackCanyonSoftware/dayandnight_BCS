@@ -74,6 +74,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The default grade is exactly neutral, so a fresh preset shows the sky the
   physics drew and nothing else.
 
+- **Setting where you are.** Day and Night now guesses on first run from your
+  computer's time zone - which names a place, so it gives a latitude as well
+  as a longitude - and you can search a hundred-odd cities by name or country,
+  or type coordinates straight in. Drag the sliders somewhere and it tells you
+  the nearest city, so the numbers mean something.
+  Nothing here touches the network. The time zone is already on your machine,
+  and your address is not the application&rsquo;s business.
+
 ### Known limitations
 
 These are real and are tracked in `docs/ROADMAP.md`; none of them is presented
@@ -89,6 +97,11 @@ as finished.
   sunset in full.
 - **Moonlight does not light the sky**, and the moon is drawn dimmer than life
   so its phase stays readable against a dark sky.
+- **The clock shows your time, not the chosen place&rsquo;s.** Pick a city in
+  another country and the sky is right for it, but the time beside it is still
+  yours.
+- **The city list is short** - about a hundred, accurate to a tenth of a
+  degree. If yours is missing, the coordinate boxes take anything.
 - **Deep twilight is darker than it should be.** The scattering model runs out
   of lit atmosphere about eight degrees below the horizon, so the blue glow
   that lingers towards the sunset through nautical twilight is missing. The

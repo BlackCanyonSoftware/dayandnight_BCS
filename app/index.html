@@ -61,40 +61,85 @@
             <summary>Place</summary>
             <div class="sec-body">
               <div class="row">
-                <label>
+                <label for="city">
+                  <span class="labelleft"
+                    ><span>City</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="Type a city or a country to set your coordinates. The list is a hundred or so large cities, accurate to about a tenth of a degree, which puts sunrise within half a minute. If yours is not here, the numbers below take anything."
+                      >i</span
+                    ></span
+                  >
+                </label>
+                <input
+                  id="city"
+                  type="text"
+                  list="cityList"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="Search for a city"
+                />
+                <datalist id="cityList"></datalist>
+              </div>
+
+              <div class="row">
+                <button id="guessBtn" class="ghost" type="button">Use my time zone</button>
+                <div class="meta" id="guessNote"></div>
+              </div>
+
+              <div class="row">
+                <label for="latNum">
                   <span class="labelleft"
                     ><span>Latitude</span
                     ><span
                       class="info"
                       tabindex="0"
-                      data-tip="Degrees north of the equator; negative for the southern hemisphere. This is what decides how high the sun climbs and how long twilight lasts, so it changes the look of the whole day more than any other setting here."
+                      data-tip="Degrees north of the equator; negative for the southern hemisphere. This decides how high the sun climbs and how long twilight lasts, so it changes the look of the whole day more than anything else here. Drag to explore, or type for precision."
                       >i</span
                     ></span
                   >
                   <span class="val" id="latVal">0.0&deg;</span>
                 </label>
-                <input id="lat" type="range" min="-89" max="89" step="0.1" value="39.7" />
+                <div class="rowinline">
+                  <input id="lat" type="range" min="-89.9" max="89.9" step="0.1" value="39.7" />
+                  <input
+                    id="latNum"
+                    type="number"
+                    min="-89.9"
+                    max="89.9"
+                    step="0.01"
+                    value="39.7"
+                    aria-label="Latitude in degrees"
+                  />
+                </div>
               </div>
 
               <div class="row">
-                <label>
+                <label for="lonNum">
                   <span class="labelleft"
                     ><span>Longitude</span
                     ><span
                       class="info"
                       tabindex="0"
-                      data-tip="Degrees east of Greenwich; negative for the west. This sets what time the sun is overhead, which is why a city at the eastern edge of a time zone sees noon well before the clock says so."
+                      data-tip="Degrees east of Greenwich; negative for the west. This sets what time the sun is overhead, which is why a city at the eastern edge of a time zone sees noon well before the clock says so. Drag to explore, or type for precision."
                       >i</span
                     ></span
                   >
                   <span class="val" id="lonVal">0.0&deg;</span>
                 </label>
-                <input id="lon" type="range" min="-180" max="180" step="0.1" value="-105" />
-              </div>
-
-              <div class="row">
-                <button id="guessBtn" class="ghost" type="button">Guess from my time zone</button>
-                <div class="meta" id="guessNote"></div>
+                <div class="rowinline">
+                  <input id="lon" type="range" min="-180" max="180" step="0.1" value="-105" />
+                  <input
+                    id="lonNum"
+                    type="number"
+                    min="-180"
+                    max="180"
+                    step="0.01"
+                    value="-105"
+                    aria-label="Longitude in degrees"
+                  />
+                </div>
               </div>
             </div>
           </details>

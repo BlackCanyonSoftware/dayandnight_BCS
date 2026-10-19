@@ -272,6 +272,25 @@ button.primary:hover {
   white-space: normal;
 }
 
+/* A slider and the box that shows its number, on one line: drag to explore,
+   type when you know the answer. One label and one hint between them, because
+   they are one setting. */
+.rowinline {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.rowinline input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rowinline input[type="number"] {
+  flex: 0 0 76px;
+  width: 76px;
+}
+
 .rowpair {
   display: grid;
   grid-template-columns: 1fr 1fr;
