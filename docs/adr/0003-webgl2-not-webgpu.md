@@ -21,8 +21,8 @@ So the choice is which GPU API, inside Electron's Chromium.
    Intel integrated parts a desktop-wallpaper audience actually has. Float
    render targets, instancing and texture arrays - everything this engine needs
    - are core or universally available extensions. Mature tooling and an
-   enormous body of reference shaders for exactly this problem domain
-   (atmospheric scattering).
+     enormous body of reference shaders for exactly this problem domain
+     (atmospheric scattering).
 
 2. **WebGPU / WGSL.** The better API by some distance: compute shaders would
    suit the LUT bake, the binding model is saner, and it is where the platform

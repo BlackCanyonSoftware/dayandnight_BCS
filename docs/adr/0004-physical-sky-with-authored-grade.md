@@ -60,7 +60,7 @@ implementation detail of Milestone 1 and does not change this decision.
   without greying the zenith;
 - an altitude-keyed tint ramp - a small set of colour stops against sun
   altitude - which is where option 1's expressiveness is retained, as a
-  *modifier* on a correct sky rather than as the sky itself;
+  _modifier_ on a correct sky rather than as the sky itself;
 - turbidity and ground albedo, which belong to the model rather than the
   grade but sit in the same panel because that is where a user looks for them.
 

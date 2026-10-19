@@ -27,11 +27,11 @@ doing, the way you would glance out of an actual window.
 
 ## 2. Target users
 
-| Who | What they want | What they will not tolerate |
-|---|---|---|
+| Who                                | What they want                                                                                                                         | What they will not tolerate                                                                 |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | **The desktop tinkerer** (primary) | A wallpaper nobody else has, with enough knobs to make it theirs. Already runs Wallpaper Engine or Lively and has opinions about both. | Anything that costs frames in a game, or that they have to restart after the machine wakes. |
-| **The quiet-desk professional** | Something calm and good-looking that is not a stock photograph, on three monitors, set up once and never thought about again. | Fiddly setup, a tray icon that nags, visible CPU use in Task Manager. |
-| **The seasonal-light watcher** | The real thing: correct twilight, correct moon phase, the days visibly shortening in autumn. | A fake or stylised sky that does not match what is out of the window. |
+| **The quiet-desk professional**    | Something calm and good-looking that is not a stock photograph, on three monitors, set up once and never thought about again.          | Fiddly setup, a tray icon that nags, visible CPU use in Task Manager.                       |
+| **The seasonal-light watcher**     | The real thing: correct twilight, correct moon phase, the days visibly shortening in autumn.                                           | A fake or stylised sky that does not match what is out of the window.                       |
 
 Secondary, later: the preset author who wants to publish looks for other people,
 and the laptop user who needs it to behave on battery.
@@ -228,14 +228,14 @@ accounts or any server; video export; audio reactivity.
 
 ## 9. Risks
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| **Electron is too heavy to run all day.** | Fatal to G3. | The budget in NFR-1 is measured at Milestone 0, before any art exists. The pause policy is load-bearing, not polish. If the budget fails with pausing in place, the host swaps to native, which ADR 0002 keeps possible. |
-| **The WorkerW technique breaks in a Windows update.** | The wallpaper stops appearing. | Host detection is isolated in one module with a documented fallback to a bottom-most desktop-level window. A Windows update is then a bug to fix, not a redesign. |
-| **A physical sky model gives too few knobs to feel customizable.** | Undermines G4. | The grade layer is specified alongside the model, not after it, and the first preset pass happens in Milestone 1 while the model can still change. |
-| **Multi-monitor layouts are endlessly varied** (mixed DPI, rotation, vertical stacks, gaps). | Visible seams, wrong scale. | Reuse Pixel Galaxy Studio's layout arithmetic, which has been through this. Test the four nastiest arrangements explicitly. |
-| **Native FFI adds a fragile dependency.** | Build and packaging pain. | Only a handful of Win32 calls are needed, behind one module, with a documented hand-written alternative (ADR 0002). |
-| **Scope creep into a weather and terrain simulator.** | It never ships. | The non-goals above are enforced in review. Clouds, weather and horizon are separately numbered milestones after the core ships. |
+| Risk                                                                                         | Impact                         | Mitigation                                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Electron is too heavy to run all day.**                                                    | Fatal to G3.                   | The budget in NFR-1 is measured at Milestone 0, before any art exists. The pause policy is load-bearing, not polish. If the budget fails with pausing in place, the host swaps to native, which ADR 0002 keeps possible. |
+| **The WorkerW technique breaks in a Windows update.**                                        | The wallpaper stops appearing. | Host detection is isolated in one module with a documented fallback to a bottom-most desktop-level window. A Windows update is then a bug to fix, not a redesign.                                                        |
+| **A physical sky model gives too few knobs to feel customizable.**                           | Undermines G4.                 | The grade layer is specified alongside the model, not after it, and the first preset pass happens in Milestone 1 while the model can still change.                                                                       |
+| **Multi-monitor layouts are endlessly varied** (mixed DPI, rotation, vertical stacks, gaps). | Visible seams, wrong scale.    | Reuse Pixel Galaxy Studio's layout arithmetic, which has been through this. Test the four nastiest arrangements explicitly.                                                                                              |
+| **Native FFI adds a fragile dependency.**                                                    | Build and packaging pain.      | Only a handful of Win32 calls are needed, behind one module, with a documented hand-written alternative (ADR 0002).                                                                                                      |
+| **Scope creep into a weather and terrain simulator.**                                        | It never ships.                | The non-goals above are enforced in review. Clouds, weather and horizon are separately numbered milestones after the core ships.                                                                                         |
 
 ## 10. Open questions
 
@@ -257,14 +257,14 @@ accounts or any server; video export; audio reactivity.
 
 One term per concept; these are the words used in code, tests and docs.
 
-| Term | Meaning in this project |
-|---|---|
-| **Altitude** | The sun's or moon's angle above the horizon, in degrees; negative below. The master parameter for the whole scene. |
-| **Azimuth** | Compass bearing of the sun or moon, in degrees clockwise from north. |
-| **Civil / nautical / astronomical twilight** | Sun altitude between 0 and -6, -6 and -12, and -12 and -18 degrees. |
-| **Grade** | The user-authored colour transform applied on top of the physical sky. |
-| **Host** | Whatever puts a rendering surface on the desktop. On Windows, a window parented to WorkerW. |
-| **Preset** | A complete authored look, as a file. |
-| **Scene** | Everything drawn for one instant: sky, bodies, stars, and later clouds and horizon. |
-| **Span** | The bounding rectangle of every enabled monitor, in virtual-desktop pixels. The scene is composed for it. |
-| **WorkerW** | The Windows Explorer window that sits behind the desktop icons and in front of the wallpaper. |
+| Term                                         | Meaning in this project                                                                                            |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Altitude**                                 | The sun's or moon's angle above the horizon, in degrees; negative below. The master parameter for the whole scene. |
+| **Azimuth**                                  | Compass bearing of the sun or moon, in degrees clockwise from north.                                               |
+| **Civil / nautical / astronomical twilight** | Sun altitude between 0 and -6, -6 and -12, and -12 and -18 degrees.                                                |
+| **Grade**                                    | The user-authored colour transform applied on top of the physical sky.                                             |
+| **Host**                                     | Whatever puts a rendering surface on the desktop. On Windows, a window parented to WorkerW.                        |
+| **Preset**                                   | A complete authored look, as a file.                                                                               |
+| **Scene**                                    | Everything drawn for one instant: sky, bodies, stars, and later clouds and horizon.                                |
+| **Span**                                     | The bounding rectangle of every enabled monitor, in virtual-desktop pixels. The scene is composed for it.          |
+| **WorkerW**                                  | The Windows Explorer window that sits behind the desktop icons and in front of the wallpaper.                      |

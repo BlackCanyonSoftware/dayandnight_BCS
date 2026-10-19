@@ -9,13 +9,13 @@
 Putting a window behind the desktop icons on Windows cannot be done from
 Electron's own API. It needs a specific sequence of Win32 calls:
 
-| Call | Why |
-|---|---|
-| `FindWindowW("Progman", null)` | Find the Explorer desktop window. |
-| `SendMessageTimeoutW(progman, 0x052C, ...)` | Ask Explorer to spawn a `WorkerW` behind the icon layer. |
-| `EnumWindows` + `FindWindowExW` | Find the `WorkerW` with no `SHELLDLL_DefView` child - the one behind the icons rather than in front of them. |
-| `SetParent(ourWindow, workerW)` | Reparent our window into it. |
-| `SHQueryUserNotificationState` | Detect a full-screen or exclusive-mode application, for the pause policy. |
+| Call                                        | Why                                                                                                          |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `FindWindowW("Progman", null)`              | Find the Explorer desktop window.                                                                            |
+| `SendMessageTimeoutW(progman, 0x052C, ...)` | Ask Explorer to spawn a `WorkerW` behind the icon layer.                                                     |
+| `EnumWindows` + `FindWindowExW`             | Find the `WorkerW` with no `SHELLDLL_DefView` child - the one behind the icons rather than in front of them. |
+| `SetParent(ourWindow, workerW)`             | Reparent our window into it.                                                                                 |
+| `SHQueryUserNotificationState`              | Detect a full-screen or exclusive-mode application, for the pause policy.                                    |
 
 That is the whole list. Five calls, no callbacks into our code except
 `EnumWindows`, no long-lived native objects, no performance sensitivity - the
@@ -43,7 +43,7 @@ Electron also needs the native window handle to pass to `SetParent`, which
    unmaintained, and a 24/7 process is the wrong place for an unmaintained
    native dependency.
 
-4. **Shelling out to PowerShell with `Add-Type`.** No dependency at all. 
+4. **Shelling out to PowerShell with `Add-Type`.** No dependency at all.
    Rejected: spawning a PowerShell process to poll the notification state
    several times a minute is worse than the dependency, start-up is slow enough
    to be visible against NFR-4, and the user's execution policy can refuse it

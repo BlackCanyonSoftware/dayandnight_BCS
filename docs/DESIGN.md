@@ -63,21 +63,21 @@ component knows which theme it is in.
 
 ### Colour
 
-| Token | Dark (default) | Light | Role |
-|---|---|---|---|
-| `--bg` | `#0a0d14` | `#f4f6fa` | The window behind everything |
-| `--panel` | `#111622` | `#ffffff` | Sidebar, dialogs |
-| `--panel-2` | `#171d2b` | `#eef1f7` | Raised rows, inputs, section bodies |
-| `--line` | `#273044` | `#d9dfea` | Borders |
-| `--line-soft` | `#1d2433` | `#e7ebf3` | Dividers inside a section |
-| `--ink` | `#e4e8f2` | `#141821` | Body text |
-| `--ink-dim` | `#97a1b8` | `#525b6d` | Labels, secondary text |
-| `--ink-faint` | `#5f6980` | `#79839a` | Disabled, placeholder |
-| `--accent` | `#ffb257` | `#9a5a00` | Primary: sunrise amber |
-| `--accent-2` | `#7c6cff` | `#51389e` | Secondary: dusk violet |
-| `--warn` | `#ffb454` | `#8a5200` | Caution |
-| `--bad` | `#ff6b6b` | `#b42020` | Error |
-| `--ok` | `#5fe0a8` | `#0a6b48` | Success |
+| Token         | Dark (default) | Light     | Role                                |
+| ------------- | -------------- | --------- | ----------------------------------- |
+| `--bg`        | `#0a0d14`      | `#f4f6fa` | The window behind everything        |
+| `--panel`     | `#111622`      | `#ffffff` | Sidebar, dialogs                    |
+| `--panel-2`   | `#171d2b`      | `#eef1f7` | Raised rows, inputs, section bodies |
+| `--line`      | `#273044`      | `#d9dfea` | Borders                             |
+| `--line-soft` | `#1d2433`      | `#e7ebf3` | Dividers inside a section           |
+| `--ink`       | `#e4e8f2`      | `#141821` | Body text                           |
+| `--ink-dim`   | `#97a1b8`      | `#525b6d` | Labels, secondary text              |
+| `--ink-faint` | `#5f6980`      | `#79839a` | Disabled, placeholder               |
+| `--accent`    | `#ffb257`      | `#9a5a00` | Primary: sunrise amber              |
+| `--accent-2`  | `#7c6cff`      | `#51389e` | Secondary: dusk violet              |
+| `--warn`      | `#ffb454`      | `#8a5200` | Caution                             |
+| `--bad`       | `#ff6b6b`      | `#b42020` | Error                               |
+| `--ok`        | `#5fe0a8`      | `#0a6b48` | Success                             |
 
 The light accents are the dark ones darkened until they pass 4.5:1 as text on
 `--panel`. This is the trap Pixel Galaxy Studio's brand notes already call out:
@@ -99,13 +99,13 @@ nothing.
 --font-mono: "Cascadia Mono", ui-monospace, "Consolas", monospace;
 ```
 
-| Token | Size / line | Used for |
-|---|---|---|
-| `--text-xs` | 11px / 1.4 | Hints, metadata, the scrubber's hour labels |
-| `--text-sm` | 12px / 1.45 | Panel labels, values |
-| `--text-base` | 13px / 1.45 | Body, the default |
-| `--text-lg` | 15px / 1.4 | Section headings |
-| `--text-xl` | 20px / 1.3 | Dialog titles |
+| Token         | Size / line | Used for                                    |
+| ------------- | ----------- | ------------------------------------------- |
+| `--text-xs`   | 11px / 1.4  | Hints, metadata, the scrubber's hour labels |
+| `--text-sm`   | 12px / 1.45 | Panel labels, values                        |
+| `--text-base` | 13px / 1.45 | Body, the default                           |
+| `--text-lg`   | 15px / 1.4  | Section headings                            |
+| `--text-xl`   | 20px / 1.3  | Dialog titles                               |
 
 Numbers that change as a slider moves - a sun altitude, a time - use
 `--font-mono` and tabular figures, so the layout does not jitter.
@@ -138,20 +138,20 @@ phone target.
 Each one has every state designed: rest, hover, focus-visible, active,
 disabled, and - where it loads or validates - pending, empty and error.
 
-| Component | Notes |
-|---|---|
-| **Section** (`<details>`) | A collapsible band of rows, as in Pixel Galaxy Studio. Remembers open state. One "collapse all" control in the top bar. |
-| **Row** | Label on the left with its `i`, control on the right, optional value readout. `half: true` rows pair up. The schema's unit of layout. |
-| **Range** | Slider with a numeric readout; drag folds into one undo step (US-024). Shift for fine, double-click to reset to default. |
-| **Select, Number, Check** | Native controls, restyled, keyboard-native. |
-| **Colour and swatches** | A grade's colour stops. A swatch row is a small palette the user can extend. |
-| **Info dot (`i`)** | The hint carrier. Hover, focus and touch all open it; `Escape` closes. The only place long text lives. |
-| **Time scrubber** | The stage's main control. Described below. |
-| **Place picker** | Time-zone guess, searchable city list, manual latitude and longitude, and an explicit "look it up" button that is the only thing in the application that touches the network. |
-| **Monitor layout** | Draggable screen rectangles, ported from Pixel Galaxy Studio's `ui/monitors.js`. |
-| **Theme toggle** | A sun/moon icon button in the top bar. Three states: light, dark, follow system. |
-| **Dialog** | Focus trapped, returns focus on close, `Escape` closes, scrim click closes unless there are unsaved edits. |
-| **Toast** | For things that happened without the user asking - a monitor arriving, a context lost and restored. Never for errors that need a decision. |
+| Component                 | Notes                                                                                                                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Section** (`<details>`) | A collapsible band of rows, as in Pixel Galaxy Studio. Remembers open state. One "collapse all" control in the top bar.                                                       |
+| **Row**                   | Label on the left with its `i`, control on the right, optional value readout. `half: true` rows pair up. The schema's unit of layout.                                         |
+| **Range**                 | Slider with a numeric readout; drag folds into one undo step (US-024). Shift for fine, double-click to reset to default.                                                      |
+| **Select, Number, Check** | Native controls, restyled, keyboard-native.                                                                                                                                   |
+| **Colour and swatches**   | A grade's colour stops. A swatch row is a small palette the user can extend.                                                                                                  |
+| **Info dot (`i`)**        | The hint carrier. Hover, focus and touch all open it; `Escape` closes. The only place long text lives.                                                                        |
+| **Time scrubber**         | The stage's main control. Described below.                                                                                                                                    |
+| **Place picker**          | Time-zone guess, searchable city list, manual latitude and longitude, and an explicit "look it up" button that is the only thing in the application that touches the network. |
+| **Monitor layout**        | Draggable screen rectangles, ported from Pixel Galaxy Studio's `ui/monitors.js`.                                                                                              |
+| **Theme toggle**          | A sun/moon icon button in the top bar. Three states: light, dark, follow system.                                                                                              |
+| **Dialog**                | Focus trapped, returns focus on close, `Escape` closes, scrim click closes unless there are unsaved edits.                                                                    |
+| **Toast**                 | For things that happened without the user asking - a monitor arriving, a context lost and restored. Never for errors that need a decision.                                    |
 
 ### The time scrubber
 

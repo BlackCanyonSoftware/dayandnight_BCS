@@ -61,13 +61,13 @@ invariant 3).
 
 Things that look stateful are written as functions of `t` instead:
 
-| Appears to need state | Is actually |
-|---|---|
-| Cloud drift | `position = rate * t`, wrapped to the sheet's period |
-| Star twinkle | `phase = hash(starIndex) + rate * t` |
-| Star field rotation | Local sidereal time for `t` and `place` |
-| Bloom, glow, pulse | Functions of altitude and `t` |
-| The sky's slow change | Sun altitude for `t`, via the lookup texture |
+| Appears to need state | Is actually                                          |
+| --------------------- | ---------------------------------------------------- |
+| Cloud drift           | `position = rate * t`, wrapped to the sheet's period |
+| Star twinkle          | `phase = hash(starIndex) + rate * t`                 |
+| Star field rotation   | Local sidereal time for `t` and `place`              |
+| Bloom, glow, pulse    | Functions of altitude and `t`                        |
+| The sky's slow change | Sun altitude for `t`, via the lookup texture         |
 
 ## Consequences
 
