@@ -1,0 +1,18 @@
+# One line ending in the repository; the working tree gets the platform's.
+* text=auto eol=lf
+
+# Windows-only scripts are checked out with CRLF or the shell mis-reads them.
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+*.vbs  text eol=crlf
+
+# Binary, never diffed or line-ending-converted.
+*.png  binary
+*.jpg  binary
+*.ico  binary
+*.ttf  binary
+*.mp4  binary
+*.node binary
+
+# Generated; keep it out of diffs but in the repository.
+package-lock.json -diff linguist-generated
