@@ -7,7 +7,7 @@ usable. Story IDs refer to `PRD.md`.
 
 ## Done
 
-### Milestone 0 - walking skeleton `done, except NFR-1` (M)
+### Milestone 0 - walking skeleton `done` (M)
 
 A real wallpaper on the real desktop, driven by a fake sky. Everything
 structural, nothing beautiful. This milestone exists to retire the two risks
@@ -38,25 +38,38 @@ ESLint, `tsc --strict` over `// @ts-check`, `node:test`, Playwright) and CI;
 - One test passes at each level that exists (unit, browser, image).
 - `npm run check` passes.
 
-**Outcome (2026-10-18).** Every exit criterion is met except the performance
-budget, which is met by none of the measured configurations.
+**Outcome (2026-10-18, closed 2026-10-19).** Every exit criterion was met
+except the performance budget, which was met by none of the configurations
+measured that day. The budget was brought inside its limit the following day by
+redrawing only on a real change - option 1 below - and the milestone closes with
+one criterion still unobserved rather than unmet.
 
-| Criterion                                                     | Result                                                                                      |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Fresh clone runs with a documented command                    | Yes - `npm install && npm run desktop`                                                      |
-| A sky on the real desktop, behind the icons, on every monitor | Yes - verified by `tests/desktop/wallpaper.spec.mjs`, host reports `workerw` on two screens |
-| The editor changes the desktop                                | Yes - config is pushed to the surfaces over IPC                                             |
-| Full-screen application stops rendering                       | Partly - the signal and the policy work; **not yet verified by hand against a real game**   |
-| **NFR-1 measured and written down**                           | **Done, and the budget fails.** See the measurement table in `ARCHITECTURE.md`              |
-| A test at each level                                          | Yes - 36 unit, 11 browser (one image), 7 desktop                                            |
-| `npm run check` passes                                        | Yes                                                                                         |
+| Criterion                                                     | Result                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fresh clone runs with a documented command                    | Yes - `npm install && npm run desktop`                                                                                                                                                                                                                                             |
+| A sky on the real desktop, behind the icons, on every monitor | Yes - verified by `tests/desktop/wallpaper.spec.mjs`, host reports `workerw` on two screens                                                                                                                                                                                        |
+| The editor changes the desktop                                | Yes - config is pushed to the surfaces over IPC                                                                                                                                                                                                                                    |
+| Full-screen application stops rendering                       | Partly - the signal and the policy work; **not yet verified by hand against a real game**                                                                                                                                                                                          |
+| **NFR-1 measured and written down**                           | **Done. The budget failed, then passed.** 8.56 % of one core on 18 October, 0.15 % against a 2 % budget on 19 October once identical frames stopped being redrawn. Both measurements, and what separates them, are in `ARCHITECTURE.md`. GPU time and GPU memory remain unmeasured |
+| A test at each level                                          | Yes - 36 unit, 11 browser (one image), 7 desktop                                                                                                                                                                                                                                   |
+| `npm run check` passes                                        | Yes                                                                                                                                                                                                                                                                                |
 
 **Risks retired.** Electron-on-WorkerW works: the sequence in ADR 0002 found
 the wallpaper layer on the first attempt and `koffi` needed no persuading. The
 FFI dependency is proven on real hardware.
 
-**Risk NOT retired, and now the project's open question.** The performance
-budget. At the default 20 fps on two screens the application costs about 8.5%
+**Risk retired on 2026-10-19.** The performance budget. Recorded here as it
+stood, because the options below were a real decision and the reasoning should
+survive the outcome.
+
+The owner chose option 1. Skipping identical frames took the default from
+8.56 % of one core to 1.97 %, and closing the editor rather than merely hiding
+it - which is what a user actually does, and which the first measurement never
+tested - took it to **0.15 % against the 2 % budget**. ADR 0001 stands, the
+frame rate did not have to be lowered, and the native host stays available and
+unneeded. The write-up is in `ARCHITECTURE.md` under Measurement, Milestone 1.
+
+**As it stood on 2026-10-18.** The performance budget. At the default 20 fps on two screens the application costs about 8.5%
 of one CPU core against a budget of 2%, and about 570 MB against a budget of
 160 MB for two screens. The Milestone 0 shader is a gradient, so this is the
 host's cost rather than the sky's, and a more complex sky will not make it
@@ -86,6 +99,14 @@ Electron host:
 
 The measurement itself also needs redoing: two of its six samples are
 internally contradictory, so the floor is not yet known. Tracked below.
+
+**Done, 2026-10-19.** Redone, and the method was wrong in three further ways
+that the contradiction had hidden: the windows were too short to resolve a
+figure near the budget, the floor included a hidden editor that is not part of
+the product, and "a drawing scenario cannot cost less than an idle one" stopped
+being true the moment frames began to be skipped. All three are fixed in
+`tools/measure-cost.js`, which now also has a `--shipped` mode that measures
+only the configuration a user leaves running.
 
 ### Milestone 1 - the real sky `done, with two criteria qualified` (L)
 
@@ -201,12 +222,15 @@ WCAG 2.2 AA.
 
 ## Tech debt
 
-Every TODO in the code has an entry here. The list is empty because there is no
-code yet; that is the only acceptable reason for it to be empty.
+Every TODO in the code has an entry here.
 
-| Item         | Why it was accepted | Where | Severity |
-| ------------ | ------------------- | ----- | -------- |
-| _(none yet)_ |                     |       |          |
+| Item                                                                                                                                     | Why it was accepted                                                                                                                                                                | Where                       | Severity |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------- |
+| **No comparison against an external ephemeris table.** Accuracy is checked against the algorithms' own published worked examples instead | A bundled reference table is licensed data and a decision of its own. The margin is four to five orders of magnitude inside the requirement, so this buys confidence, not accuracy | `tests/unit/solar`, `lunar` | Low      |
+| **GPU time and GPU memory are not measured**, so NFR-1's 4 % GPU and 80 MB-per-screen lines are unverified rather than met               | There is no dependency-free way to read either on Windows, and a figure derived from a frame counter would not be a measurement                                                    | `tools/measure-cost.js`     | Medium   |
+| **Working set is about 488 MB** across the shell and two surfaces, roughly double ADR 0001's 150-250 MB estimate                         | It is not the quantity NFR-1 budgets, and the CPU budget - the one that decides whether the product can run all day - is met with room. Worth a pass, not worth blocking on        | the Electron host           | Low      |
+| **The city list is typed by hand**, about a hundred entries at a tenth of a degree                                                       | A real gazetteer is a licensed data file. The tests check every entry against its own time zone and against the sun's seasonal swing, so an error is caught rather than trusted    | `app/ui/cities.js`          | Low      |
+| **The moon is drawn about 30x dimmer than life**                                                                                         | At its true radiance it blows out the tone map and washes the stars out of a night sky, which is the opposite of what people recognise. Documented at the constant                 | `app/engine/bodies.js`      | Low      |
 
 ## Deliberately not doing
 

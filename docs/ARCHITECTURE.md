@@ -418,6 +418,11 @@ default costs **4.3 times the CPU budget** and roughly **3.5 times the memory
 budget**, and ADR 0001's own estimate of 150-250 MB resident was optimistic by
 more than a factor of two.
 
+> Superseded by the Milestone 1 measurement below, which met the CPU budget.
+> This section is kept because it is the reason the frame-skipping exists, and
+> because two of its rows were contaminated and one of its assumptions was
+> wrong - both of which the later section explains.
+
 **What is solid and what is not.** The 10, 20 and 30 fps rows are consistent
 and give a clean slope of about **0.29 % of one core per frame per second**
 across two screens, or roughly 0.15 % per fps per screen. The 1 fps row (4.97)
@@ -477,12 +482,83 @@ Over 21 June at Denver, sampled at 20 fps:
 | Reduction                | 99.7 %    |
 | Average draws per second | 0.06      |
 
-**The CPU figure has not been re-measured yet** - that needs the owner's
-desktop, and doing it while someone is working interrupts them. The draw-count
-reduction above is measured; the CPU saving it should produce is not, and NFR-1
-stays open until it is. The expectation is that the per-frame component
-(about 0.29 % of one core per fps across two screens, so roughly 4.4 % at the
-default) very nearly disappears, leaving whatever the floor turns out to be -
-and the floor is the number the contradictory samples left unknown. If it is
-genuinely around 4.5 %, drawing less will not be enough on its own and the
-remaining options in the roadmap come back into play.
+### Measurement, Milestone 1 (2026-10-19)
+
+**The budget is met, with an order of magnitude to spare.** The configuration a
+user leaves running costs **0.15 % of one core** against a budget of 2 %.
+
+Same machine as before: AMD Ryzen 5 3600 (6 cores, 12 threads), Windows 10, two
+screens, WorkerW host attached, default preset, 20 fps. Taken by
+`node tools/measure-cost.js --shipped`: five windows of 60 seconds per scenario
+after 12 seconds of settling, the median reported and the spread reported beside
+it so a figure cannot hide its own noise.
+
+| Scenario                           | CPU (% of one core) | Spread | Working set | Processes |
+| ---------------------------------- | ------------------- | ------ | ----------- | --------- |
+| Milestone 0, 20 fps, editor hidden | 8.56                | -      | 580 MB      | 6         |
+| 20 fps, editor hidden              | 1.97                | 1.36   | 761 MB      | 6         |
+| **Shipped: 20 fps, editor closed** | **0.15**            | 0.13   | 488 MB      | 5         |
+
+The shipped row's five windows were 0.18, 0.18, 0.15, 0.05 and 0.08, so the
+whole band is inside the budget rather than only its middle.
+
+**Two things changed since Milestone 0, and the middle row separates them.**
+
+- **Skipping identical frames took 8.56 % to 1.97 %**, a factor of 4.3, with the
+  editor hidden in both cases so that nothing else moved. That saving of 6.6
+  points is the per-frame component disappearing: Milestone 0 measured the slope
+  at about 0.29 % per fps across two screens, which puts the per-frame cost at
+  the default near 5.8 points, and the two agree inside the noise of the older
+  run. The frame-rate sweep corroborates it from the other direction - 30, 20,
+  10, 5 and 1 fps now all land between 1.6 and 3.4 where Milestone 0 had 11.4
+  falling to 2.5. The slope has collapsed, which is exactly what skipping
+  predicts and what no other explanation does.
+- **Closing the editor took 1.97 % to 0.15 %**, which is 1.82 points, or 92 % of
+  everything that was left. The editor is not drawing while it is hidden - the
+  preview loop tears down on `visibilitychange` - so this is Chromium holding a
+  second renderer and its WebGL context alive, not a loop still running. It is
+  also 273 MB of the working set.
+
+**The Milestone 0 sweep was measuring the wrong thing**, which is worth stating
+plainly because it is the kind of error that survives in a document for years.
+Every row of that table was taken with the editor _hidden_, and a hidden editor
+is a window nobody leaves open for a day. The sweep therefore charged the
+product 1.8 points for something that is not part of it, on top of whatever the
+sky cost. `--shipped` exists to measure the thing itself.
+
+Three other method changes, all of them things the earlier run got wrong:
+
+1. **Windows of 60 seconds, not 6.** At 2 % of one core a six-second window
+   holds about a tenth of a processor-second of signal, which is the same size
+   as the machine's own background activity. The first re-measurement attempt
+   returned five scenarios that were statistically indistinguishable and a
+   self-check that correctly refused to report any of them.
+2. **"Below idle is impossible" is no longer true.** It was the right check when
+   drawing cost something; once identical frames are skipped, a scenario that
+   draws genuinely costs what the floor costs, so the tolerance now comes from
+   the two scenarios' own spreads rather than from a fixed 0.2.
+3. **That check is off in `--shipped` mode entirely**, because the first row
+   there is not a floor - it is the hidden-editor scenario, which is _supposed_
+   to cost more than the second.
+
+**What this settles.** ADR 0001 stands. The host decision reopened when the
+budget failed at Milestone 0, exactly as that ADR said it would, and it closes
+here: Electron holds a 24/7 wallpaper inside the budget by a factor of 13, and
+it does so without lowering the frame rate, which keeps Milestone 3's clouds
+affordable. The native host in ADR 0001's option 2 remains possible and is no
+longer needed.
+
+**What is still not measured or not met.**
+
+- **GPU time: not measured**, unchanged. There is no dependency-free way to read
+  it on Windows and a figure derived from a frame counter would not be a
+  measurement.
+- **Memory is not the budgeted quantity.** NFR-1 asks for under 80 MB of _GPU_
+  memory per screen; this tool reads working set, so that line of the budget is
+  unverified rather than met. The 488 MB of working set across the shell and two
+  surfaces is still roughly double ADR 0001's 150-250 MB estimate, which was
+  optimistic and should be read as such.
+- **Three screens, not two.** Milestone 2 re-measures with three active, which
+  is where the per-surface component shows up properly.
+
+### Drawing only when the picture changes

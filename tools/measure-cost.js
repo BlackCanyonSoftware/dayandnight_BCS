@@ -26,6 +26,20 @@
  *   on a 12-thread CPU flatters it by a factor of twelve.
  * - Memory is the sum of working sets.
  *
+ * Two modes, because the question changed once the renderer learned to skip
+ * identical frames:
+ *
+ * - The default sweep decomposes the cost into a floor and a slope per frame
+ *   per second, which is what Milestone 0 needed in order to know whether
+ *   drawing less would help. It would.
+ * - `--shipped` measures one thing: the configuration a user actually leaves
+ *   running, with the editor CLOSED rather than merely hidden, in windows long
+ *   enough to resolve a figure around two per cent. The sweep cannot answer
+ *   NFR-1 any more, for two reasons. Its floor includes a loaded editor, which
+ *   is a third of the memory and none of the product. And now that identical
+ *   frames are skipped, every scenario collapses onto that floor, so a
+ *   six-second window reports noise with a number in front of it.
+ *
  * What this does NOT measure: GPU time. There is no dependency-free way to
  * read it on Windows, and a number invented from a frame counter would not be
  * a measurement. It is reported as not verified.
@@ -35,7 +49,18 @@ const { execFileSync } = require("node:child_process");
 const os = require("node:os");
 const path = require("node:path");
 
-const SECONDS = Number(process.argv[2]) || 30;
+const args = process.argv.slice(2);
+
+/** Measure only the configuration a user leaves running. See the header. */
+const SHIPPED_ONLY = args.includes("--shipped");
+
+/**
+ * Seconds per scenario. The shipped figure defaults to far longer windows
+ * because it is a small number: at two per cent of one core, six seconds holds
+ * about a tenth of a processor-second of signal, which is the same size as the
+ * machine twitching in the background.
+ */
+const SECONDS = Number(args.find((arg) => /^\d+$/.test(arg))) || (SHIPPED_ONLY ? 300 : 30);
 const ROOT = path.join(__dirname, "..");
 
 /**
@@ -189,10 +214,29 @@ async function main() {
     }, fps);
   };
 
+  // The editor is the focusable window and the wallpaper surfaces are not,
+  // which is how all three of these tell them apart without a handle on
+  // either.
   const hideEditor = async () => {
     await app.evaluate(({ BrowserWindow }) => {
       for (const window of BrowserWindow.getAllWindows()) {
         if (!window.isDestroyed() && window.isFocusable()) window.hide();
+      }
+    });
+  };
+
+  const showEditor = async () => {
+    await app.evaluate(({ BrowserWindow }) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed() && window.isFocusable()) window.show();
+      }
+    });
+  };
+
+  const closeEditor = async () => {
+    await app.evaluate(({ BrowserWindow }) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed() && window.isFocusable()) window.close();
       }
     });
   };
@@ -205,7 +249,7 @@ async function main() {
       `after ${SETTLE_SECONDS}s settling; the median is reported`
   );
 
-  const scenarios = 6;
+  const scenarios = SHIPPED_ONLY ? 2 : 6;
   const minutes = ((SETTLE_SECONDS + SECONDS) * scenarios) / 60;
   console.log(`runtime : about ${minutes.toFixed(0)} minutes. Leave the machine alone.`);
   console.log("");
@@ -213,18 +257,15 @@ async function main() {
   /** @type {Row[]} */
   const rows = [];
 
-  // 1. The floor: the application running with nothing drawing at all.
-  await hideEditor();
-  rows.push(await measure("idle, wallpaper off"));
+  // The floor: the application running with nothing drawing at all. Only the
+  // sweep takes it, and only the sweep can take it. With the wallpaper off and
+  // the editor closed there are no windows left, and Electron quits.
+  if (!SHIPPED_ONLY) {
+    await hideEditor();
+    rows.push(await measure("idle, wallpaper off"));
+    await showEditor();
+  }
 
-  // 2..n. The wallpaper, at descending frame rates. The slope between these
-  // is the per-frame cost; the intercept is what Electron charges for simply
-  // existing, which no amount of drawing less will recover.
-  await app.evaluate(({ BrowserWindow }) => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (window.isFocusable()) window.show();
-    }
-  });
   await editor.locator("#wallBtn").click();
 
   const deadline = Date.now() + 20_000;
@@ -247,10 +288,33 @@ async function main() {
   }
   console.log(`  (attached to ${state.screens} screen${state.screens === 1 ? "" : "s"})`);
 
-  for (const fps of [30, 20, 10, 5, 1]) {
-    await setFps(fps);
+  if (SHIPPED_ONLY) {
+    await setFps(20);
+
+    // The same scenario twice, hidden then closed, in windows of the same
+    // length. Milestone 0 measured the hidden case, so this is what makes the
+    // comparison against it a comparison rather than a guess: between these
+    // two rows the only thing that changes is the editor, and between the
+    // hidden row and Milestone 0 the only thing that changes is that frames
+    // are now skipped.
     await hideEditor();
-    rows.push(await measure(`wallpaper on, ${String(fps).padStart(2)} fps`));
+    rows.push(await measure("20 fps, editor hidden"));
+
+    // Closed, not hidden. A hidden editor is still a loaded renderer holding a
+    // WebGL context and most of the memory, and nobody leaves one of those
+    // running for a day. NFR-1 asks what the product costs, so the editor has
+    // to be gone before the figure means anything.
+    await closeEditor();
+    rows.push(await measure("shipped: 20 fps, editor closed"));
+  } else {
+    // The wallpaper at descending frame rates. The slope between these is the
+    // per-frame cost; the intercept is what Electron charges for simply
+    // existing, which no amount of drawing less will recover.
+    for (const fps of [30, 20, 10, 5, 1]) {
+      await setFps(fps);
+      await hideEditor();
+      rows.push(await measure(`wallpaper on, ${String(fps).padStart(2)} fps`));
+    }
   }
 
   // The slope, taken from 30 and 10 rather than from the extremes: the 1 fps
@@ -268,11 +332,24 @@ async function main() {
   // of this tool hit exactly this and it was only caught by reading carefully.
   /** @type {string[]} */
   const impossible = [];
-  if (idle) {
+
+  // Only the sweep has a floor to compare against. In shipped mode the first
+  // row is a scenario that legitimately costs more than the second - that
+  // difference is the whole point of the run - and comparing against it
+  // declared the good figure impossible the first time this ran.
+  if (idle && !SHIPPED_ONLY) {
     for (const row of rows.slice(1)) {
-      if (row.perCore < idle.perCore - 0.2) {
+      // The tolerance comes from the two scenarios and their own spreads
+      // rather than from a fixed figure. Once identical frames are skipped, a
+      // scenario that draws genuinely costs about what the floor costs, so
+      // "below idle" stopped being impossible and became the expected result.
+      // What is still impossible is below idle by more than the variation
+      // within either scenario could account for.
+      const tolerance = 0.2 + (row.spread + idle.spread) / 2;
+      if (row.perCore < idle.perCore - tolerance) {
         impossible.push(
-          `${row.label} (${row.perCore.toFixed(2)}) is below idle (${idle.perCore.toFixed(2)})`
+          `${row.label} (${row.perCore.toFixed(2)}) is ${tolerance.toFixed(2)} or more ` +
+            `below idle (${idle.perCore.toFixed(2)}), which the spreads cannot explain`
         );
       }
     }
@@ -292,7 +369,41 @@ async function main() {
   }
 
   console.log("=== NFR-1 ===================================================");
-  if (at30 && at10 && idle) {
+  const shipped = rows.find((row) => row.label.startsWith("shipped"));
+  if (shipped) {
+    const budget = 2;
+
+    // Half the spread is added before comparing, on purpose. A figure that
+    // only sits under the budget because its noise band straddles it has not
+    // met anything.
+    const verdict =
+      shipped.perCore + shipped.spread / 2 < budget
+        ? "met"
+        : shipped.perCore < budget
+          ? "met at the median, but the spread crosses the budget"
+          : "NOT met";
+
+    console.log(`shipped, 20 fps, editor shut : ${shipped.perCore.toFixed(2)} % of one core`);
+    console.log(
+      `  windows                    : [${shipped.windows.map((w) => w.toFixed(2)).join(", ")}]`
+    );
+    console.log(`  spread                     : ${shipped.spread.toFixed(2)}`);
+    console.log(`budget                       : ${budget.toFixed(2)} % of one core`);
+    console.log(`against the budget           : ${verdict}`);
+
+    const hidden = rows.find((row) => row.label.startsWith("20 fps, editor hidden"));
+    if (hidden) {
+      console.log(
+        `the editor, merely hidden    : ${hidden.perCore.toFixed(2)} % of one core, ` +
+          `so it costs ${(hidden.perCore - shipped.perCore).toFixed(2)} of that`
+      );
+    }
+    console.log(
+      `working set, whole app       : ${shipped.memoryMb.toFixed(0)} MB ` +
+        `across ${shipped.processes} processes`
+    );
+    console.log("  (the 80 MB per screen in NFR-1 is GPU memory, which is not measured)");
+  } else if (at30 && at10 && idle) {
     const perFrame = (at30.perCore - at10.perCore) / (30 - 10);
     console.log(`floor (app, nothing drawing) : ${idle.perCore.toFixed(2)} % of one core`);
     console.log(`cost per frame per second    : ${perFrame.toFixed(3)} % of one core`);

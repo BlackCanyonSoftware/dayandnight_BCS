@@ -30,13 +30,18 @@ lunar positions, four thousand stars turning at the sidereal rate, and a grade
 on top for haze, colour and contrast. It knows roughly where you are from your
 time zone, and you can search a city or type coordinates.
 
-Two things are open. The application costs about 8.5% of one CPU core where
-the budget is 2% - measured, written up in
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and partly addressed by only
-redrawing when the picture changes, which removed 99.7% of the work but has
-not been re-measured. And a handful of smaller gaps are listed honestly in
+**It is cheap to leave running.** 0.15% of one CPU core across two screens
+against a budget of 2%, because it redraws only when the picture would actually
+differ - a few thousand times a day rather than nearly two million. That number
+and how it was taken are in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); GPU time is not measured, and
+the reason is written down there too.
+
+What is still missing is listed honestly in
 [`CHANGELOG.md`](CHANGELOG.md) under Known limitations - no clouds yet, no
 horizon silhouettes, and constellations that are generated rather than real.
+Two claims have also never been watched by a person: a full-screen game pausing
+the wallpaper, and a system time-zone change while it runs.
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what is next.
 
@@ -58,16 +63,17 @@ wallpaper on**.
 
 ## Scripts
 
-| Script                       | What it does                                             |
-| ---------------------------- | -------------------------------------------------------- |
-| `npm run desktop`            | Run the application                                      |
-| `npm run serve`              | Serve the editor at `http://127.0.0.1:5178`, no Electron |
-| `npm run check`              | Lint, format, typecheck, unit and browser tests          |
-| `npm run test:unit`          | The arithmetic - astronomy, colour, settings             |
-| `npm run test:e2e`           | The editor, in a browser                                 |
-| `npm run test:desktop`       | The real application. Opens windows.                     |
-| `node tools/probe-host.js`   | Check the WorkerW technique. Opens nothing.              |
-| `node tools/measure-cost.js` | Measure what it costs. Opens windows, takes minutes.     |
+| Script                                 | What it does                                                         |
+| -------------------------------------- | -------------------------------------------------------------------- |
+| `npm run desktop`                      | Run the application                                                  |
+| `npm run serve`                        | Serve the editor at `http://127.0.0.1:5178`, no Electron             |
+| `npm run check`                        | Lint, format, typecheck, unit and browser tests                      |
+| `npm run test:unit`                    | The arithmetic - astronomy, colour, settings                         |
+| `npm run test:e2e`                     | The editor, in a browser                                             |
+| `npm run test:desktop`                 | The real application. Opens windows.                                 |
+| `node tools/probe-host.js`             | Check the WorkerW technique. Opens nothing.                          |
+| `node tools/measure-cost.js`           | Decompose the cost by frame rate. Opens windows, ~4 min.             |
+| `node tools/measure-cost.js --shipped` | Measure what a user actually leaves running. Opens windows, ~10 min. |
 
 There is no build step, no database and no environment variables: the file on
 disk is the file that runs.

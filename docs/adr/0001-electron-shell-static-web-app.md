@@ -79,6 +79,13 @@ later: a native host would reimplement the shell, not the sky.
 
 **Mitigations, which are commitments, not intentions.**
 
+- **Outcome (2026-10-19).** The budget failed at Milestone 0 at 8.56 % of one
+  core, which reopened this decision as the clause below said it would. It was
+  brought to 0.15 % against the 2 % budget by redrawing only when the picture
+  changes, and by measuring the state a user actually leaves running rather than
+  one with the editor hidden. **This ADR stands.** Option 2, the native host,
+  remains available and is no longer needed. The measurements are in
+  `ARCHITECTURE.md`.
 - NFR-1 is measured at Milestone 0, before any art is built, and written into
   `ARCHITECTURE.md` with the machine and the method. If it fails there, this
   decision reopens while it is still cheap to change.

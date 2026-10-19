@@ -14,11 +14,13 @@ turning at the sidereal rate, and a grade over the top.
 - **Remote:** `origin` is `github.com/BlackCanyonSoftware/dayandnight_BCS`.
   **Nothing has been pushed.** The owner pushes.
 - **Tier:** MVP
-- **Checks:** lint, format, typecheck clean. 99 unit and 19 browser tests
-  passing. 7 desktop tests exist and **have not been run since Milestone 0** -
-  they open windows on the desktop, which the owner asked not to have
-  interrupted. They cover the host and the window lifecycle, none of which has
-  changed since.
+- **Checks:** lint, format, typecheck clean. 99 unit, 19 browser and **7
+  desktop tests passing** - the desktop ones were run on 2026-10-19, the first
+  time since Milestone 0, because they open windows on the desktop and the owner
+  has to be free.
+- **NFR-1: met.** 0.15 % of one core against a 2 % budget, on two screens with
+  the editor closed. See `ARCHITECTURE.md` under Measurement, Milestone 1. GPU
+  time and GPU memory are still unmeasured.
 - **CI:** written, **never run**, because nothing has been pushed.
 
 ## Milestone 1, what it left behind
@@ -42,26 +44,23 @@ Two things to know before changing any of it:
 
 ## Next steps
 
-1. **Re-measure NFR-1.** Frame-skipping removed 99.7% of the redrawing and the
-   CPU saving has never been measured. This is the one thing that decides
-   whether ADR 0001 stands. It needs a quiet machine; `tools/measure-cost.js`
-   now refuses to report a contaminated run.
-2. **Verify by hand what only a person can:** a full-screen game pausing the
-   wallpaper, and a system time-zone change with the application running.
+1. **Verify by hand what only a person can:** a full-screen game pausing the
+   wallpaper, and a system time-zone change with the application running. These
+   are the last two unobserved claims in the project.
+2. **Decide OQ-4, licensing and the installer.** It blocks Milestone 2 and
+   there is still no `LICENSE` file; `package.json` says `UNLICENSED`.
 3. Then **Milestone 2**: the span across several screens, the full pause
-   policy, the tray icon and autostart.
+   policy, the tray icon and autostart, monitor hot-plug, and NFR-1 re-measured
+   with three screens active.
 
 ### Older, still open
 
-1. **The owner picks an option for NFR-1** (`docs/ROADMAP.md`, Milestone 0
-   outcome). Recommended first: redraw only when the scene has meaningfully
-   changed - it is cheap to try and it also reveals the true floor.
-2. **Re-measure** with a longer settling window, on a quiet machine, to get a
-   trustworthy floor.
+1. ~~The owner picks an option for NFR-1.~~ Done: redraw only on a real
+   change, and it met the budget.
+2. ~~Re-measure on a quiet machine.~~ Done 2026-10-19.
 3. **Verify pause-on-fullscreen by hand** against a real game. The policy and
-   the signal are implemented and unit-covered; nobody has watched it stop.
-4. Then **Milestone 1**: real astronomy, the scattering model, the grade, the
-   sun, the moon, the stars. Exit criteria in `docs/ROADMAP.md`.
+   the signal are implemented; nobody has watched it stop. Still open.
+4. ~~Then Milestone 1.~~ Done.
 
 ## Open questions for the owner
 
@@ -105,6 +104,38 @@ Two things to know before changing any of it:
 - **Never attribute anything to an assistant**, and **never push**.
 
 ## Session log
+
+### 2026-10-19 - NFR-1 measured and met, and the harness that was measuring it wrong
+
+- **Ran the measurement the owner had been waiting to free the machine for, and
+  the budget is met**: 0.15 % of one core against 2 %, two screens, default
+  preset, 20 fps, editor closed. ADR 0001 stands and is annotated to say so.
+- **The first attempt produced nothing usable, and that was the useful part.**
+  Every scenario from idle to 30 fps landed in the same 1.5-3.5 % band and the
+  tool's own self-check declared the run untrustworthy. It was right to: the
+  signal had fallen below the noise, because the thing being measured had got
+  40 times smaller while the method stayed the same.
+- **Found that the Milestone 0 sweep had been measuring the wrong
+  configuration** all along. Its floor was taken with the editor _hidden_, and a
+  hidden editor is a second renderer with its own WebGL context that nobody
+  leaves running for a day. It turned out to be 1.82 of the 1.97 points that
+  remained, and 273 MB of working set.
+- **Separated the two causes rather than guessing at them.** One run, two
+  scenarios, identical window lengths, the only difference being the editor:
+  skipping identical frames took 8.56 % to 1.97 %, and closing the editor took
+  1.97 % to 0.15 %. The frame-rate sweep corroborates the first from the other
+  side - its slope has collapsed, which only skipping explains.
+- **Fixed four things in `tools/measure-cost.js`**: a `--shipped` mode that
+  measures the configuration a user actually leaves running with the editor
+  closed; 60-second windows, because 6 cannot resolve a figure near 2 %; a
+  below-idle tolerance taken from the scenarios' own spreads, since "a drawing
+  scenario cannot cost less than an idle one" stopped being true once frames are
+  skipped; and that check disabled in `--shipped` mode, where the first row is
+  not a floor. The third and fourth were mistakes made during this session and
+  caught by the tool contradicting itself.
+- **Ran the 7 desktop tests**, the first time since Milestone 0. All pass.
+- Still unobserved by a person: a full-screen game pausing the wallpaper, and a
+  system time-zone change with the application running.
 
 ### 2026-10-19 - Milestone 1 finished: shader, stars, bodies, grade, place, presets
 
@@ -164,7 +195,8 @@ Two things to know before changing any of it:
   reported with `host: "off"`, which the editor would have mislabelled as
   success.
 - **Measured NFR-1 and it fails.** Written up in `docs/ARCHITECTURE.md` with
-  the method and the caveats. This is the project's open question.
+  the method and the caveats. This is the project's open question. _(Resolved
+  2026-10-19: it passes at 0.15 %, and the method here had two further faults.)_
 - Interrupted the owner twice by launching windows. Noted above so the next
   session does not repeat it.
 

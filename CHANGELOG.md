@@ -31,6 +31,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The wallpaper now costs almost nothing to leave running.** It redraws only
+  when the picture would actually differ, which for a sky is a few thousand
+  times a day rather than nearly two million, and the result is 0.15 % of one
+  CPU core across two screens - against a budget of 2 %, and against 8.5 %
+  before the change. The frame rate did not have to be lowered to get there.
 - **The sun is now in the right place.** The Milestone 0 approximation has been
   replaced with the standard Meeus algorithms, which agree with the published
   worked examples to better than a thousandth of a degree - against the half a
