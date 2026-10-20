@@ -18,6 +18,7 @@ import { guessPlace, labelFor, nearestCity, resolveCity, suggest } from "./place
 import { LOOKS, lookIdFor, presetFor } from "./presets.js";
 import { readDocument, writeDocument } from "./settings.js";
 import {
+  arrangement,
   clock,
   cropFor,
   fps,
@@ -531,8 +532,11 @@ function paintMonitors() {
 
   $("#spanNote").textContent = `span ${s.w}×${s.h}`;
 
+  paintArrangement(s);
+
   // Monitor boundaries over the preview, so a span reads as screens rather
-  // than as one wide picture.
+  // than as one wide picture. The bar is drawn at a crop's left edge, and the
+  // one at x = 0 is skipped because it would sit on the frame.
   const splits = $("#previewSplits");
   splits.replaceChildren();
   for (const monitor of monitors) {
@@ -541,6 +545,65 @@ function paintMonitors() {
     const bar = document.createElement("span");
     bar.style.left = `${(crop.x / s.w) * 100}%`;
     splits.append(bar);
+  }
+}
+
+/**
+ * The screens, drawn to scale inside a fixed box.
+ *
+ * Read-only, and that is a decision rather than a shortcut. Pixel Galaxy
+ * Studio's equivalent panel lets you drag screens around, because there the
+ * layout is the user's choice about how a video maps onto them. Here the
+ * arrangement belongs to Windows: the sky is placed by real azimuth across
+ * whatever Windows reports, so a drag in this panel could only either lie
+ * about what it did or move the sun somewhere it is not, and architecture
+ * invariant 5 forbids the second.
+ *
+ * What it is for is the thing a list of resolutions cannot show: that the
+ * screens sit in an L, or that one is rotated, or that there is a gap between
+ * them which the sky fills and nobody sees.
+ *
+ * @param {{ w: number, h: number }} s the span
+ */
+function paintArrangement(s) {
+  const map = $("#monMap");
+  map.replaceChildren();
+
+  for (const monitor of monitors) {
+    const crop = cropFor(monitor);
+    const box = document.createElement("span");
+
+    // Percentages of the span, so the map is the arrangement's own shape
+    // letterboxed into the panel rather than a stretched version of it.
+    box.style.left = `${(crop.x / s.w) * 100}%`;
+    box.style.top = `${(crop.y / s.h) * 100}%`;
+    box.style.width = `${(crop.w / s.w) * 100}%`;
+    box.style.height = `${(crop.h / s.h) * 100}%`;
+    box.dataset.primary = monitor.primary ? "yes" : "no";
+    box.textContent = `${monitor.bounds.w}×${monitor.bounds.h}`;
+    map.append(box);
+  }
+
+  // The panel is a fixed 16:9 box, so an arrangement of another shape has to
+  // be letterboxed inside it or the screens would be drawn the wrong shape.
+  map.style.aspectRatio = `${s.w} / ${s.h}`;
+
+  const facts = arrangement();
+  const note = $("#monNote");
+
+  if (monitors.length === 0) {
+    note.textContent = "No screens reported, so the preview assumes one 1080p screen.";
+  } else if (facts.overlaps) {
+    note.textContent =
+      "Two of your screens overlap, which Windows allows. Each still shows its own " +
+      "slice of the sky, so the overlapping part is drawn twice.";
+  } else if (facts.gapFraction > 0.02) {
+    note.textContent =
+      `${Math.round(facts.gapFraction * 100)}% of the sky falls in the gaps between ` +
+      "your screens and is never shown. The sun still crosses it at the right time, " +
+      "so it can be out of sight for a while.";
+  } else {
+    note.textContent = "Your screens cover the whole sky the wallpaper composes.";
   }
 }
 
@@ -694,6 +757,26 @@ Object.defineProperty(window, "DayAndNight", {
       bandsDirty = true;
       paintFromState();
       return null;
+    },
+
+    /**
+     * Pretend the machine has these screens.
+     *
+     * The shell pushes the real list over IPC; this is the same door for a
+     * test or a script, and it is the only way to see what the editor does
+     * with an arrangement the developer does not own - a rotated screen, an
+     * L-shape with a gap, two screens that overlap.
+     *
+     * @param {import("../engine/span.js").Monitor[]} list
+     */
+    setScreens: (list) => {
+      // The same two calls the shell makes when Windows reports a change, so
+      // a test drives the editor down the real path rather than a parallel one
+      // that could keep working after that path broke.
+      setMonitors(list);
+      paintMonitors();
+      preview?.resize();
+      bandsDirty = true;
     },
 
     /** @param {number} minute */

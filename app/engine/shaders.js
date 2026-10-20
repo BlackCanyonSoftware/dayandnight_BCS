@@ -66,12 +66,11 @@ float wrap180(float degrees) {
   return mod(degrees + 540.0, 360.0) - 180.0;
 }
 
-// How many degrees of sky the span covers vertically, given its width in
-// degrees. Matching the two keeps the picture square: a degree across the
-// screen is a degree up it.
-float degreesPerSpanY(float fieldOfView, vec2 span) {
-  return fieldOfView * (span.y / span.x);
-}
+// How many degrees of sky the span covers vertically arrives as the uniform
+// uDegreesPerSpanY, computed by engine/view.js. It used to be worked out here
+// AND in signature.js, and the two had to agree exactly for architecture
+// invariant 1 to hold - so now it is worked out once, on the CPU, and the cap
+// that a tall span needs lives in one place with its reasoning.
 `;
 
 /** The sRGB transfer function and the output dither. Composite pass only. */
@@ -132,6 +131,7 @@ uniform float uSunAzimuth;
 
 uniform float uBearing;
 uniform float uHorizon;
+uniform float uDegreesPerSpanY;
 uniform float uFieldOfView;
 
 uniform float uGroundAlbedo;
@@ -192,7 +192,7 @@ void main() {
   vec2 inSpan = (uCrop.xy + vec2(inWindow.x, 1.0 - inWindow.y) * uCrop.zw) / uSpan;
 
   float azimuth = uBearing + (inSpan.x - 0.5) * uFieldOfView;
-  float elevation = (uHorizon - inSpan.y) * degreesPerSpanY(uFieldOfView, uSpan);
+  float elevation = (uHorizon - inSpan.y) * uDegreesPerSpanY;
 
   // How far round from the sun, folded into 0..180: the sky is mirror
   // symmetric about the sun's own meridian, which is why the table only
@@ -253,6 +253,7 @@ uniform float uSiderealTime;   // local apparent sidereal time, degrees
 
 uniform float uBearing;
 uniform float uHorizon;
+uniform float uDegreesPerSpanY;
 uniform float uFieldOfView;
 
 uniform float uBrightness;
@@ -304,7 +305,7 @@ void main() {
 
   // The same projection the sky uses, run backwards.
   float spanFracX = wrap180(azimuth - uBearing) / uFieldOfView + 0.5;
-  float spanFracY = uHorizon - altitude / degreesPerSpanY(uFieldOfView, uSpan);
+  float spanFracY = uHorizon - altitude / uDegreesPerSpanY;
 
   vec2 spanPixel = vec2(spanFracX * uSpan.x, spanFracY * uSpan.y);
   vec2 inWindow = (spanPixel - uCrop.xy) / uCrop.zw;
@@ -389,6 +390,7 @@ uniform float uSpriteRadius;   // half the sprite, in degrees
 
 uniform float uBearing;
 uniform float uHorizon;
+uniform float uDegreesPerSpanY;
 uniform float uFieldOfView;
 
 void main() {
@@ -397,7 +399,7 @@ void main() {
   float pixelsPerDegree = uSpan.x / uFieldOfView;
 
   float spanFracX = wrap180(uAzimuth - uBearing) / uFieldOfView + 0.5;
-  float spanFracY = uHorizon - uAltitude / degreesPerSpanY(uFieldOfView, uSpan);
+  float spanFracY = uHorizon - uAltitude / uDegreesPerSpanY;
 
   vec2 spanPixel = vec2(spanFracX * uSpan.x, spanFracY * uSpan.y);
   vec2 inWindow = (spanPixel - uCrop.xy) / uCrop.zw;

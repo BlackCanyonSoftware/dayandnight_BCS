@@ -42,6 +42,7 @@ declare global {
     document(): DayAndNightSettingsDoc;
     /** @returns a problem to show the user, or null on success */
     apply(raw: unknown): string | null;
+    setScreens(list: import("./engine/span.js").Monitor[]): void;
     scrubTo(minute: number): void;
     dateTo(value: string): void;
     version(): string;

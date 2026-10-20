@@ -1,34 +1,29 @@
+// @ts-check
 "use strict";
 
 /**
- * Which screens exist, and what the span is.
+ * Which screens exist, and when that changes.
  *
- * Electron's `screen` module reports everything needed, in virtual-desktop
- * coordinates where the primary screen's top-left is 0,0 and anything to the
- * left or above it is negative. The span is the bounding box of the lot, and
- * every crop rectangle is relative to the span rather than to the desktop, so
- * that the scene is composed once for the whole arrangement (US-012).
+ * Everything here needs Electron's `screen` module: asking Windows what is
+ * plugged in, converting device-independent pixels to physical ones, and
+ * noticing a rearrangement. The arithmetic that turns those answers into one
+ * sky and a slice per screen lives in `app/engine/span.js`, with no Electron
+ * in it, so that the arrangements nobody owns the hardware for can be tested
+ * (US-012, and Milestone 2's exit criteria).
  *
  * @module desktop/monitors
  */
 
 const { screen } = require("electron");
 
-/**
- * @typedef {object} Rect
- * @property {number} x
- * @property {number} y
- * @property {number} w
- * @property {number} h
- */
+// An ES module, reached from CommonJS. The arithmetic belongs to the engine -
+// `crop` and `span` are two fields of a FrameRequest - and the editor imports
+// the same file, which is the point: the preview and the wallpaper have to
+// frame the sky identically or the preview is lying.
+const span = require("../app/engine/span.js");
 
-/**
- * @typedef {object} Monitor
- * @property {number} id
- * @property {Rect} bounds
- * @property {number} scale
- * @property {boolean} primary
- */
+/** @typedef {import("../app/engine/span.js").Rect} Rect */
+/** @typedef {import("../app/engine/span.js").Monitor} Monitor */
 
 /**
  * Every screen Windows reports.
@@ -55,110 +50,31 @@ function list() {
 }
 
 /**
- * The bounding box of every screen.
- * @param {Monitor[]} monitors
- * @returns {{ x: number, y: number, w: number, h: number }}
- */
-function span(monitors) {
-  if (monitors.length === 0) return { x: 0, y: 0, w: 1920, h: 1080 };
-
-  const minX = Math.min(...monitors.map((m) => m.bounds.x));
-  const minY = Math.min(...monitors.map((m) => m.bounds.y));
-  const maxX = Math.max(...monitors.map((m) => m.bounds.x + m.bounds.w));
-  const maxY = Math.max(...monitors.map((m) => m.bounds.y + m.bounds.h));
-
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-}
-
-/**
- * One monitor's rectangle within the span, plus what it needs to render.
+ * Device-independent pixels to physical ones, in virtual-screen coordinates.
  *
- * @param {Monitor} monitor
- * @param {Monitor[]} all
- * @returns {{ crop: Rect, span: { w: number, h: number }, pixelRatio: number }}
- */
-function geometryFor(monitor, all) {
-  const s = span(all);
-  return {
-    crop: {
-      x: monitor.bounds.x - s.x,
-      y: monitor.bounds.y - s.y,
-      w: monitor.bounds.w,
-      h: monitor.bounds.h
-    },
-    span: { w: s.w, h: s.h },
-    pixelRatio: monitor.scale
-  };
-}
-
-/**
- * One monitor's rectangle in *physical* pixels, relative to the top-left of
- * the virtual screen.
+ * Electron's own conversion, which is the only thing that gets a mixed-DPI
+ * arrangement right - see the note in `span.physicalRectFor`.
  *
- * Two coordinate systems are in play and conflating them is the classic
- * multi-monitor bug. Electron reports display bounds in device-independent
- * pixels, where a 4K screen at 200% scaling is 1920 wide. Win32 wants physical
- * pixels, where it is 3840. On a single-scale setup the two agree and the
- * distinction is invisible, which is exactly why it gets missed.
- *
- * `dipToScreenRect` is Electron's own conversion and handles a mixed-DPI
- * arrangement correctly, which hand-multiplying by `scaleFactor` does not:
- * with screens at different scales the virtual screen's physical geometry is
- * not any one screen's DIP geometry times any one scale factor.
- *
- * Milestone 2 tests this against the four arrangements that break it
- * (docs/ROADMAP.md); Milestone 0 only ever sees it on one.
- *
- * @param {Monitor} monitor
- * @param {Monitor[]} all
- * @returns {{ x: number, y: number, w: number, h: number }}
- */
-function physicalRectFor(monitor, all) {
-  const mine = toPhysical(monitor.bounds);
-  const origin = all
-    .map((m) => toPhysical(m.bounds))
-    .reduce((acc, r) => ({ x: Math.min(acc.x, r.x), y: Math.min(acc.y, r.y) }), {
-      x: Infinity,
-      y: Infinity
-    });
-
-  return {
-    x: mine.x - origin.x,
-    y: mine.y - origin.y,
-    w: mine.w,
-    h: mine.h
-  };
-}
-
-/**
- * The virtual screen's size in physical pixels.
- * @param {Monitor[]} monitors
- * @returns {{ w: number, h: number }}
- */
-function physicalSpan(monitors) {
-  if (monitors.length === 0) return { w: 1920, h: 1080 };
-
-  const rects = monitors.map((m) => toPhysical(m.bounds));
-  const minX = Math.min(...rects.map((r) => r.x));
-  const minY = Math.min(...rects.map((r) => r.y));
-  const maxX = Math.max(...rects.map((r) => r.x + r.w));
-  const maxY = Math.max(...rects.map((r) => r.y + r.h));
-
-  return { w: maxX - minX, h: maxY - minY };
-}
-
-/**
- * @param {Rect} bounds in DIP
- * @returns {Rect} in physical pixels, virtual-screen coordinates
+ * @param {Rect} bounds
+ * @returns {Rect}
  */
 function toPhysical(bounds) {
-  const r = screen.dipToScreenRect(null, {
+  const rect = screen.dipToScreenRect(null, {
     x: bounds.x,
     y: bounds.y,
     width: bounds.w,
     height: bounds.h
   });
-  return { x: r.x, y: r.y, w: r.width, h: r.height };
+  return { x: rect.x, y: rect.y, w: rect.width, h: rect.height };
+}
+
+/**
+ * @param {Monitor} monitor
+ * @param {readonly Monitor[]} all
+ * @returns {Rect}
+ */
+function physicalRectFor(monitor, all) {
+  return span.physicalRectFor(monitor, all, toPhysical);
 }
 
 /**
@@ -184,4 +100,14 @@ function watch(onChange) {
   };
 }
 
-module.exports = { list, span, geometryFor, physicalRectFor, physicalSpan, watch };
+module.exports = {
+  list,
+  watch,
+  toPhysical,
+  physicalRectFor,
+  // Re-exported so that callers have one import for "what do my screens mean",
+  // and so that moving the arithmetic out did not become a change to main.js.
+  span: span.boundingBox,
+  geometryFor: span.geometryFor,
+  describe: span.describe
+};

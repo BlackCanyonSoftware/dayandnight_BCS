@@ -31,6 +31,8 @@
  * @module engine/signature
  */
 
+import { verticalDegrees } from "./view.js";
+
 import { sunPosition } from "./astro/solar.js";
 import { resolveBearing } from "./defaults.js";
 import { autoExposure, sampleSky } from "./sky/lut.js";
@@ -77,7 +79,10 @@ export function frameSignature(preset, request, bufferWidth, bufferHeight) {
 
   const sun = sunPosition(t, place);
   const bearing = resolveBearing(preset, place);
-  const degreesPerSpanY = preset.fieldOfView * (span.h / span.w);
+  // The same number the shader is given, from the same function, because a
+  // signature computed from a different projection than the one drawn would
+  // skip a frame that does not match what is on screen.
+  const degreesPerSpanY = verticalDegrees(preset.fieldOfView, preset.horizon, span);
 
   // The same exposure and tone curve the shader applies, so that what is
   // compared is what a pixel would actually end up being rather than raw

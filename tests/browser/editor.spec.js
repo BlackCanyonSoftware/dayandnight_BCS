@@ -176,6 +176,117 @@ test("one sky spans several screens with no seam (US-012)", async ({ page }) => 
   ).toBeGreaterThan(20);
 });
 
+test("a vertical stack of screens does not flatten the top of the sky (US-012)", async ({
+  page
+}) => {
+  // Milestone 2's arrangement that breaks naive projection arithmetic. Two
+  // screens stacked give a 1920x2160 span, and "a degree across the screen is
+  // a degree up it" then asks for 169 degrees of sky vertically. With the
+  // horizon at 0.82 the top of the frame would sit 138 degrees above it - 48
+  // degrees past the zenith, where there is no sky left.
+  //
+  // Nothing crashes, which is what makes it worth a test. The elevation
+  // encoding clamps at 90 degrees, so the scattering lookup stops changing
+  // over the top 29 per cent of the frame while the phase function carries on
+  // varying with azimuth. The result is not a flat band - measured, it still
+  // varies by 18 levels - but the vertical gradient collapses to about a third
+  // of what it should be, so the top of the sky goes slack and wrong rather
+  // than obviously broken. engine/view.js caps the vertical field instead.
+  const findings = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset } = await import("/engine/index.js");
+    const { verticalDegrees, verticalLimit } = await import("/engine/view.js");
+
+    const width = 240;
+    const height = 270;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+    const preset = defaultPreset();
+    engine.setPreset(preset);
+
+    // A vertical stack, as Windows would report it: one screen wide, two tall.
+    const span = { w: 1920, h: 2160 };
+
+    // Daylight, so the gradient is strong and a flat top would be obvious.
+    const t = Date.UTC(2026, 5, 21, 18, 0);
+    const place = { lat: 39.74, lon: -104.99 };
+
+    engine.render({
+      t,
+      place,
+      crop: { x: 0, y: 0, w: span.w, h: span.h },
+      span,
+      pixelRatio: 1
+    });
+
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+    // readPixels is bottom-up, so the top of the picture is the END of the
+    // buffer. Rows are averaged across the width before being compared,
+    // because the output dither is a level either way by design: comparing
+    // single pixels measures the dither rather than the gradient. This test
+    // did exactly that on its first attempt and passed with the bug present.
+    const rowMean = (fromTop) => {
+      const y = height - 1 - fromTop;
+      let total = 0;
+      for (let x = 0; x < width; x += 1) {
+        const i = (y * width + x) * 4;
+        total += pixels[i] + pixels[i + 1] + pixels[i + 2];
+      }
+      return total / (width * 3);
+    };
+
+    // How much the sky changes down the top quarter of the frame, which is the
+    // region that sits above the zenith when the vertical field is left
+    // uncapped. Measured: 18 levels with the bug, 49 without it.
+    const quarter = Math.floor(height * 0.25);
+    const first = rowMean(0);
+    let topVariation = 0;
+    for (let fromTop = 1; fromTop < quarter; fromTop += 1) {
+      topVariation = Math.max(topVariation, Math.abs(rowMean(fromTop) - first));
+    }
+
+    return {
+      topVariation,
+      quarter,
+      height,
+      // The numbers behind the fix, so a failure says which half is wrong.
+      square: preset.fieldOfView * (span.h / span.w),
+      limit: verticalLimit(preset.horizon),
+      used: verticalDegrees(preset.fieldOfView, preset.horizon, span),
+      // And an ordinary wide span must be untouched by the cap.
+      wide: verticalDegrees(preset.fieldOfView, preset.horizon, { w: 5760, h: 1080 }),
+      wideSquare: preset.fieldOfView * (1080 / 5760)
+    };
+  });
+
+  // The arithmetic first, so a failure is attributable.
+  expect(findings.square, "a stacked span implies more sky than exists").toBeGreaterThan(90);
+  expect(findings.used, "the vertical field should be capped").toBeLessThan(findings.square);
+  expect(findings.used).toBeCloseTo(findings.limit, 6);
+
+  // The top of the frame now sits exactly at the zenith rather than past it.
+  expect(findings.used * 0.82, "the frame should reach the zenith and stop").toBeCloseTo(90, 6);
+
+  // An ordinary arrangement is left completely alone.
+  expect(findings.wide).toBeCloseTo(findings.wideSquare, 6);
+
+  // And the picture itself, which is the part that would still be wrong if
+  // only the arithmetic were fixed. The threshold sits between the two
+  // measured values rather than at a round number chosen for looking sensible:
+  // 18.2 levels of variation with the field uncapped, 49.4 with it capped.
+  expect(
+    findings.topVariation,
+    `the top ${findings.quarter} rows of ${findings.height} vary by ` +
+      `${findings.topVariation.toFixed(1)} levels; below about 30 means the sky above ` +
+      `the zenith has stopped changing with elevation`
+  ).toBeGreaterThan(30);
+});
+
 test("the sun's glow tracks its real azimuth across the frame (US-012)", async ({ page }) => {
   // The product's central promise: the sun is where the sun actually is, so it
   // crosses the screen through the day rather than sitting still. Checked by
@@ -982,6 +1093,68 @@ test("a whole day at four latitudes shows no banding and no mud (NFR-3)", async 
   expect(findings.worstBand, `worst curvature seen: ${findings.worstBand.toFixed(2)}`).toBeLessThan(
     3
   );
+});
+
+test("the Screens panel draws the arrangement and names what it cannot show (US-012)", async ({
+  page
+}) => {
+  // The four arrangements again, this time through the editor rather than
+  // through the arithmetic. What is being checked is the thing a list of
+  // resolutions cannot tell anybody: that the screens sit in an L, and that
+  // some of the sky falls in the gap and is never seen.
+  const screens = (list) => page.evaluate((l) => window.DayAndNight.setScreens(l), list);
+
+  /** A row of three, which covers its own bounding box exactly. */
+  await screens([
+    { id: 1, bounds: { x: 0, y: 0, w: 1920, h: 1080 }, scale: 1, primary: true },
+    { id: 2, bounds: { x: 1920, y: 0, w: 1920, h: 1080 }, scale: 1, primary: false },
+    { id: 3, bounds: { x: 3840, y: 0, w: 1920, h: 1080 }, scale: 1, primary: false }
+  ]);
+
+  await expect(page.locator("#monMap > span")).toHaveCount(3);
+  await expect(page.locator("#spanNote")).toHaveText("span 5760×1080");
+  await expect(page.locator("#monNote")).toContainText("cover the whole sky");
+
+  // Exactly one box is marked as the primary screen.
+  await expect(page.locator('#monMap > span[data-primary="yes"]')).toHaveCount(1);
+
+  // The map is the arrangement's own shape, not a stretched version of it.
+  await expect(page.locator("#monMap")).toHaveCSS("aspect-ratio", "5760 / 1080");
+
+  /** An L-shape with a gap: half the sky is in the corners nobody can see. */
+  await screens([
+    { id: 1, bounds: { x: 0, y: 0, w: 1920, h: 1080 }, scale: 1, primary: true },
+    { id: 2, bounds: { x: 1920, y: -1080, w: 1920, h: 1080 }, scale: 1, primary: false }
+  ]);
+
+  await expect(page.locator("#monMap > span")).toHaveCount(2);
+  await expect(page.locator("#monNote")).toContainText("50% of the sky");
+  await expect(page.locator("#monNote")).toContainText("never shown");
+
+  // And the screen placed above the primary is drawn at the TOP of the map,
+  // which is what catches a crop that forgot the span can start at a negative
+  // y. Its box is at 0%; the primary's is halfway down.
+  const tops = await page
+    .locator("#monMap > span")
+    .evaluateAll((boxes) => boxes.map((b) => b.style.top));
+  expect(tops.sort()).toEqual(["0%", "50%"]);
+
+  /** Two screens that overlap, which Windows permits. */
+  await screens([
+    { id: 1, bounds: { x: 0, y: 0, w: 1920, h: 1080 }, scale: 1, primary: true },
+    { id: 2, bounds: { x: 960, y: 0, w: 1920, h: 1080 }, scale: 1, primary: false }
+  ]);
+
+  await expect(page.locator("#monNote")).toContainText("overlap");
+
+  /** A rotated screen, which makes the span taller than any one screen. */
+  await screens([
+    { id: 1, bounds: { x: 0, y: 420, w: 1920, h: 1080 }, scale: 1, primary: true },
+    { id: 2, bounds: { x: 1920, y: 0, w: 1080, h: 1920 }, scale: 1, primary: false }
+  ]);
+
+  await expect(page.locator("#spanNote")).toHaveText("span 3000×1920");
+  await expect(page.locator("#monMap")).toHaveCSS("aspect-ratio", "3000 / 1920");
 });
 
 test("every control carries a hint, and none is a bare label (US-023)", async ({ page }) => {

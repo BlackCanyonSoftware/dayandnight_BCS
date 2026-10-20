@@ -530,6 +530,36 @@ button.primary:hover {
   background: rgb(255 255 255 / 0.35);
 }
 
+/* The arrangement of screens, drawn to scale. Read-only on purpose: Windows
+   owns where the screens are, and a control here that appeared to move them
+   would be lying about what it does. */
+.monmap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--line);
+  border-radius: var(--r-1);
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.monmap span {
+  position: absolute;
+  border: 1px solid var(--accent);
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+  border-radius: 2px;
+  font: 400 var(--text-xs) / 1 var(--font-mono);
+  color: var(--ink-dim);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.monmap span[data-primary="yes"] {
+  border-color: var(--accent-2);
+  background: color-mix(in oklab, var(--accent-2) 22%, transparent);
+}
+
 .stagefoot {
   padding: var(--s-2) var(--s-3);
   border-top: 1px solid var(--line);

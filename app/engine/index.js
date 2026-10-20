@@ -42,6 +42,7 @@ import { autoExposure, skyLut, transmittanceFor } from "./sky/lut.js";
 import { tintFor } from "./sky/grade.js";
 import { defaultPreset, resolveBearing } from "./defaults.js";
 import { frameSignature } from "./signature.js";
+import { verticalDegrees } from "./view.js";
 
 /** @typedef {import("./types.js").FrameInfo} FrameInfo */
 /** @typedef {import("./types.js").FrameRequest} FrameRequest */
@@ -315,6 +316,10 @@ export class DayNightEngine {
 
     const bearing = resolveBearing(this.preset, place);
 
+    // One number for all three programs, so the sky, the stars and the bodies
+    // cannot disagree about where the horizon is.
+    const verticalSpread = verticalDegrees(this.preset.fieldOfView, this.preset.horizon, span);
+
     gl.disable(gl.DEPTH_TEST);
 
     /* ------------------------------------------------- 1. the sky, as light */
@@ -336,6 +341,7 @@ export class DayNightEngine {
     gl.uniform1f(sky.uniform("uBearing"), bearing);
     gl.uniform1f(sky.uniform("uHorizon"), this.preset.horizon);
     gl.uniform1f(sky.uniform("uFieldOfView"), this.preset.fieldOfView);
+    gl.uniform1f(sky.uniform("uDegreesPerSpanY"), verticalSpread);
 
     gl.uniform1f(sky.uniform("uGroundAlbedo"), this.preset.groundAlbedo);
     gl.uniform1f(sky.uniform("uTurbidity"), this.preset.turbidity);
@@ -367,6 +373,7 @@ export class DayNightEngine {
     gl.uniform1f(stars.uniform("uBearing"), bearing);
     gl.uniform1f(stars.uniform("uHorizon"), this.preset.horizon);
     gl.uniform1f(stars.uniform("uFieldOfView"), this.preset.fieldOfView);
+    gl.uniform1f(stars.uniform("uDegreesPerSpanY"), verticalSpread);
 
     gl.uniform1f(stars.uniform("uBrightness"), this.preset.starBrightness);
     // Point size is in device pixels, so it has to follow the display's
@@ -391,6 +398,7 @@ export class DayNightEngine {
     gl.uniform1f(bodies.uniform("uBearing"), bearing);
     gl.uniform1f(bodies.uniform("uHorizon"), this.preset.horizon);
     gl.uniform1f(bodies.uniform("uFieldOfView"), this.preset.fieldOfView);
+    gl.uniform1f(bodies.uniform("uDegreesPerSpanY"), verticalSpread);
     gl.uniform1f(bodies.uniform("uGlare"), this.preset.glare);
 
     // The moon first, so that on the rare occasions they overlap the sun is

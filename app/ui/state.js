@@ -11,6 +11,8 @@
  * @module ui/state
  */
 
+import { boundingBox, cropFor as cropWithin, describe as describeSpan } from "../engine/span.js";
+
 import { defaultPreset } from "../engine/index.js";
 
 /** @typedef {import("../engine/types.js").Place} Place */
@@ -108,46 +110,36 @@ export function setMonitors(next) {
 /**
  * The span: the box that contains every monitor, in virtual-desktop pixels.
  *
- * The scene is composed for this rather than for one screen, which is the
- * whole mechanism behind US-012. With no monitors reported yet - the browser,
- * before the shell has answered - it falls back to a single 1080p screen so
+ * The scene is composed for this rather than for one screen, which is the whole
+ * mechanism behind US-012. With no monitors reported yet - the browser, before
+ * the shell has answered - `boundingBox` falls back to a single 1080p screen so
  * the preview has something sane to be.
+ *
+ * The arithmetic is `engine/span.js` rather than a copy here, and that is not
+ * tidiness. `desktop/monitors.js` requires the same file to decide where each
+ * wallpaper window goes; when the editor had its own version, the two could
+ * drift and the preview would frame the sky differently from the wallpaper it
+ * was previewing - a bug that would look like the renderer being wrong.
  *
  * @returns {Span}
  */
 export function span() {
-  if (monitors.length === 0) return { w: 1920, h: 1080 };
-
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-
-  for (const m of monitors) {
-    minX = Math.min(minX, m.bounds.x);
-    minY = Math.min(minY, m.bounds.y);
-    maxX = Math.max(maxX, m.bounds.x + m.bounds.w);
-    maxY = Math.max(maxY, m.bounds.y + m.bounds.h);
-  }
-
-  return { w: maxX - minX, h: maxY - minY };
+  const box = boundingBox(monitors);
+  return { w: box.w, h: box.h };
 }
 
 /**
  * The span's origin in virtual-desktop coordinates.
  *
  * Windows puts the primary screen at 0,0 and lets everything else go negative,
- * so a monitor to the left of the primary has a negative x. Crop rectangles
- * are relative to the span, not to the desktop, so this is what shifts them.
+ * so a monitor to the left of the primary has a negative x. Crop rectangles are
+ * relative to the span, not to the desktop, so this is what shifts them.
  *
  * @returns {{ x: number, y: number }}
  */
 export function spanOrigin() {
-  if (monitors.length === 0) return { x: 0, y: 0 };
-  return {
-    x: Math.min(...monitors.map((m) => m.bounds.x)),
-    y: Math.min(...monitors.map((m) => m.bounds.y))
-  };
+  const box = boundingBox(monitors);
+  return { x: box.x, y: box.y };
 }
 
 /**
@@ -157,11 +149,15 @@ export function spanOrigin() {
  * @returns {Rect}
  */
 export function cropFor(monitor) {
-  const origin = spanOrigin();
-  return {
-    x: monitor.bounds.x - origin.x,
-    y: monitor.bounds.y - origin.y,
-    w: monitor.bounds.w,
-    h: monitor.bounds.h
-  };
+  return cropWithin(monitor, monitors);
+}
+
+/**
+ * What the arrangement looks like as a whole: the box, how much of it the
+ * screens actually cover, and whether any of them overlap.
+ *
+ * @returns {ReturnType<typeof describeSpan>}
+ */
+export function arrangement() {
+  return describeSpan(monitors);
 }

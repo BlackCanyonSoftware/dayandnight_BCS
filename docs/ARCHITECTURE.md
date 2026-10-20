@@ -295,6 +295,31 @@ editor says which mode is active.
 
 ## Monitors and the span
 
+The arithmetic lives in `app/engine/span.js` and has no Electron in it, which
+is a deliberate split rather than a tidy one. Two things made it necessary.
+
+**It has to be testable.** The four arrangements that break naive span code -
+mixed DPI, a rotated screen, a vertical stack, an L-shape with a gap - are
+hardware nobody is going to plug in, and before the split they could only be
+reasoned about. Given a list of rectangles they are eight fixtures and 15
+assertions. The one conversion that genuinely needs the OS, device-independent
+pixels to physical ones, is injected: it cannot be computed, because
+multiplying bounds by `scaleFactor` is wrong as soon as two screens have
+different scales.
+
+**It has to be the same arithmetic on both sides.** `desktop/monitors.js`
+decides where each wallpaper window goes; the editor draws a preview of the
+same span. Those were separate implementations, and a drift between them would
+have shown up as the preview framing the sky differently from the wallpaper it
+was previewing - which reads as the renderer being wrong. The shell reaches the
+ES module through `require()`, which Node allows and which is verified inside
+the packaged asar by `tools/verify-package.js`.
+
+A gap between screens stays a gap. Closing it would move one screen's slice and
+put the sun off its true azimuth there, so the sky simply continues across the
+empty space and nobody sees that part of it; the editor says so rather than
+leaving it to be discovered.
+
 The **span** is the bounding rectangle of every enabled monitor in
 virtual-desktop coordinates. The scene is composed for the span, and each
 monitor's window renders the sub-rectangle it occupies. The sun's azimuth maps
