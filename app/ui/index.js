@@ -21,11 +21,13 @@ import {
   arrangement,
   clock,
   cropFor,
+  awaySeconds,
   fps,
   monitors,
   place,
   preset,
   replacePreset,
+  setAwaySeconds,
   setFps,
   setMonitors,
   setPlace,
@@ -128,6 +130,7 @@ async function loadSaved() {
   replacePreset(doc.cfg.preset);
   setPlace(doc.cfg.place);
   setFps(doc.cfg.fps);
+  setAwaySeconds(doc.cfg.awaySeconds);
   setTheme(doc.ui.theme);
 }
 
@@ -198,6 +201,11 @@ function wireControls() {
   });
   bindRange("fieldOfView", (v) => setPreset({ fieldOfView: v }));
   bindRange("fps", (v) => setFps(Math.round(v)));
+
+  // Shown and set in minutes, kept in seconds: a slider with 3,600 positions
+  // on it is not a control, and nobody wants to stop the wallpaper after 437
+  // seconds.
+  bindRange("away", (v) => setAwaySeconds(Math.round(v) * 60));
 
   // The city field. `input` rather than `change`, so picking from the
   // suggestion list takes effect at once rather than on blur.
@@ -434,7 +442,7 @@ function resetAll() {
  * lands in Milestone 5; this is the honest minimum until then.
  */
 function downloadSettings() {
-  const doc = writeDocument({ preset, place, fps, theme: theme() }, Date.now());
+  const doc = writeDocument({ preset, place, fps, awaySeconds, theme: theme() }, Date.now());
   const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
 
@@ -472,6 +480,7 @@ function paintFromState() {
   input("twinkle").value = String(preset.twinkle);
   input("airglow").value = String(preset.airglow * 1e6);
   input("fps").value = String(fps);
+  input("away").value = String(Math.round(awaySeconds / 60));
 
   $("#latVal").textContent = fmtDegrees(place.lat);
   $("#lonVal").textContent = fmtDegrees(place.lon);
@@ -499,6 +508,7 @@ function paintFromState() {
   $("#twinkleVal").textContent = `${Math.round(preset.twinkle * 100)}%`;
   $("#airglowVal").textContent = (preset.airglow * 1e6).toFixed(1);
   $("#fpsVal").textContent = `${fps} fps`;
+  $("#awayVal").textContent = awaySeconds === 0 ? "never" : `${Math.round(awaySeconds / 60)} min`;
 
   // Which look this is, by comparison rather than by memory.
   const look = lookIdFor(preset);
@@ -645,7 +655,18 @@ function paintWallpaperState(state) {
   }
   box.append(line);
 
+  // Two separate facts, and both are worth saying: why the host is what it is,
+  // and why nothing is being drawn. A machine that fell back AND is paused for
+  // a game has two things wrong with it, and showing one left the other to be
+  // guessed at.
   if (state.reason) box.append(` ${state.reason}`);
+
+  if (state.paused && state.pausedBecause) {
+    const why = document.createElement("span");
+    why.className = "meta";
+    why.textContent = ` Stopped because ${state.pausedBecause}. It starts again on its own.`;
+    box.append(why);
+  }
 }
 
 async function refreshWallpaperState() {
@@ -699,7 +720,7 @@ function redrawBands() {
 
 /** Hand the wallpaper windows what they need in order to draw. */
 function pushRuntime() {
-  shell.pushConfig({ preset, place, fps });
+  shell.pushConfig({ preset, place, fps, awaySeconds });
 }
 
 /**
@@ -723,7 +744,9 @@ let saveTimer = 0;
 function save() {
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
-    shell.saveSettings(writeDocument({ preset, place, fps, theme: theme() }, Date.now()));
+    shell.saveSettings(
+      writeDocument({ preset, place, fps, awaySeconds, theme: theme() }, Date.now())
+    );
   }, 400);
 }
 
@@ -739,7 +762,7 @@ Object.defineProperty(window, "DayAndNight", {
     lastFrame: () => preview?.lastFrame() ?? null,
 
     /** @returns {import("./settings.js").SettingsDoc} */
-    document: () => writeDocument({ preset, place, fps, theme: theme() }, Date.now()),
+    document: () => writeDocument({ preset, place, fps, awaySeconds, theme: theme() }, Date.now()),
 
     /**
      * @param {unknown} raw
@@ -752,6 +775,7 @@ Object.defineProperty(window, "DayAndNight", {
       replacePreset(doc.cfg.preset);
       setPlace(doc.cfg.place);
       setFps(doc.cfg.fps);
+      setAwaySeconds(doc.cfg.awaySeconds);
       setTheme(doc.ui.theme);
 
       bandsDirty = true;

@@ -179,7 +179,14 @@ paperwork.
   here could only lie about what it did or move the sun somewhere it is not,
   and architecture invariant 5 forbids the second. The panel draws the
   arrangement to scale and says when sky is falling in a gap.
-- The full pause policy: battery, display sleep, occlusion, suspend and resume.
+- The full pause policy: battery, display sleep, occlusion, suspend and
+  resume. **Mostly done.** Battery, lock, suspend, resume and full-screen were
+  already there and are now tested rather than assumed - thirteen unit tests
+  over an injected pair of sources, and two desktop tests that deliver a real
+  event and count the surface's render-loop ticks. Display sleep is covered by
+  idleness instead, for the reasons in `ARCHITECTURE.md`. **Occlusion is not
+  done** and is its own slice: it needs Win32 calls the application does not
+  have yet.
 - Tray icon and autostart.
 - Monitor hot-plug: a screen arriving or leaving adds or removes its window
   without disturbing the others.
@@ -200,7 +207,11 @@ paperwork.
   vertical stack found a real bug in the projection - see below.
 - The sun crosses from the leftmost screen to the rightmost over a scrubbed day.
 - Every pause signal verified by hand, each with the observed result written
-  down.
+  down. **Partly done, and the split is worth stating.** Lock, unlock, suspend
+  and resume are now verified automatically, by delivering the real event to
+  the real watcher - better than by hand, because it runs every time. What a
+  person still has to do is the one nothing can fake: launch a full-screen
+  game and watch it stop.
 - NFR-1 re-measured with three monitors active.
 - The build from the installer - not the one run from source - puts a sky on the
   desktop on a machine that has never had the project. **Half done:**

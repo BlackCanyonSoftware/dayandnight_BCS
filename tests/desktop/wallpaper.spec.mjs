@@ -189,3 +189,124 @@ test("turning it off takes every surface away", async () => {
   );
   expect(windowCount, "only the editor should be left").toBe(1);
 });
+
+/**
+ * Turn the wallpaper on and wait for the host to settle.
+ * @returns {Promise<import("@playwright/test").Page>} the surface's page
+ */
+async function startWallpaper() {
+  await editor.locator("#wallBtn").click();
+  await expect
+    .poll(async () => (await editor.evaluate(() => window.dayAndNight.getWallpaperState())).host, {
+      timeout: 20_000
+    })
+    .not.toBe("starting");
+
+  const surface = app.windows().find((w) => w.url().includes("wallpaper.html"));
+  expect(surface, "a wallpaper window should exist").toBeTruthy();
+  await surface.waitForLoadState("domcontentloaded");
+  return surface;
+}
+
+/**
+ * Count the surface's own render loop, from inside its page.
+ *
+ * The loop is a `setTimeout` chain, so wrapping `setTimeout` counts exactly
+ * one tick per frame. This is the only way to tell the two possible meanings
+ * of "paused" apart: a loop that has been torn down stops calling it, and a
+ * loop that runs and returns early does not. Architecture invariant 7 is
+ * precisely that distinction, and nothing observable from outside the page -
+ * not the pixels, which a nearly-still sky leaves unchanged anyway - can see
+ * it. The surface has no page API by design, so the instrumentation is the
+ * test's and lives here rather than in the product.
+ *
+ * @param {import("@playwright/test").Page} surface
+ */
+async function countTicks(surface) {
+  await surface.evaluate(() => {
+    if (window.__ticks !== undefined) return;
+    window.__ticks = 0;
+    const real = window.setTimeout.bind(window);
+    window.setTimeout = (fn, ms, ...rest) => {
+      window.__ticks += 1;
+      return real(fn, ms, ...rest);
+    };
+  });
+}
+
+/**
+ * How many ticks the loop runs over a window of time.
+ * @param {import("@playwright/test").Page} surface
+ */
+async function ticksOver(surface, ms = 700) {
+  const before = await surface.evaluate(() => window.__ticks);
+  await new Promise((resolve) => setTimeout(resolve, ms));
+  const after = await surface.evaluate(() => window.__ticks);
+  return after - before;
+}
+
+test("locking the session tears the render loop down, and unlocking rebuilds it (US-013)", async () => {
+  test.skip(process.platform !== "win32", "the desktop host is Windows-only");
+
+  // Nobody can lock a session from a test, but powerMonitor is an EventEmitter
+  // and the watcher subscribes to it like any other listener - so the event it
+  // would have received is delivered directly. Everything after that is the
+  // real path: the policy, the IPC, the surface.
+  const surface = await startWallpaper();
+  await countTicks(surface);
+
+  expect(await ticksOver(surface), "a running wallpaper should be ticking").toBeGreaterThan(3);
+
+  await app.evaluate(({ powerMonitor }) => powerMonitor.emit("lock-screen"));
+
+  const locked = await editor.evaluate(() => window.dayAndNight.getWallpaperState());
+  expect(locked.paused).toBe(true);
+  expect(locked.pausedBecause).toMatch(/locked/);
+
+  // The windows stay. Invariant 7 is about the render loop, not the surfaces -
+  // destroying and rebuilding a window per screen every time somebody locks
+  // their machine would cost more than it saved.
+  expect(locked.on).toBe(true);
+  expect(locked.screens).toBeGreaterThan(0);
+
+  // And this is the invariant itself: zero ticks, not fewer ticks.
+  expect(
+    await ticksOver(surface),
+    "a paused surface should have torn its loop down, not be running it and returning early"
+  ).toBe(0);
+
+  await app.evaluate(({ powerMonitor }) => powerMonitor.emit("unlock-screen"));
+
+  const unlocked = await editor.evaluate(() => window.dayAndNight.getWallpaperState());
+  expect(unlocked.paused).toBe(false);
+  expect(unlocked.pausedBecause).toBe(null);
+  expect(await ticksOver(surface), "unlocking should start it again").toBeGreaterThan(3);
+});
+
+test("when several reasons are true at once, the one shown explains the most (US-013)", async () => {
+  test.skip(process.platform !== "win32", "the desktop host is Windows-only");
+
+  await startWallpaper();
+
+  await app.evaluate(({ powerMonitor }) => {
+    powerMonitor.emit("lock-screen");
+    powerMonitor.emit("suspend");
+  });
+
+  const state = await editor.evaluate(() => window.dayAndNight.getWallpaperState());
+  expect(state.paused).toBe(true);
+  expect(
+    state.pausedBecause,
+    "a locked machine that is also suspending is leaving, which is the bigger fact"
+  ).toMatch(/sleep/);
+
+  await app.evaluate(({ powerMonitor }) => {
+    powerMonitor.emit("resume");
+    powerMonitor.emit("unlock-screen");
+  });
+
+  expect(
+    (await editor.evaluate(() => window.dayAndNight.getWallpaperState())).paused,
+    "waking up should start it again"
+  ).toBe(false);
+});

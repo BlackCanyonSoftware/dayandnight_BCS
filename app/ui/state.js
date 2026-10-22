@@ -70,6 +70,12 @@ export let clock = { mode: "now", dayStart: 0, minute: 0, playing: false };
  */
 export let fps = 20;
 
+/**
+ * Seconds of no input before the wallpaper stops drawing. Zero never stops.
+ * Outside the preset, like `fps` and `place`: it is a cost, not a look.
+ */
+export let awaySeconds = 600;
+
 /** @type {Monitor[]} */
 export let monitors = [];
 
@@ -98,6 +104,11 @@ export function setClock(patch) {
 /** @param {number} next */
 export function setFps(next) {
   fps = next;
+}
+
+/** @param {number} next */
+export function setAwaySeconds(next) {
+  awaySeconds = Math.max(0, Math.round(next));
 }
 
 /** @param {Monitor[]} next */

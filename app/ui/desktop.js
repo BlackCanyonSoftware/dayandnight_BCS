@@ -38,7 +38,8 @@
  * @property {"workerw" | "fallback" | "starting" | "off"} host
  * @property {number} screens
  * @property {boolean} paused
- * @property {string} [reason] why it is paused, or why the host fell back
+ * @property {string} [reason] why the host is what it is - a fallback, say
+ * @property {string | null} [pausedBecause] why nothing is being drawn
  */
 
 /**
@@ -48,6 +49,7 @@
  * @property {import("../engine/types.js").Preset} preset
  * @property {import("../engine/types.js").Place} place
  * @property {number} fps
+ * @property {number} awaySeconds seconds of no input before drawing stops
  */
 
 /** @returns {ShellApi | null} */

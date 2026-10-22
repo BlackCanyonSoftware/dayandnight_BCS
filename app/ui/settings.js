@@ -29,7 +29,7 @@ export const VERSION = 1;
  * @property {string} app
  * @property {number} version
  * @property {string} savedAt ISO 8601
- * @property {{ preset: Preset, place: Place, fps: number }} cfg
+ * @property {{ preset: Preset, place: Place, fps: number, awaySeconds: number }} cfg
  * @property {{ theme: Theme }} ui
  */
 
@@ -47,7 +47,7 @@ const MIGRATIONS = {};
 /**
  * Build a document from the current state.
  *
- * @param {{ preset: Preset, place: Place, fps: number, theme: Theme }} from
+ * @param {{ preset: Preset, place: Place, fps: number, awaySeconds: number, theme: Theme }} from
  * @param {number} now timestamp, passed in rather than read from the clock
  * @returns {SettingsDoc}
  */
@@ -59,7 +59,8 @@ export function writeDocument(from, now) {
     cfg: {
       preset: { ...from.preset },
       place: { ...from.place },
-      fps: from.fps
+      fps: from.fps,
+      awaySeconds: from.awaySeconds
     },
     ui: { theme: from.theme }
   };
@@ -172,7 +173,13 @@ function normaliseCfg(raw) {
       lat: num(placeRaw["lat"], 39.7, -89.9, 89.9),
       lon: num(placeRaw["lon"], -105, -180, 180)
     },
-    fps: Math.round(num(cfg["fps"], 20, 1, 60))
+    fps: Math.round(num(cfg["fps"], 20, 1, 60)),
+
+    // Seconds of no input before the wallpaper stops. Absent from any document
+    // written before this setting existed, so the default stands in - which is
+    // a default rather than a migration, because nothing was renamed and
+    // nothing changed meaning.
+    awaySeconds: Math.round(num(cfg["awaySeconds"], 600, 0, 86_400))
   };
 }
 

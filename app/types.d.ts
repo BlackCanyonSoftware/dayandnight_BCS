@@ -25,7 +25,10 @@ declare global {
     host: "workerw" | "fallback" | "starting" | "off";
     screens: number;
     paused: boolean;
+    /** Why the host is what it is - a fallback, say. Not why it is paused. */
     reason: string | null;
+    /** Why nothing is being drawn, or null when something is. */
+    pausedBecause: string | null;
   }
 
   interface DayAndNightSettingsDoc {

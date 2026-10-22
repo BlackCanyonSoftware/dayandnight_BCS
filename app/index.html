@@ -526,6 +526,22 @@
                 </label>
                 <input id="fps" type="range" min="5" max="30" step="1" value="20" />
               </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Stop when you are away</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How long without a keystroke or a mouse move before the wallpaper stops drawing, and starts again the moment you come back. Ten minutes is when Windows turns most screens off anyway, so by then there is usually nothing to draw on. Drag it to the left end for never."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="awayVal">10 min</span>
+                </label>
+                <input id="away" type="range" min="0" max="60" step="1" value="10" />
+              </div>
             </div>
           </details>
         </div>

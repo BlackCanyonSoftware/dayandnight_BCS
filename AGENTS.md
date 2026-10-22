@@ -28,9 +28,20 @@ and the user's coordinates. **Rigor tier: MVP.**
 | `node tools/measure-cost.js`      | Measure NFR-1. **Opens windows, takes minutes.**                         |
 | `node tools/verify-package.js`    | Check a packaged build really works. **Opens windows.**                  |
 
-**Ask the user before running anything marked "opens windows".** The
-application takes over the desktop background and raises windows; running it
-while someone is working interrupts them.
+**Ask the user before running anything marked "opens windows" - every
+time.** The application takes over the desktop background and raises windows,
+and the owner is usually working on the same machine.
+
+A "yes, run it" covers that one run. It is not standing permission for the
+rest of the session, and it does not carry over to a different command: being
+told to run the measurement is not permission to run the desktop tests
+afterwards. Batch the checks that need a window into one request, say what will
+appear and for how long, and wait.
+
+Everything else is safe to run unasked, `npm run check` included: its browser
+tests are headless Chromium and put nothing on screen. If a claim can only be
+settled by opening a window, leave it unverified and say so rather than opening
+one to find out.
 
 ## Project map
 

@@ -91,12 +91,18 @@ let hostReason = null;
  * What the surfaces need in order to draw. Held here so a surface created
  * later - a monitor plugged in at midnight - starts correct immediately.
  *
- * @type {{ preset: { exposure: number }, place: { lat: number, lon: number }, fps: number }}
+ * @type {{
+ *   preset: { exposure: number },
+ *   place: { lat: number, lon: number },
+ *   fps: number,
+ *   awaySeconds: number
+ * }}
  */
 let runtime = {
   preset: { exposure: 0 },
   place: { lat: 39.7, lon: -105 },
-  fps: 20
+  fps: 20,
+  awaySeconds: 600
 };
 
 /* ------------------------------------------------------------------ serving */
@@ -313,7 +319,25 @@ function sendWallpaperState() {
   toEditor("wallpaper:stateChanged", wallpaperState());
 }
 
-/** @returns {{ on: boolean, host: "workerw" | "fallback" | "starting" | "off", screens: number, paused: boolean, reason: string | null }} */
+/**
+ * Two reasons, kept apart.
+ *
+ * They used to share one field, with the host's winning. That is wrong in the
+ * one case where it matters: a machine that fell back to drawing in front of
+ * the wallpaper AND is paused because a game is running has two things worth
+ * saying, and the user was shown the first and left wondering why nothing
+ * moved. `reason` is why the host is what it is; `pausedBecause` is why
+ * nothing is being drawn.
+ *
+ * @returns {{
+ *   on: boolean,
+ *   host: "workerw" | "fallback" | "starting" | "off",
+ *   screens: number,
+ *   paused: boolean,
+ *   reason: string | null,
+ *   pausedBecause: string | null
+ * }}
+ */
 function wallpaperState() {
   const pause = pauseWatcher?.current() ?? { paused: false, reason: null };
   return {
@@ -321,7 +345,8 @@ function wallpaperState() {
     host: hostMode,
     screens: surfaces.size,
     paused: pause.paused,
-    reason: hostReason ?? pause.reason
+    reason: hostReason,
+    pausedBecause: pause.reason
   };
 }
 
@@ -363,7 +388,8 @@ function validateConfig(raw) {
       lat: finite(place["lat"], 39.7, -89.9, 89.9),
       lon: finite(place["lon"], -105, -180, 180)
     },
-    fps: Math.round(finite(record["fps"], 20, 1, 60))
+    fps: Math.round(finite(record["fps"], 20, 1, 60)),
+    awaySeconds: Math.round(finite(record["awaySeconds"], 600, 0, 86_400))
   };
 }
 
@@ -416,6 +442,12 @@ function registerIpc() {
     if (!next) return;
     runtime = next;
     broadcastConfig();
+
+    // The pause policy is the shell's, not a surface's, so this is the only
+    // place the new threshold can land. Setting it re-evaluates immediately,
+    // which is what makes dragging the control to "never" start the wallpaper
+    // again rather than waiting for the next poll.
+    pauseWatcher?.setAwaySeconds(next.awaySeconds);
   });
 
   ipcMain.handle("settings:load", () => store.read());

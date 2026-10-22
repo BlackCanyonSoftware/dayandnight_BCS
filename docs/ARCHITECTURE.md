@@ -338,6 +338,49 @@ coordinates.
 
 ## The pause policy
 
+Every signal that says nobody is looking, reduced to one boolean and a reason.
+The signals are a full-screen or exclusive application, a locked session, the
+machine suspending, mains versus battery, and - since Milestone 2 - nobody
+having touched the keyboard or mouse for a while.
+
+**Idleness stands in for the display's power state**, and that is a deliberate
+substitution rather than a shortcut. US-013 asks for the wallpaper to stop when
+the display has powered down. Windows will say so, through `WM_POWERBROADCAST`
+with `GUID_CONSOLE_DISPLAY_STATE`, but only to a window procedure - which means
+registering for the notification and then subclassing a window to receive it.
+That is the operating system's message pump calling into our process, inside
+the module ADR 0002 deliberately keeps to a handful of straight-line calls, and
+it would be the most dangerous code in the application.
+
+Idle time answers the question the criterion is actually asking. The point is
+that nobody is looking, and a dark display is one of two ways that happens; the
+commoner one is somebody who walked away while the screen is still lit. One
+number covers both. The default threshold is ten minutes because that is
+Windows' own default for switching the display off on mains power, so in the
+ordinary case the screen is already dark when the wallpaper stops. It is not
+shorter on purpose: the sky moves fastest at sunrise, about a quarter of a
+degree a minute, and a pause that resumed after five minutes could show a
+visible jump.
+
+**The reasons are ordered, not combined.** A locked laptop on battery with a
+game running and nobody in the room is four signals at once, and the user is
+told the one that explains the most. Suspending outranks everything because the
+machine is leaving; being away is last, because it is inferred from a lack of
+typing rather than observed.
+
+The policy is testable because its two sources - Electron's `powerMonitor` and
+the shell state from `host-win32.js` - are injected. Every branch is a fact
+about somebody's machine that no test can produce, so with them as arguments
+the whole policy is a table instead. The desktop tests go further and deliver a
+real `lock-screen` event to the real watcher, then count the surface's own
+render-loop ticks: zero while paused is what distinguishes a loop torn down
+from one that runs and returns early, which is the whole of invariant 7.
+
+**Still missing:** desktop occlusion, stopping when windows cover the desktop
+entirely. That one genuinely does need new Win32 calls - `GetWindowRect`,
+`IsWindowVisible`, `IsIconic` - and so it is its own slice rather than
+something to add while expanding a surface ADR 0002 kept small on purpose.
+
 A 24/7 process earns its place by not running. `desktop/pause.js` holds every
 signal; the wallpaper windows render only when it says to.
 
