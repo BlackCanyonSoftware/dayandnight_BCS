@@ -77,7 +77,8 @@ select {
 /* ------------------------------------------------------------- brand slot */
 
 /* Deliberately empty and deliberately sized: it holds its space so the layout
-   does not shift when the owner's mark arrives. See app/brand/README.md. */
+   holds the mark and the wordmark the brand kit built. See
+   app/brand/README.md for where they came from and what was not taken. */
 .brand {
   min-height: 76px;
   padding: var(--s-3) var(--s-4);
@@ -90,20 +91,39 @@ select {
 
 .brand .brandmark {
   flex: 0 0 50px;
+  width: 50px;
   height: 50px;
-  border-radius: var(--r-md);
-  border: 1px dashed var(--line);
-  display: grid;
-  place-items: center;
-  color: var(--ink-faint);
-  font-size: var(--text-xs);
 }
 
 .brand .brandtext {
   flex: 1 1 auto;
   min-width: 0;
-  color: var(--ink-faint);
-  font-size: var(--text-xs);
+}
+
+/* The wordmark is an SVG of fixed proportions, so it is given a height and
+   lets its width follow. Capped at the slot's width so a narrow sidebar
+   shrinks it rather than clipping it. */
+.brand .wm {
+  display: block;
+  height: 26px;
+  width: auto;
+  max-width: 100%;
+}
+
+/* One wordmark per background, swapped by the theme rather than recoloured:
+   the two cuts are different files in the brand kit and neither is a filtered
+   version of the other. */
+:root[data-theme="dark"] .brand .wmlight,
+:root:not([data-theme="light"]) .brand .wmlight {
+  display: none;
+}
+
+:root[data-theme="light"] .brand .wmdark {
+  display: none;
+}
+
+:root[data-theme="light"] .brand .wmlight {
+  display: block;
 }
 
 /* ---------------------------------------------------------------- top bar */

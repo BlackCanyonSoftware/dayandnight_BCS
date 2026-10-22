@@ -1174,6 +1174,52 @@ test("every control carries a hint, and none is a bare label (US-023)", async ({
   }
 });
 
+test("the brand slot carries the mark and the right wordmark for the theme", async ({ page }) => {
+  // The wordmark is a file the brand kit built, not type set in CSS, so the
+  // failure mode is a silently empty corner rather than a wrong font: a moved
+  // or renamed asset leaves an <img> that renders as nothing. naturalWidth is
+  // what tells a loaded image from a broken one.
+  const loaded = (selector) =>
+    page.locator(selector).evaluate((img) => ({
+      ok: img.naturalWidth > 0,
+      src: img.getAttribute("src"),
+      alt: img.getAttribute("alt")
+    }));
+
+  const mark = await loaded(".brand .brandmark");
+  expect(mark.ok, `the mark did not load from ${mark.src}`).toBe(true);
+
+  // The mark is decorative; the name is spoken once, by the wordmark.
+  expect(mark.alt).toBe("");
+
+  for (const cut of [".brand .wmlight", ".brand .wmdark"]) {
+    const wordmark = await loaded(cut);
+    expect(wordmark.ok, `${cut} did not load from ${wordmark.src}`).toBe(true);
+
+    // The product is called Day and Night in words. DAYnNIGHT is how the
+    // wordmark draws it, and a screen reader should be told the name rather
+    // than the stylisation.
+    expect(wordmark.alt).toBe("Day and Night");
+  }
+
+  // Exactly one cut is visible at a time, in either theme. Two visible would
+  // be one drawn on top of the other; none would be an empty slot.
+  const visibleCount = async () => page.locator(".brand .wm:visible").count();
+
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+  expect(await visibleCount()).toBe(1);
+  await expect(page.locator(".brand .wmlight")).toBeVisible();
+
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+  expect(await visibleCount()).toBe(1);
+  await expect(page.locator(".brand .wmdark")).toBeVisible();
+
+  // And with no explicit theme at all, which is what the system setting gives:
+  // the dark cut, because the editor's untyped default is dark.
+  await page.evaluate(() => document.documentElement.removeAttribute("data-theme"));
+  expect(await visibleCount()).toBe(1);
+});
+
 test("the theme toggle cycles and is reflected on the document", async ({ page }) => {
   const read = () => page.evaluate(() => document.documentElement.getAttribute("data-theme"));
 

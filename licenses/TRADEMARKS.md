@@ -2,25 +2,28 @@
 
 ## Ours
 
-**Day and Night** and **Black Canyon Software** are trademarks of Black Canyon
-Software [[ registered or unregistered, per mark ]]. All rights reserved.
+**Day and Night**, **DAYnNIGHT**, **Black Canyon Software**, the Day and Night
+wordmarks and the Black Canyon cube are trademarks and trade dress of Black
+Canyon Software [[ registered or unregistered, per mark ]]. All rights reserved.
 
-There is no Day and Night logo or wordmark yet. `app/brand/` is empty on
-purpose, with its place in the editor reserved, and this document covers the
-word marks until there is more to cover. When a logo and wordmark exist, they
-are added here and to the brand kit, and they are not covered by the source
-licence, the EULA or any third-party licence in this folder.
+**Day and Night** and **DAYnNIGHT** are the same name. The product is called
+Day and Night in every sentence written about it - this licence, the EULA, the
+installer, the window title - and DAYnNIGHT is how the name is drawn: the
+wordmark divides it DAY, n, NIGHT and sets the two ends of the word in the two
+ends of the palette. Both are claimed, because a stylisation nobody else may
+use is the point of having one.
 
-Their presence in the repository and in released builds grants no right to use
-them.
+The marks are not covered by the source licence, the EULA or any third-party
+licence in this folder. Their presence in the repository (`app/brand/`) and in
+released builds grants no right to use them.
 
 You may use the names in plain text to refer to the product truthfully ("made
 with Day and Night", a review, a tutorial), and you may show an unmodified
-wordmark or mark from the brand kit, once one exists, when you are referring to
-the product itself (press, a store listing, a video thumbnail about it). You may
-not alter the marks, combine them with your own, use them on another product or
-service, or use them in a way that suggests we made, endorsed or are responsible
-for something we did not.
+wordmark or mark from the brand kit when you are referring to the product
+itself (press, a store listing, a video thumbnail about it). You may not alter
+the marks, combine them with your own, use them on another product or service,
+or use them in a way that suggests we made, endorsed or are responsible for
+something we did not.
 
 ## Other people's
 

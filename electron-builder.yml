@@ -69,9 +69,11 @@ publish: null
 win:
   target:
     - nsis
-  # No `icon:` yet. There is no brand: app/brand/ is empty by design, awaiting
-  # the owner's logo, so a build made today carries Electron's default icon.
-  # That is fine for a test machine and is NOT releasable - see the roadmap.
+  # The brand's own .ico rather than a PNG for electron-builder to convert: the
+  # kit builds the icon at every size Windows asks for, including the 16px one
+  # that a taskbar and a file listing use, and a downscale from 1024 is not the
+  # same picture at that size.
+  icon: desktop/build/icon.ico
 nsis:
   # Not one-click: a wallpaper is something people want to put where they
   # choose, and a silent installer that just happens is the wrong first

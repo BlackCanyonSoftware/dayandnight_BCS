@@ -12,8 +12,16 @@
         <!-- The brand slot holds its space and ships empty until the owner
              supplies the mark and wordmark. See app/brand/README.md. -->
         <div class="brand">
-          <span class="brandmark" aria-hidden="true">mark</span>
-          <div class="brandtext">Brand slot reserved</div>
+          <!-- The symbol and the name, as the brand kit's own header template
+               arranges them. Both are the files the kit built, not type set in
+               CSS, so the application and the brand cannot drift apart. The
+               name is spoken once: the mark is decorative and the wordmark
+               carries the alt text. -->
+          <img class="brandmark" src="brand/mark.svg" alt="" aria-hidden="true" />
+          <div class="brandtext">
+            <img class="wm wmlight" src="brand/wordmark-light.svg" alt="Day and Night" />
+            <img class="wm wmdark" src="brand/wordmark-dark.svg" alt="Day and Night" />
+          </div>
         </div>
 
         <div class="topbar">
