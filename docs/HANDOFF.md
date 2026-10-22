@@ -5,7 +5,7 @@ session with no memory of this one. Newest session first.
 
 ## Current state
 
-**Milestones 0 and 1 are done.** The application runs, puts a computed sky on
+**Milestones 0 and 1 are done; Milestone 2 is most of the way.** The application runs, puts a computed sky on
 the Windows desktop behind the icons on every screen, and the sky is the real
 one: scattering for its colour, Meeus astronomy for the sun and moon, stars
 turning at the sidereal rate, and a grade over the top.
@@ -14,7 +14,7 @@ turning at the sidereal rate, and a grade over the top.
 - **Remote:** `origin` is `github.com/BlackCanyonSoftware/dayandnight_BCS`.
   **Nothing has been pushed.** The owner pushes.
 - **Tier:** MVP
-- **Checks:** lint, format, typecheck clean. 99 unit, 19 browser and **7
+- **Checks:** lint, format, typecheck clean. 127 unit, 22 browser and **9
   desktop tests passing** - the desktop ones were run on 2026-10-19, the first
   time since Milestone 0, because they open windows on the desktop and the owner
   has to be free.
@@ -52,16 +52,20 @@ Two things to know before changing any of it:
 
 ## Next steps
 
-1. **Verify by hand what only a person can:** a full-screen game pausing the
-   wallpaper, and a system time-zone change with the application running. These
-   are the last two unobserved claims in the project. The packaged build used to
-   be a third; it is now checked by `node tools/verify-package.js`, which leaves
-   only running the installer itself, on a machine that has never had the
-   project.
-2. Then **Milestone 2**: the span across several screens, the full pause policy,
-   the tray icon and autostart, monitor hot-plug, the About window that opens
-   the documents the build already ships, and NFR-1 re-measured with three
-   screens active.
+1. **Occlusion**, the last piece of the pause policy: stopping when windows
+   cover the desktop entirely. It needs `GetWindowRect`, `IsWindowVisible` and
+   `IsIconic` in `host-win32.js`, which is a real expansion of the Win32
+   surface ADR 0002 kept to five calls, so it is its own slice and probably its
+   own note in that ADR.
+2. **The tray icon and autostart** (OQ-1), the rest of Milestone 2's scope.
+3. **Verify by hand what only a person can:** a full-screen game pausing the
+   wallpaper, and a system time-zone change with the application running.
+   Lock, unlock, suspend and resume no longer need a person - the desktop tests
+   deliver the real events and count the surface's render-loop ticks. Running
+   the installer on a machine that has never had the project is the third.
+4. Then what is left of **Milestone 2**: monitor hot-plug under test, the
+   About window that opens the documents the build already ships, and NFR-1
+   re-measured with three screens active.
 
 ### Older, still open
 
@@ -117,7 +121,56 @@ Two things to know before changing any of it:
   ESM config files must be `.mjs`.
 - **Never attribute anything to an assistant**, and **never push**.
 
+## Gotcha worth repeating
+
+**Do not open windows on the owner's machine without asking, every time.**
+`npm run desktop`, `npm run test:desktop`, `tools/measure-cost.js` and
+`tools/verify-package.js` all raise windows and replace the desktop wallpaper,
+and the owner works on the same machine. A "yes, run it" covers that one run -
+not the session, and not a different command. This was got wrong repeatedly on
+2026-10-22; `AGENTS.md` now says so in those words. `npm run check` is safe:
+its browser tests are headless.
+
 ## Session log
+
+### 2026-10-22 - Milestone 2: the span, the brand, and the pause policy
+
+- **The span arithmetic is pure, tested and defined once** (`ad51992`). It
+  moved to `app/engine/span.js` with the OS conversion injected, so the four
+  arrangements in the exit criteria became eight fixtures and fifteen
+  assertions instead of hardware nobody owns. It also killed two duplications:
+  `degreesPerSpanY` existed in GLSL and in `signature.js`, which invariant 1
+  depends on agreeing, and the span arithmetic existed in the shell and in the
+  editor, where a drift would have shown as the preview framing the sky
+  differently from the wallpaper.
+- **The vertical stack found a real renderer bug.** Two stacked screens ask for
+  169 degrees of sky vertically, 48 past the zenith, where the scattering
+  lookup saturates and the gradient collapses from 49 levels to 18 - slack and
+  wrong rather than obviously broken. `engine/view.js` caps the vertical field;
+  the horizontal field is left alone because azimuth across the span is what
+  carries the sun from screen to screen.
+- **The brand arrived and is wired** (`1d22471`). The kit has a `daynnight`
+  brand now, so the sidebar slot is filled and the installer has a real icon -
+  which was the higher of the two things between a build and a release. The
+  name is drawn DAYnNIGHT and written Day and Night; `TRADEMARKS.md` claims
+  both and says they are the same name. The kit's palette and its typeface were
+  deliberately NOT taken; that is a decision for the owner and is in tech debt.
+- **The pause policy is tested and now stops when nobody is there** (`ca4054b`).
+  Display sleep is covered by system idle time rather than by WM_POWERBROADCAST,
+  which would need a window-proc subclass inside the module ADR 0002 keeps
+  small; ten minutes, matching Windows' own display timeout. The rest of the
+  policy was already written and had never been tested, because every branch is
+  a fact about somebody's machine - now injected, and thirteen unit tests.
+- **Invariant 7 is now actually checked.** Two desktop tests deliver a real
+  `lock-screen` event to the real watcher and count the surface's render-loop
+  ticks from inside its page. Zero while paused is what tells a loop torn down
+  from one running and returning early, and nothing outside the page can see
+  the difference.
+- **One bug in passing:** the wallpaper state had a single `reason` with the
+  host's winning over the pause policy's, so a fallback masked why nothing was
+  drawing. Separate fields now, and the editor shows both - the first time the
+  pause reason has been visible at all.
+- **Still not done:** occlusion, the tray icon and autostart.
 
 ### 2026-10-19 - the packaged build verified, not just built
 
