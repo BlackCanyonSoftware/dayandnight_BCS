@@ -204,6 +204,25 @@ async function main() {
   const editor = await app.firstWindow();
   await editor.waitForLoadState("domcontentloaded");
 
+  /**
+   * Turn the clouds on or off through the real control.
+   *
+   * Driven through the editor rather than written into the settings file,
+   * because the settings file is read by the renderer and the renderer is
+   * about to be closed - and because a measurement of a path nobody uses is
+   * not a measurement of the product.
+   *
+   * @param {number} cover
+   */
+  const setCloudCover = async (cover) => {
+    await editor.evaluate((value) => {
+      const input = /** @type {HTMLInputElement | null} */ (document.querySelector("#cloudCover"));
+      if (!input) throw new Error("the cloud cover control is missing");
+      input.value = String(value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }, cover);
+  };
+
   /** @param {number} fps */
   const setFps = async (fps) => {
     await editor.evaluate((value) => {
@@ -249,7 +268,7 @@ async function main() {
       `after ${SETTLE_SECONDS}s settling; the median is reported`
   );
 
-  const scenarios = SHIPPED_ONLY ? 2 : 6;
+  const scenarios = SHIPPED_ONLY ? 3 : 6;
   const minutes = ((SETTLE_SECONDS + SECONDS) * scenarios) / 60;
   console.log(`runtime : about ${minutes.toFixed(0)} minutes. Leave the machine alone.`);
   console.log("");
@@ -297,15 +316,29 @@ async function main() {
     // two rows the only thing that changes is the editor, and between the
     // hidden row and Milestone 0 the only thing that changes is that frames
     // are now skipped.
+    await setCloudCover(0);
     await hideEditor();
-    rows.push(await measure("20 fps, editor hidden"));
+    rows.push(await measure("20 fps, hidden, clear"));
+
+    // The same again with clouds, which is the only pair that answers what
+    // they cost. Everything else about the two rows is identical, and the
+    // editor stays hidden for both so that closing it cannot be mistaken for
+    // the clouds being cheap.
+    //
+    // The clouds are the first thing here that moves, so this is also the only
+    // row where the frame-skipping is doing real work rather than skipping
+    // everything.
+    await showEditor();
+    await setCloudCover(0.5);
+    await hideEditor();
+    rows.push(await measure("20 fps, hidden, clouds"));
 
     // Closed, not hidden. A hidden editor is still a loaded renderer holding a
     // WebGL context and most of the memory, and nobody leaves one of those
     // running for a day. NFR-1 asks what the product costs, so the editor has
     // to be gone before the figure means anything.
     await closeEditor();
-    rows.push(await measure("shipped: 20 fps, editor closed"));
+    rows.push(await measure("shipped: 20 fps, closed, clouds"));
   } else {
     // The wallpaper at descending frame rates. The slope between these is the
     // per-frame cost; the intercept is what Electron charges for simply
@@ -391,11 +424,26 @@ async function main() {
     console.log(`budget                       : ${budget.toFixed(2)} % of one core`);
     console.log(`against the budget           : ${verdict}`);
 
-    const hidden = rows.find((row) => row.label.startsWith("20 fps, editor hidden"));
-    if (hidden) {
+    const clear = rows.find((row) => row.label.includes("hidden, clear"));
+    const cloudy = rows.find((row) => row.label.includes("hidden, clouds"));
+
+    if (clear && cloudy) {
+      const clouds = cloudy.perCore - clear.perCore;
       console.log(
-        `the editor, merely hidden    : ${hidden.perCore.toFixed(2)} % of one core, ` +
-          `so it costs ${(hidden.perCore - shipped.perCore).toFixed(2)} of that`
+        `the clouds themselves        : ${clouds.toFixed(2)} % of one core ` +
+          `(${clear.perCore.toFixed(2)} clear against ${cloudy.perCore.toFixed(2)} cloudy)`
+      );
+
+      // ADR 0007 dropped occlusion detection because the drawing component was
+      // below what the instrument could resolve, and named clouds as the thing
+      // that would bring it back. This is that test, stated where the number
+      // appears rather than left for somebody to remember.
+      console.log(
+        `ADR 0007                     : ${
+          clouds > 0.5
+            ? "REOPENS - drawing now costs enough for occlusion to be worth re-examining"
+            : "stands - drawing is still too cheap for occlusion to pay for itself"
+        }`
       );
     }
     console.log(
