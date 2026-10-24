@@ -42,6 +42,9 @@ export const LOOKS = [
     name: "Hazy",
     hint: "More dust and moisture in the air, which whitens the sky, spreads the sun into a broad glow and gives sunsets the deep red that a perfectly clear day never quite manages. A little high cloud comes with it.",
     preset: {
+      skyline: "mountains",
+      skylineHeight: 6,
+      skylineSeed: 12,
       cloudCover: 0.3,
       cloudSoftness: 0.38,
       cloudScale: 2.6,
@@ -55,8 +58,11 @@ export const LOOKS = [
   {
     id: "desert",
     name: "Desert night",
-    hint: "A sky far from anywhere: almost no glow of its own, so the stars carry the night. Cool and hard-edged, with the Milky Way's worth of faint stars brought up. No cloud, because that is rather the point of a desert.",
+    hint: "A sky far from anywhere: almost no glow of its own, so the stars carry the night, over a dark range with nothing lit on it. Cool and hard-edged, with the Milky Way's worth of faint stars brought up. No cloud, because that is rather the point of a desert.",
     preset: {
+      skyline: "mountains",
+      skylineHeight: 9,
+      skylineSeed: 47,
       airglow: 4e-7,
       starBrightness: 1.9,
       starSize: 2.9,
@@ -70,8 +76,12 @@ export const LOOKS = [
   {
     id: "town",
     name: "Edge of town",
-    hint: "Somebody else's streetlights over the hill. The night sky never goes properly dark and only the brighter stars get through, which is what most people actually see - along with the broken cloud that most people actually have.",
+    hint: "Somebody else's streetlights, and the town they belong to along the bottom of the picture. The night sky never goes properly dark and only the brighter stars get through, which is what most people actually see - along with the broken cloud that most people actually have.",
     preset: {
+      skyline: "city",
+      skylineHeight: 6.5,
+      skylineSeed: 8,
+      skylineLights: 0.85,
       cloudCover: 0.42,
       cloudScale: 1.4,
       airglow: 3.4e-6,
@@ -86,6 +96,9 @@ export const LOOKS = [
     name: "Cinematic",
     hint: "Warmer, stronger and larger than life: the sun and moon drawn bigger than they really are, a warm cast through twilight, big cloud to catch that light, and colour pushed the way a film would push it.",
     preset: {
+      skyline: "mountains",
+      skylineHeight: 12,
+      skylineSeed: 3,
       cloudCover: 0.5,
       cloudScale: 3.4,
       cloudSoftness: 0.16,
@@ -104,8 +117,11 @@ export const LOOKS = [
   {
     id: "quiet",
     name: "Quiet",
-    hint: "Softened and dimmed, for a desktop with a lot of icons on it. Low contrast and a high horizon keep the busy part of the sky away from where your files live, and what cloud there is drifts slowly and softly.",
+    hint: "Softened and dimmed, for a desktop with a lot of icons on it. Low contrast and a high horizon keep the busy part of the sky away from where your files live, and a low treeline gives the bottom of the picture something to be without anything happening in it.",
     preset: {
+      skyline: "trees",
+      skylineHeight: 3.5,
+      skylineSeed: 21,
       cloudCover: 0.28,
       cloudSoftness: 0.45,
       cloudScale: 3.0,
@@ -125,6 +141,9 @@ export const LOOKS = [
     name: "Big weather",
     hint: "A sky with something happening in it: heavy, large cloud moving at a fair clip, with hard edges that catch the sun along their tops. The most expensive look here, because the more the sky moves the more often it has to be redrawn.",
     preset: {
+      skyline: "mountains",
+      skylineHeight: 10,
+      skylineSeed: 64,
       cloudCover: 0.72,
       cloudScale: 4.2,
       cloudSoftness: 0.12,
