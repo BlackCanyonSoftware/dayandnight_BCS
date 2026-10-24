@@ -26,6 +26,8 @@
  * @property {(cb: (monitors: Monitor[]) => void) => void} onMonitorsChanged
  * @property {(on: boolean) => Promise<WallpaperState>} setWallpaper
  * @property {() => Promise<WallpaperState>} getWallpaperState
+ * @property {() => Promise<boolean>} getStartWithWindows
+ * @property {(on: boolean) => void} setStartWithWindows
  * @property {(cb: (s: WallpaperState) => void) => void} onWallpaperState
  * @property {(config: RuntimeConfig) => void} pushConfig
  * @property {() => Promise<unknown>} loadSettings
@@ -122,6 +124,24 @@ export async function getWallpaperState() {
 /** @param {(s: WallpaperState) => void} cb */
 export function onWallpaperState(cb) {
   shell()?.onWallpaperState(cb);
+}
+
+/**
+ * Whether Windows starts the application at login.
+ *
+ * False in a browser, where there is nothing to start.
+ *
+ * @returns {Promise<boolean>}
+ */
+export async function getStartWithWindows() {
+  const api = shell();
+  if (!api) return false;
+  return api.getStartWithWindows();
+}
+
+/** @param {boolean} on */
+export function setStartWithWindows(on) {
+  shell()?.setStartWithWindows(on);
 }
 
 /**

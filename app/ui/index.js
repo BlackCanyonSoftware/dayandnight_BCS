@@ -202,6 +202,16 @@ function wireControls() {
   bindRange("fieldOfView", (v) => setPreset({ fieldOfView: v }));
   bindRange("fps", (v) => setFps(Math.round(v)));
 
+  // Not part of the settings document: it is a fact about the machine, which
+  // Windows owns and which a settings file copied to another computer has no
+  // business carrying with it.
+  const startup = /** @type {HTMLInputElement} */ ($("#startup"));
+  startup.disabled = !shell.hasShell();
+  startup.addEventListener("change", () => shell.setStartWithWindows(startup.checked));
+  void shell.getStartWithWindows().then((on) => {
+    startup.checked = on;
+  });
+
   // Shown and set in minutes, kept in seconds: a slider with 3,600 positions
   // on it is not a control, and nobody wants to stop the wallpaper after 437
   // seconds.

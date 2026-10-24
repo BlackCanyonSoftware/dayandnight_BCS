@@ -72,6 +72,10 @@ if (role === "wallpaper") {
 
     getWallpaperState: () => ipcRenderer.invoke("wallpaper:state"),
 
+    getStartWithWindows: () => ipcRenderer.invoke("startup:get"),
+    /** @param {boolean} on */
+    setStartWithWindows: (on) => ipcRenderer.send("startup:set", Boolean(on)),
+
     /** @param {(s: unknown) => void} cb */
     onWallpaperState: (cb) => {
       ipcRenderer.on("wallpaper:stateChanged", (_event, state) => cb(state));

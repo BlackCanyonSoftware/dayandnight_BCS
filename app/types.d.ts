@@ -58,6 +58,8 @@ declare global {
     onMonitorsChanged(cb: (monitors: DayAndNightMonitor[]) => void): void;
     setWallpaper(on: boolean): Promise<DayAndNightWallpaperState>;
     getWallpaperState(): Promise<DayAndNightWallpaperState>;
+    getStartWithWindows(): Promise<boolean>;
+    setStartWithWindows(on: boolean): void;
     onWallpaperState(cb: (state: DayAndNightWallpaperState) => void): void;
     pushConfig(config: { preset: Preset; place: Place; fps: number }): void;
     loadSettings(): Promise<unknown>;

@@ -376,10 +376,13 @@ real `lock-screen` event to the real watcher, then count the surface's own
 render-loop ticks: zero while paused is what distinguishes a loop torn down
 from one that runs and returns early, which is the whole of invariant 7.
 
-**Still missing:** desktop occlusion, stopping when windows cover the desktop
-entirely. That one genuinely does need new Win32 calls - `GetWindowRect`,
-`IsWindowVisible`, `IsIconic` - and so it is its own slice rather than
-something to add while expanding a surface ADR 0002 kept small on purpose.
+**Occlusion is not part of it, and will not be.** Stopping when windows cover
+the desktop entirely would need five new Win32 calls and a new DLL, polled over
+every top-level window every two seconds - about 250 foreign calls a second,
+all day. At the 8.56 % the wallpaper cost when that was scoped, it was worth
+it. At 0.15 % the polling costs about what the pausing would save, and a
+false positive stops the wallpaper while somebody is looking at it. ADR 0007
+has the arithmetic and the condition under which it reopens.
 
 A 24/7 process earns its place by not running. `desktop/pause.js` holds every
 signal; the wallpaper windows render only when it says to.

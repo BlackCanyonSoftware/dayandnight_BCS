@@ -310,3 +310,43 @@ test("when several reasons are true at once, the one shown explains the most (US
     "waking up should start it again"
   ).toBe(false);
 });
+
+test("the tray icon is there, and it can answer for the wallpaper (OQ-1)", async () => {
+  test.skip(process.platform !== "win32", "the tray is part of the Windows shell");
+
+  // Electron keeps no registry of trays, so the module is asked directly.
+  const present = await app.evaluate(async () => {
+    const tray = require("./tray.js");
+    return tray.exists();
+  });
+  expect(present, "a wallpaper with no window needs a way back to it").toBe(true);
+
+  // The menu is rebuilt on every open, so what it says is true when read. The
+  // status line is the part that would rot if it were built once.
+  await editor.locator("#wallBtn").click();
+  await expect
+    .poll(async () => (await editor.evaluate(() => window.dayAndNight.getWallpaperState())).host, {
+      timeout: 20_000
+    })
+    .not.toBe("starting");
+
+  const running = await app.evaluate(() => require("./tray.js").exists());
+  expect(running).toBe(true);
+});
+
+test("the editor agrees with Windows about starting at login (OQ-1)", async () => {
+  test.skip(process.platform !== "win32", "login items are a Windows thing");
+
+  // Read only. Setting it writes to the user's Run key, and a test that left
+  // the application in somebody's startup list - or took it out of one they
+  // had put it in - would be doing real damage to the machine it ran on.
+  const fromShell = await app.evaluate(() => require("./tray.js").startsWithWindows());
+  expect(typeof fromShell).toBe("boolean");
+
+  const overIpc = await editor.evaluate(() => window.dayAndNight.getStartWithWindows());
+  expect(overIpc, "the editor should be told what Windows actually thinks").toBe(fromShell);
+
+  const checkbox = editor.locator("#startup");
+  await expect(checkbox).toBeEnabled();
+  expect(await checkbox.isChecked()).toBe(fromShell);
+});

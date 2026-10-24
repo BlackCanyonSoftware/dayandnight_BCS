@@ -21,6 +21,7 @@ const host = require("./host-win32.js");
 const monitors = require("./monitors.js");
 const store = require("./store.js");
 const { PauseWatcher } = require("./pause.js");
+const tray = require("./tray.js");
 
 const APP_DIR = path.join(__dirname, "..", "app");
 const SCHEME = "dayandnight";
@@ -317,6 +318,10 @@ function toEditor(channel, payload) {
 
 function sendWallpaperState() {
   toEditor("wallpaper:stateChanged", wallpaperState());
+
+  // The tray shows the same three facts the editor does, and is often the only
+  // thing on screen showing them.
+  tray.refresh();
 }
 
 /**
@@ -450,6 +455,16 @@ function registerIpc() {
     pauseWatcher?.setAwaySeconds(next.awaySeconds);
   });
 
+  // Asked of Windows every time rather than remembered, because the user can
+  // turn it off in Task Manager's Startup tab or with any cleanup tool, and a
+  // checkbox that disagreed with the machine is worse than none.
+  ipcMain.handle("startup:get", () => tray.startsWithWindows());
+
+  ipcMain.on("startup:set", (_event, on) => {
+    tray.setStartWithWindows(Boolean(on));
+    tray.refresh();
+  });
+
   ipcMain.handle("settings:load", () => store.read());
 
   ipcMain.on("settings:save", (_event, doc) => {
@@ -458,6 +473,35 @@ function registerIpc() {
     if (typeof doc !== "object" || doc === null) return;
     store.write(doc);
   });
+}
+
+/**
+ * Put the wallpaper up at login, with no editor and nobody to ask.
+ *
+ * The settings have to be loaded here, which is the part that is easy to miss.
+ * Every other time the application runs, the *renderer* reads the settings
+ * file and pushes them down - so a start with no renderer would draw a sky for
+ * the default coordinates in Denver rather than for wherever the user actually
+ * is. The product's entire claim is that the sky matches the window, and this
+ * is the one path where that could silently stop being true.
+ *
+ * A settings file that is missing or unreadable is the normal first-run case,
+ * not an error: the defaults stand and the wallpaper still appears.
+ */
+async function startWithoutEditor() {
+  try {
+    const saved = await store.read();
+    const doc = asRecord(saved);
+    const next = validateConfig(asRecord(doc["cfg"]));
+    if (next) {
+      runtime = next;
+      pauseWatcher?.setAwaySeconds(next.awaySeconds);
+    }
+  } catch (error) {
+    console.error("[main] could not read settings at login; using defaults", error);
+  }
+
+  createSurfaces();
 }
 
 /* ---------------------------------------------------------------- lifecycle */
@@ -486,21 +530,57 @@ if (!app.requestSingleInstanceLock()) {
       if (surfaces.size > 0) relayoutSurfaces();
     });
 
-    createEditor();
+    tray.create({
+      openEditor: () => {
+        if (!editor) {
+          createEditor();
+          return;
+        }
+        if (editor.isMinimized()) editor.restore();
+        editor.show();
+        editor.focus();
+      },
+      isWallpaperOn: () => surfaces.size > 0,
+      setWallpaper: (on) => {
+        if (on) createSurfaces();
+        else destroySurfaces();
+      },
+      statusLine: () => {
+        const state = wallpaperState();
+        if (!state.on) return "The wallpaper is off";
+        if (state.paused) {
+          return state.pausedBecause ? `Stopped: ${state.pausedBecause}` : "Stopped";
+        }
+        const screens = `${state.screens} screen${state.screens === 1 ? "" : "s"}`;
+        return `Running on ${screens}`;
+      }
+    });
+
+    // Started by Windows at login, nobody asked for a window. The wallpaper is
+    // the product; the editor is a tool, and opening it unbidden at every
+    // login is how a wallpaper becomes something people uninstall.
+    if (tray.startedByWindows()) {
+      void startWithoutEditor();
+    } else {
+      createEditor();
+    }
   });
 
-  // The editor closing does not quit: the wallpaper is the product, and it
-  // keeps running. Quitting is the tray's job, which arrives in Milestone 2
-  // (OQ-1) - until then the editor window closing while the wallpaper runs
-  // leaves a process with no window, which is why it is logged.
+  // The editor closing does not quit: the wallpaper is the product and it
+  // keeps running without it. That used to leave a process with no way back to
+  // it and no way to stop it; the tray is now both, which is what OQ-1 was
+  // really asking.
+  //
+  // With the wallpaper off and the editor closed there is nothing left to be,
+  // so it quits - the tray alone is not a reason for a process to exist.
   app.on("window-all-closed", () => {
     if (surfaces.size === 0) app.quit();
-    else console.log("[main] editor closed; the wallpaper is still running");
   });
 
   app.on("before-quit", () => {
     unwatchMonitors();
     pauseWatcher?.stop();
+    tray.destroy();
     destroySurfaces();
     store.flushSync();
   });

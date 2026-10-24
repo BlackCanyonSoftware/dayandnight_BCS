@@ -29,6 +29,21 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Settings are kept in the OS app-data folder and written atomically, and can
   be saved out as a file.
 
+- **A tray icon**, so the application is reachable with no window open. It
+  says what the wallpaper is doing, turns it on and off, opens this panel, and
+  quits - which until now there was no way to do once you had closed the
+  settings window.
+- **Start with Windows.** Sign in and the sky is already there, without the
+  settings window opening at every login. The checkbox asks Windows rather than
+  remembering, so if you turn it off in Task Manager's Startup tab the box
+  follows.
+- **It stops when you are away.** After ten minutes with no keyboard or mouse -
+  about when Windows turns most screens off anyway - the wallpaper stops
+  drawing, and starts again the moment you come back. Adjustable, and the left
+  end of the slider is never.
+- **It says why it stopped.** A wallpaper that has paused now tells you whether
+  that was the lock screen, a full-screen game, the battery, or you being away,
+  instead of just saying "paused".
 - **A Windows installer**, built with one command. It lets you choose where it
   goes rather than installing itself silently, and it carries the licence, the
   disclaimers, the privacy notice and the third-party notices next to the

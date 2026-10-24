@@ -179,14 +179,24 @@ paperwork.
   here could only lie about what it did or move the sun somewhere it is not,
   and architecture invariant 5 forbids the second. The panel draws the
   arrangement to scale and says when sky is falling in a gap.
-- The full pause policy: battery, display sleep, occlusion, suspend and
-  resume. **Mostly done.** Battery, lock, suspend, resume and full-screen were
-  already there and are now tested rather than assumed - thirteen unit tests
-  over an injected pair of sources, and two desktop tests that deliver a real
-  event and count the surface's render-loop ticks. Display sleep is covered by
-  idleness instead, for the reasons in `ARCHITECTURE.md`. **Occlusion is not
-  done** and is its own slice: it needs Win32 calls the application does not
-  have yet.
+- The full pause policy: battery, display sleep, suspend and resume.
+  **Done.** All of them were already there and are now tested rather than
+  assumed - thirteen unit tests over an injected pair of sources, and two
+  desktop tests that deliver a real event and count the surface's render-loop
+  ticks. Display sleep is covered by idleness instead, for the reasons in
+  `ARCHITECTURE.md`.
+- ~~Occlusion.~~ **Dropped, with the sum written down** - see
+  [ADR 0007](adr/0007-no-occlusion-detection.md). It was scoped when the
+  wallpaper cost 8.56 % of one core; at 0.15 % the polling it needs costs about
+  what it would save, and it would double the Win32 surface ADR 0002 keeps to
+  five calls. It reopens if Milestone 3's clouds make drawing expensive again,
+  and the condition is a measurement rather than an opinion.
+- Tray icon and autostart. **Done.** The tray is how a product with no window
+  of its own stays reachable: it can open the editor, turn the wallpaper on and
+  off, start with Windows, and quit. Started by Windows at login it puts the
+  sky up without opening the editor - and loads the settings itself, which is
+  the path on which the sky could otherwise have been drawn for the wrong
+  place.
 - Tray icon and autostart.
 - Monitor hot-plug: a screen arriving or leaving adds or removes its window
   without disturbing the others.
@@ -283,3 +293,6 @@ Recorded so the question does not get re-asked:
 - **Accounts, a server, or telemetry.** NFR-5.
 - **Synchronising the wallpaper windows to each other.** Architecture
   invariant 3; adding it would be the bug, not the fix.
+- **Occlusion detection.** ADR 0007: at the cost the wallpaper now runs at, the
+  polling needed to notice a covered desktop costs about what noticing it would
+  save, and getting it wrong stops the wallpaper while somebody is looking.

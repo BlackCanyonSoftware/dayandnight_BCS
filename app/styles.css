@@ -550,6 +550,33 @@ button.primary:hover {
   background: rgb(255 255 255 / 0.35);
 }
 
+/* A setting that is on or off. The box comes first so the row reads as a
+   statement you are agreeing with, and the label stays clickable because it
+   wraps the input. */
+.row label.check {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  cursor: pointer;
+}
+
+.row label.check input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.row label.check input[type="checkbox"]:disabled {
+  cursor: default;
+}
+
+.row label.check:has(input:disabled) {
+  opacity: 0.55;
+  cursor: default;
+}
+
 /* The arrangement of screens, drawn to scale. Read-only on purpose: Windows
    owns where the screens are, and a control here that appeared to move them
    would be lying about what it does. */
