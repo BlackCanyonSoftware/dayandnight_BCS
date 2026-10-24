@@ -224,6 +224,11 @@ function wireControls() {
     if (event.key === "Escape" && !$("#reader").hidden) closeDocument();
   });
 
+  bindRange("cloudCover", (v) => setPreset({ cloudCover: v }));
+  bindRange("cloudDrift", (v) => setPreset({ cloudDrift: v }));
+  bindRange("cloudScale", (v) => setPreset({ cloudScale: v }));
+  bindRange("cloudSoftness", (v) => setPreset({ cloudSoftness: v }));
+
   bindRange("fps", (v) => setFps(Math.round(v)));
 
   // Not part of the settings document: it is a fact about the machine, which
@@ -504,6 +509,11 @@ function paintFromState() {
   input("bearing").value = String(preset.bearing === null ? -1 : preset.bearing);
   input("horizon").value = String(preset.horizon);
   input("fieldOfView").value = String(preset.fieldOfView);
+
+  input("cloudCover").value = String(preset.cloudCover);
+  input("cloudDrift").value = String(preset.cloudDrift);
+  input("cloudScale").value = String(preset.cloudScale);
+  input("cloudSoftness").value = String(preset.cloudSoftness);
   input("turbidity").value = String(preset.turbidity);
   input("saturation").value = String(preset.saturation);
   input("contrast").value = String(preset.contrast);
@@ -535,6 +545,11 @@ function paintFromState() {
       : compass(preset.bearing);
   $("#horizonVal").textContent = `${Math.round(preset.horizon * 100)}%`;
   $("#fieldOfViewVal").textContent = `${Math.round(preset.fieldOfView)}°`;
+
+  $("#cloudCoverVal").textContent = `${Math.round(preset.cloudCover * 100)}%`;
+  $("#cloudDriftVal").textContent = `${Math.round(preset.cloudDrift)} km/h`;
+  $("#cloudScaleVal").textContent = `${preset.cloudScale.toFixed(1)} km`;
+  $("#cloudSoftnessVal").textContent = preset.cloudSoftness.toFixed(2);
   $("#turbidityVal").textContent = `${preset.turbidity.toFixed(1)}×`;
   $("#saturationVal").textContent = preset.saturation.toFixed(1);
   $("#contrastVal").textContent = preset.contrast.toFixed(1);

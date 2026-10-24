@@ -363,7 +363,83 @@
             </div>
           </details>
 
-          <details class="sec" open>
+          <details class="sec">
+            <summary>Clouds</summary>
+            <div class="sec-body">
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Cover</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How much of the sky has cloud in it. At nothing the whole layer is skipped and a clear sky costs exactly what it did before clouds existed, which is worth knowing if you leave this running all day."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="cloudCoverVal">0%</span>
+                </label>
+                <input id="cloudCover" type="range" min="0" max="1" step="0.01" value="0" />
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Wind</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How fast they drift. The three layers move at different speeds because they are at different heights, which is what gives the sky depth. Faster also means redrawing more often, so this is the one cloud setting that costs you something."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="cloudDriftVal">12 km/h</span>
+                </label>
+                <input id="cloudDrift" type="range" min="0" max="60" step="1" value="12" />
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Size</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How large the clouds are, in kilometres. Larger means fewer and bigger. Below about half a kilometre they turn to grain, because the pixels run out before the detail does."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="cloudScaleVal">1.6 km</span>
+                </label>
+                <input id="cloudScale" type="range" min="0.3" max="8" step="0.1" value="1.6" />
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Edge</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How sharply a cloud ends. Low is fair-weather cumulus with a crisp edge; high is a soft overcast that fades into the sky."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="cloudSoftnessVal">0.22</span>
+                </label>
+                <input
+                  id="cloudSoftness"
+                  type="range"
+                  min="0.02"
+                  max="0.6"
+                  step="0.01"
+                  value="0.22"
+                />
+              </div>
+            </div>
+          </details>
+
+          <details class="sec">
             <summary>Sun and moon</summary>
             <div class="sec-body">
               <div class="row">
