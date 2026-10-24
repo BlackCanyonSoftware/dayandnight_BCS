@@ -18,6 +18,7 @@ import { guessPlace, labelFor, nearestCity, resolveCity, suggest } from "./place
 import { LOOKS, lookIdFor, presetFor } from "./presets.js";
 import { STYLES as SKYLINE_STYLES } from "../engine/sky/skyline.js";
 import { readDocument, writeDocument } from "./settings.js";
+import { decodeLook, encodeLook } from "./share-code.js";
 import {
   arrangement,
   awaySeconds,
@@ -225,6 +226,7 @@ function wireControls() {
     if (event.key === "Escape" && !$("#reader").hidden) closeDocument();
   });
 
+  wireShare();
   fillSkylineList();
   select("skyline").addEventListener("change", () => {
     setPreset({ skyline: select("skyline").value });
@@ -585,6 +587,8 @@ function paintFromState() {
   $("#skylineSeedVal").textContent = String(preset.skylineSeed);
   $("#skylineLightsVal").textContent = `${Math.round(preset.skylineLights * 100)}%`;
 
+  refreshShareCode();
+
   $("#cloudCoverVal").textContent = `${Math.round(preset.cloudCover * 100)}%`;
   $("#cloudDriftVal").textContent = `${Math.round(preset.cloudDrift)} km/h`;
   $("#cloudScaleVal").textContent = `${preset.cloudScale.toFixed(1)} km`;
@@ -706,6 +710,63 @@ function paintArrangement(s) {
   } else {
     note.textContent = "Your screens cover the whole sky the wallpaper composes.";
   }
+}
+
+/**
+ * The share panel.
+ *
+ * The code in the box is rebuilt whenever the look changes, so what is shown
+ * is always the look on screen rather than whatever was last copied - a stale
+ * code that somebody pastes to a friend is worse than no code, because it is
+ * wrong without looking wrong.
+ */
+function wireShare() {
+  $("#shareCopy").addEventListener("click", () => {
+    const box = /** @type {HTMLTextAreaElement} */ ($("#shareCode"));
+    box.select();
+
+    void navigator.clipboard
+      ?.writeText(box.value)
+      .then(() => shareNote("Copied. It carries the look and nothing about where you are."))
+      .catch(() => shareNote("Could not reach the clipboard, so the code is selected instead."));
+  });
+
+  $("#shareApply").addEventListener("click", () => {
+    const box = /** @type {HTMLTextAreaElement} */ ($("#shareCode"));
+
+    void decodeLook(box.value).then(({ preset: carried, problem }) => {
+      if (!carried) {
+        shareNote(problem ?? "That is not a look code.");
+        return;
+      }
+
+      replacePreset(carried);
+      bandsDirty = true;
+      paintFromState();
+      shareNote("Applied. Your place and your frame rate are as they were.");
+    });
+  });
+}
+
+/** @param {string} message */
+function shareNote(message) {
+  $("#shareNote").textContent = message;
+}
+
+/**
+ * Put the current look in the box, unless somebody is typing one into it.
+ *
+ * The check matters: this runs on every repaint, and a preview that is
+ * fast-forwarding through a day repaints twenty times a second. Overwriting
+ * the box while a code was half-pasted would make the panel unusable.
+ */
+function refreshShareCode() {
+  const box = /** @type {HTMLTextAreaElement} */ ($("#shareCode"));
+  if (document.activeElement === box) return;
+
+  void encodeLook(preset).then((code) => {
+    if (document.activeElement !== box) box.value = code;
+  });
 }
 
 /**

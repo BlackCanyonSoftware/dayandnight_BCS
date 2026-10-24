@@ -29,6 +29,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Settings are kept in the OS app-data folder and written atomically, and can
   be saved out as a file.
 
+- **Share a look as a code.** A short string you can paste into a message,
+  carrying everything about how a sky looks and nothing about where you are -
+  so somebody else's code changes your colours and leaves your sunrise alone.
 - **A horizon.** Mountains, a city or a treeline standing between you and the
   sky, instead of a clean edge. They are drawn rather than photographed, so
   there is not a library of six - there is a seed, and every number in it is a

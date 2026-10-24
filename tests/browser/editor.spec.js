@@ -1934,6 +1934,103 @@ test("the reader is a dialog, and the backdrop closes it", async ({ page }) => {
   await expect(reader).toBeHidden();
 });
 
+/**
+ * Open a settings section by its heading.
+ *
+ * The panels are collapsed <details>, so anything inside one is hidden until
+ * it is opened - which is what a person does, and what a test has to do too.
+ * Without this, filling a field in a closed panel waits thirty seconds and
+ * then reports a timeout with no hint as to why.
+ *
+ * @param {import("@playwright/test").Page} page
+ * @param {string} heading
+ */
+async function openSection(page, heading) {
+  await page
+    .locator("details.sec", { has: page.locator("summary", { hasText: heading }) })
+    .evaluate((node) => {
+      node.open = true;
+    });
+}
+
+test("a share code carries the look and leaves the place alone (US-033)", async ({ page }) => {
+  // The panel, end to end, through the real controls. The unit tests cover the
+  // encoding; what this covers is the thing that would actually hurt somebody
+  // - pasting a stranger's code and finding your sky is now over their city.
+  await openSection(page, "Share");
+  const box = page.locator("#shareCode");
+
+  // Somewhere distinctive, so a change to it would be obvious.
+  await page.evaluate(() => {
+    const doc = window.DayAndNight.document();
+    doc.cfg.place = { lat: -33.87, lon: 151.21 };
+    doc.cfg.preset.cloudCover = 0;
+    doc.cfg.fps = 11;
+    window.DayAndNight.apply(doc);
+  });
+
+  await expect(box).toHaveValue(/^DAN1-/);
+
+  // A code for a different look, made the same way the panel makes one.
+  const theirs = await page.evaluate(async () => {
+    const { encodeLook } = await import("/ui/share-code.js");
+    const { presetFor } = await import("/ui/presets.js");
+    return encodeLook(presetFor("weather"));
+  });
+
+  await box.fill(theirs);
+  await page.locator("#shareApply").click();
+
+  await expect(page.locator("#shareNote")).toContainText("Applied");
+
+  const after = await page.evaluate(() => {
+    const doc = window.DayAndNight.document();
+    return { place: doc.cfg.place, fps: doc.cfg.fps, cover: doc.cfg.preset.cloudCover };
+  });
+
+  // The look came across.
+  expect(after.cover, "the look in the code should have been applied").toBeGreaterThan(0.5);
+
+  // And nothing else did. This is the whole point of the feature being a
+  // preset rather than a settings document.
+  expect(after.place.lat).toBeCloseTo(-33.87, 2);
+  expect(after.place.lon).toBeCloseTo(151.21, 2);
+  expect(after.fps).toBe(11);
+});
+
+test("a share code that is nonsense says so rather than doing something", async ({ page }) => {
+  await openSection(page, "Share");
+  await page.locator("#shareCode").fill("have you seen my sky");
+  await page.locator("#shareApply").click();
+
+  await expect(page.locator("#shareNote")).toContainText("not a look code");
+
+  // And the sky is untouched: a bad paste must not leave somebody with a
+  // half-applied look they then have to undo by hand.
+  const unchanged = await page.evaluate(() => window.DayAndNight.document().cfg.preset);
+  const defaults = await page.evaluate(async () => {
+    const { defaultPreset } = await import("/engine/index.js");
+    return defaultPreset();
+  });
+  expect(unchanged).toEqual(defaults);
+});
+
+test("the code in the box follows the look on screen", async ({ page }) => {
+  // A stale code is worse than none: it is wrong without looking wrong, and
+  // somebody sends it to a friend.
+  await openSection(page, "Share");
+  const box = page.locator("#shareCode");
+  const before = await box.inputValue();
+
+  await page.evaluate(() => {
+    const input = document.querySelector("#cloudCover");
+    input.value = "0.6";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  await expect(box).not.toHaveValue(before);
+});
+
 test("the editor is keyboard operable (NFR-6)", async ({ page }) => {
   // Tab to the first control and check focus is visible rather than lost.
   await page.keyboard.press("Tab");

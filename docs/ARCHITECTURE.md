@@ -579,6 +579,39 @@ something else forced a redraw.
 The shape never moves, so unlike the clouds there is no CPU half to keep in
 step with the shader, and the skyline costs no redraws at all.
 
+## Share codes
+
+A look as a short string (US-033), in the same shape as Pixel Galaxy Studio's:
+a prefix, then base64url of deflate-raw of a small JSON document.
+
+**A code carries the preset and nothing else.** Not where you are, not how
+often the wallpaper redraws, not the theme. That is architecture invariant 5
+arriving at its conclusion - a preset describes appearance and never geometry -
+and it is the single most important property of the feature. A code that moved
+somebody's location would be the worst bug this product could have: they paste
+a string from a stranger and their sunrise is two time zones out, with the
+application still insisting it shows the real sky. There is a test for it that
+checks the decoded object's keys as well as its values.
+
+**It is a difference, not a snapshot.** Only settings that differ from the
+defaults go in, which keeps a code short and - more usefully - means a setting
+added to the engine later is absent from an old code and takes its new default
+rather than arriving undefined. A code made before clouds existed opens as a
+clear sky.
+
+**It goes through the settings validator.** A code arrives from outside, so a
+value out of range in one reaches a shader exactly as fast as a value out of
+range in a file. Rather than clamp twice, a decoded code is made into the
+smallest honest settings document and read back through `readDocument`, so
+there is one validator and one place to fix.
+
+Two things the first version got wrong. Whitespace and punctuation were
+stripped _after_ the prefix was looked for, so a code pasted as `"DAN1-abc."`
+kept its prefix in the body - where `DAN1` is itself valid base64url and
+decoded to nonsense. And the prefix was assumed rather than tried: base64url
+can produce those four letters followed by a dash, so both readings are
+attempted now, which costs one inflate of a few dozen bytes.
+
 ## Performance
 
 The budget is NFR-1 in the PRD. Where it is spent, by design:

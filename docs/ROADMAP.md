@@ -295,6 +295,11 @@ share codes, the guide and FAQ, the first-run welcome, light and dark editor
 themes with the sun/moon toggle, and a full accessibility pass against
 WCAG 2.2 AA.
 
+**Share codes are done** (US-033): a look as a short string that carries the
+preset and deliberately nothing else - not the place, not the frame rate.
+`ARCHITECTURE.md` has why that matters more than anything else about the
+feature.
+
 ### Beyond
 
 - **US-031 weather** - haze, fog, rain, snow; optionally the real forecast,
