@@ -5,8 +5,8 @@ session with no memory of this one. Newest session first.
 
 ## Current state
 
-**Milestones 0 and 1 are done. Milestone 2 is built; what is left of it needs
-hardware or a free machine rather than more code.** The application runs, puts a computed sky on
+**Milestones 0, 1 and 2 are done. Milestones 3 and 4 - the clouds and the
+horizon - are built and unmeasured.** The application runs, puts a computed sky on
 the Windows desktop behind the icons on every screen, and the sky is the real
 one: scattering for its colour, Meeus astronomy for the sun and moon, stars
 turning at the sidereal rate, and a grade over the top.
@@ -15,11 +15,16 @@ turning at the sidereal rate, and a grade over the top.
 - **Remote:** `origin` is `github.com/BlackCanyonSoftware/dayandnight_BCS`.
   **Nothing has been pushed.** The owner pushes.
 - **Tier:** MVP
-- **Checks:** everything passes, and everything has been run. Lint, format and
-  typecheck clean; 127 unit, 26 browser and **12 desktop tests**; the installer
-  builds with its icon and its seven legal documents; and
-  `node tools/verify-package.js` puts a sky on the real desktop from the
-  packaged application - thirteen checks, host `workerw`. Last run 2026-10-24. - the desktop ones were run on 2026-10-19, the first
+- **Checks:** lint, format and typecheck clean; **156 unit and 31 browser
+  tests**. The 12 desktop tests, the installer build and
+  `node tools/verify-package.js` all passed on 2026-10-24 and have not been run
+  since the clouds and the horizon went in - they open windows, and the owner
+  asked for those to wait.
+- **Nothing since Milestone 2 has been measured.** The clouds are the first
+  thing in the product that moves, which is the one change that could undo
+  frame-skipping, and `tools/measure-cost.js` now has a scenario for them that
+  has never been run. The owner asked to hold the measurement until more was
+  built; more is built. - the desktop ones were run on 2026-10-19, the first
   time since Milestone 0, because they open windows on the desktop and the owner
   has to be free.
 
@@ -57,13 +62,25 @@ Two things to know before changing any of it:
 
 ## Next steps
 
-1. **Verify by hand what only a person can:** a full-screen game pausing the
+1. **Run the cost measurement**, which is now the most overdue thing in the
+   project. `node tools/measure-cost.js --shipped` has three scenarios and
+   prints whether ADR 0007 reopens. Arithmetic says the clouds cost about
+   0.4 % of a core against a budget of 2, but that is arithmetic. Then the
+   desktop tests, the build and `verify-package.js`, which have not run since
+   two milestones went in.
+2. **The GPU, which has never been measured at all.** NFR-1 budgets 4 % and
+   there is no way to check it. The cloud pass is a few hundred hashes a pixel
+   where the sky used to be a table lookup, so this is the first time the
+   question has had teeth.
+3. **Verify by hand what only a person can:** a full-screen game pausing the
    wallpaper, and a system time-zone change with the application running. Lock,
    unlock, suspend and resume no longer need a person - the desktop tests
    deliver the real events and count the surface's render-loop ticks.
-2. **The three-monitor criteria**, which need a third monitor: one continuous
+4. **The three-monitor criteria**, which need a third monitor: one continuous
    sky with no seam by screenshot, and NFR-1 re-measured with three active.
-3. Then **Milestone 3**, the clouds - which is also the event that reopens
+5. Then what is left of Milestone 4 - the user's own PNG as a horizon, which
+   is the half of US-032 the computed library does not cover - and Milestone 5.
+   The old note about Milestone 3, the clouds - which is also the event that reopens
    ADR 0007, because clouds need real frames and the sum that killed occlusion
    was done at the cost of a sky that barely redraws.
 
@@ -132,6 +149,44 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-10-24 - clouds and a horizon
+
+- **Clouds** (`86df741`, `12fe462`, `409733c`). Three layers on horizontal
+  planes, sampled where the view ray meets each, lit by the sun's own
+  transmittance so the dawn colour is the real one. Composited by blending
+  rather than through a second render target.
+- **Frame-skipping survived**, which was the thing in doubt. The field only
+  translates and evolves, so the signature answers "would this frame differ"
+  from two scalars; the quantum is a pixel of the fastest layer, which makes
+  the redraw rate about four a second against one every sixteen seconds for a
+  clear sky.
+- **Three bugs in the clouds, all of which produced a picture.** Drift growing
+  without limit from the Unix epoch - fine in doubles, catastrophic through a
+  `float` uniform, which tiled the sky. The wrap then applied in kilometres
+  while the shader divides by two scale factors, so the field wrapped a third
+  of the way through itself. And a coverage curve where everything happened
+  between 0.3 and 0.6 of the slider.
+- **A horizon** (`dc918a0`, `c718338`): mountains, a city or a treeline, all
+  computed rather than bundled - the reasoning is in `ARCHITECTURE.md` and it
+  is a deliberate departure from what US-032 asked for. Lit by the sky rather
+  than drawn black; the far range takes the colour of the horizon behind it;
+  a city's windows come on through dusk a few at a time.
+- **Four more bugs there**, all visible: an invisible far range (ridged noise
+  clusters near its mean, so a shorter far range hides everywhere), a
+  single-colour haze that made it one olive band, a city of eleven buildings
+  that read as a comb, and windows bright enough to clip to white at the
+  4000x night exposure and lose their warmth.
+- **A test that passed with the bug in place**, again: the cloud wrap test
+  first used a wind so fast that consecutive frames were already uncorrelated,
+  so a discontinuity had nothing to stand out against. Worth remembering as a
+  shape - a test whose baseline is already at the maximum cannot detect
+  anything.
+- **A mistake worth recording:** `npm run check 2>&1 | tail -3` makes the exit
+  status that of `tail`, so a failing suite still satisfies `&&` and the commit
+  goes through. It did. The run turned out to be a dev server expiring rather
+  than a regression, and a clean re-run passed, but the habit is the bug: use
+  `set -o pipefail` or read `PIPESTATUS`.
 
 ### 2026-10-24 - Milestone 2 finished, as far as code can finish it
 
