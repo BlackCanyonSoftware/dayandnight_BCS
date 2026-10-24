@@ -119,6 +119,27 @@ async function main() {
       frame ? `sun at ${frame.sunAltitude.toFixed(1)} deg, ${frame.band}` : "no frame"
     );
 
+    // The documents, read by the packaged application rather than merely
+    // present on disk. `legal.js` resolves a different folder when packaged -
+    // beside the executable instead of in the repository - and that branch
+    // runs nowhere else, so without this it would be the version that passes
+    // every test and then ships broken.
+    const documents = await editor.evaluate(() => {
+      if (!window.dayAndNight) throw new Error("the shell bridge is missing");
+      return window.dayAndNight.listLegal();
+    });
+    const eula = await editor.evaluate(() => {
+      if (!window.dayAndNight) throw new Error("the shell bridge is missing");
+      return window.dayAndNight.readLegal("eula");
+    });
+    check(
+      "the application can read its own licence",
+      Array.isArray(documents) && documents.length === 5 && typeof eula === "string",
+      `${Array.isArray(documents) ? documents.length : 0} listed, licence ${
+        typeof eula === "string" ? `${eula.length} chars` : "unreadable"
+      }`
+    );
+
     // The reason this tool exists.
     await editor.locator("#wallBtn").click();
 

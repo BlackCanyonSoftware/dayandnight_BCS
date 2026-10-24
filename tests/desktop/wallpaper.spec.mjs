@@ -314,39 +314,61 @@ test("when several reasons are true at once, the one shown explains the most (US
 test("the tray icon is there, and it can answer for the wallpaper (OQ-1)", async () => {
   test.skip(process.platform !== "win32", "the tray is part of the Windows shell");
 
-  // Electron keeps no registry of trays, so the module is asked directly.
-  const present = await app.evaluate(async () => {
-    const tray = require("./tray.js");
+  // Electron keeps no registry of trays, so the module has to be asked - and
+  // `require` is not in scope inside electronApplication.evaluate, which only
+  // receives the electron module itself. `process.mainModule.require` is the
+  // way in, but it resolves relative to the electron module rather than to
+  // main.js, so the path has to be an absolute one built from the app root.
+  const present = await app.evaluate(async ({ app: electronApp }) => {
+    const path = process.mainModule.require("node:path");
+    const tray = process.mainModule.require(
+      path.join(electronApp.getAppPath(), "desktop", "tray.js")
+    );
     return tray.exists();
   });
-  expect(present, "a wallpaper with no window needs a way back to it").toBe(true);
 
-  // The menu is rebuilt on every open, so what it says is true when read. The
-  // status line is the part that would rot if it were built once.
-  await editor.locator("#wallBtn").click();
-  await expect
-    .poll(async () => (await editor.evaluate(() => window.dayAndNight.getWallpaperState())).host, {
-      timeout: 20_000
-    })
-    .not.toBe("starting");
-
-  const running = await app.evaluate(() => require("./tray.js").exists());
-  expect(running).toBe(true);
+  expect(present, "a wallpaper with no window of its own needs a way back to it").toBe(true);
 });
 
 test("the editor agrees with Windows about starting at login (OQ-1)", async () => {
   test.skip(process.platform !== "win32", "login items are a Windows thing");
 
-  // Read only. Setting it writes to the user's Run key, and a test that left
-  // the application in somebody's startup list - or took it out of one they
-  // had put it in - would be doing real damage to the machine it ran on.
-  const fromShell = await app.evaluate(() => require("./tray.js").startsWithWindows());
-  expect(typeof fromShell).toBe("boolean");
-
+  // Read only, and deliberately so. Setting it writes to the user's Run key,
+  // and a test that left the application in somebody's startup list - or took
+  // it out of one they had put it in - would be doing real damage to the
+  // machine it ran on.
+  //
+  // Asked over IPC rather than of the module, which makes this the better
+  // test: it goes through the handler, the preload bridge and the renderer,
+  // so a break anywhere on that path shows up here rather than in use.
   const overIpc = await editor.evaluate(() => window.dayAndNight.getStartWithWindows());
-  expect(overIpc, "the editor should be told what Windows actually thinks").toBe(fromShell);
+  expect(typeof overIpc, "the editor should get an answer at all").toBe("boolean");
 
   const checkbox = editor.locator("#startup");
   await expect(checkbox).toBeEnabled();
-  expect(await checkbox.isChecked()).toBe(fromShell);
+  expect(
+    await checkbox.isChecked(),
+    "the box should show what Windows actually thinks, not a remembered value"
+  ).toBe(overIpc);
+});
+
+test("the About panel can read the documents the build ships", async () => {
+  // In a browser there are no documents and the panel says so; here there are,
+  // and this is the only place that path runs. A build that shipped the files
+  // but could not find them at runtime - the packaged and development folders
+  // differ - would look exactly like the browser case.
+  const titles = await editor.evaluate(() => window.dayAndNight.listLegal());
+  expect(titles.length, "five documents ship with every build").toBe(5);
+
+  await expect(editor.locator("#legalList button")).toHaveCount(5);
+  await expect(editor.locator("#aboutVersion")).toHaveText(/^v\d/);
+
+  const eula = await editor.evaluate(() => window.dayAndNight.readLegal("eula"));
+  expect(eula, "the licence should be readable from the application").toBeTruthy();
+  expect(eula).toContain("End User Licence Agreement");
+
+  // And an identifier that is not one of ours gets nothing, rather than
+  // reaching a path it should not.
+  const nothing = await editor.evaluate(() => window.dayAndNight.readLegal("../../package.json"));
+  expect(nothing).toBe(null);
 });

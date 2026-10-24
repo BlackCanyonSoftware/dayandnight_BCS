@@ -15,13 +15,11 @@ turning at the sidereal rate, and a grade over the top.
 - **Remote:** `origin` is `github.com/BlackCanyonSoftware/dayandnight_BCS`.
   **Nothing has been pushed.** The owner pushes.
 - **Tier:** MVP
-- **Checks:** lint, format, typecheck clean. 127 unit and 26 browser tests
-  passing. **The 11 desktop tests have NOT been run since 2026-10-22** - they
-  open windows, and a great deal of `desktop/main.js` has changed since (the
-  tray, autostart, the legal IPC, restoring the wallpaper at launch). That is
-  the single biggest unverified thing in the project right now.
-
-  Older note, still true of the 9 that existed then: 9 desktop tests passing - the desktop ones were run on 2026-10-19, the first
+- **Checks:** everything passes, and everything has been run. Lint, format and
+  typecheck clean; 127 unit, 26 browser and **12 desktop tests**; the installer
+  builds with its icon and its seven legal documents; and
+  `node tools/verify-package.js` puts a sky on the real desktop from the
+  packaged application - thirteen checks, host `workerw`. Last run 2026-10-24. - the desktop ones were run on 2026-10-19, the first
   time since Milestone 0, because they open windows on the desktop and the owner
   has to be free.
 
@@ -59,17 +57,13 @@ Two things to know before changing any of it:
 
 ## Next steps
 
-1. **Run the window-opening checks**, in one go, when the machine is free:
-   `npm run test:desktop` (11 tests, two of them new and never run), then
-   `npm run build` and `node tools/verify-package.js`. Everything in Milestone 2
-   that can be checked without a window has been.
-2. **Verify by hand what only a person can:** a full-screen game pausing the
+1. **Verify by hand what only a person can:** a full-screen game pausing the
    wallpaper, and a system time-zone change with the application running. Lock,
    unlock, suspend and resume no longer need a person - the desktop tests
    deliver the real events and count the surface's render-loop ticks.
-3. **The three-monitor criteria**, which need a third monitor: one continuous
+2. **The three-monitor criteria**, which need a third monitor: one continuous
    sky with no seam by screenshot, and NFR-1 re-measured with three active.
-4. Then **Milestone 3**, the clouds - which is also the event that reopens
+3. Then **Milestone 3**, the clouds - which is also the event that reopens
    ADR 0007, because clouds need real frames and the sum that killed occlusion
    was done at the cost of a sky that barely redraws.
 
@@ -168,6 +162,17 @@ its browser tests are headless.
 - **An About panel** (`1d02831`) that opens the five documents every build has
   been shipping and nothing could read. The renderer picks an index into a
   fixed list, so no path crosses the IPC boundary.
+- **The desktop suite found two of its own tests wrong, not the code.**
+  `require` is not in scope inside `electronApplication.evaluate`; the way to
+  reach one of our modules is `process.mainModule.require` with an absolute
+  path built from `app.getAppPath()`, because it resolves relative to the
+  electron module. One of the two was also a tautology - it compared a function
+  against itself through two different doors - and now asks over IPC, which
+  exercises the handler and the preload bridge as well.
+- **`verify-package.js` now reads a document out of the packaged build.**
+  `legal.js` resolves a different folder when packaged and that branch ran
+  nowhere: exactly the "works in development, ships broken" case its own
+  comment warns about.
 - **A test that passed while the thing it tested was broken.** The reader's
   focus-restoration test drove the dialog by setting `hidden` directly, which
   bypassed the function that records where focus came from. It goes through the
