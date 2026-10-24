@@ -34,14 +34,17 @@ export const LOOKS = [
   {
     id: "clear",
     name: "Clear",
-    hint: "The sky as the physics draws it, with no colour cast and nothing exaggerated. The one to judge the others against, and the one to start from if you are building your own.",
+    hint: "The sky as the physics draws it, with no colour cast, nothing exaggerated and no cloud. The one to judge the others against, and the one to start from if you are building your own.",
     preset: {}
   },
   {
     id: "hazy",
     name: "Hazy",
-    hint: "More dust and moisture in the air, which whitens the sky, spreads the sun into a broad glow and gives sunsets the deep red that a perfectly clear day never quite manages.",
+    hint: "More dust and moisture in the air, which whitens the sky, spreads the sun into a broad glow and gives sunsets the deep red that a perfectly clear day never quite manages. A little high cloud comes with it.",
     preset: {
+      cloudCover: 0.3,
+      cloudSoftness: 0.38,
+      cloudScale: 2.6,
       turbidity: 2.8,
       whitePoint: 6,
       saturation: 1.1,
@@ -52,7 +55,7 @@ export const LOOKS = [
   {
     id: "desert",
     name: "Desert night",
-    hint: "A sky far from anywhere: almost no glow of its own, so the stars carry the night. Cool and hard-edged, with the Milky Way's worth of faint stars brought up.",
+    hint: "A sky far from anywhere: almost no glow of its own, so the stars carry the night. Cool and hard-edged, with the Milky Way's worth of faint stars brought up. No cloud, because that is rather the point of a desert.",
     preset: {
       airglow: 4e-7,
       starBrightness: 1.9,
@@ -67,8 +70,10 @@ export const LOOKS = [
   {
     id: "town",
     name: "Edge of town",
-    hint: "Somebody else's streetlights over the hill. The night sky never goes properly dark and only the brighter stars get through, which is what most people actually see.",
+    hint: "Somebody else's streetlights over the hill. The night sky never goes properly dark and only the brighter stars get through, which is what most people actually see - along with the broken cloud that most people actually have.",
     preset: {
+      cloudCover: 0.42,
+      cloudScale: 1.4,
       airglow: 3.4e-6,
       starBrightness: 0.65,
       nightTint: "#b08a5e",
@@ -79,8 +84,12 @@ export const LOOKS = [
   {
     id: "cinematic",
     name: "Cinematic",
-    hint: "Warmer, stronger and larger than life: the sun and moon drawn bigger than they really are, a warm cast through twilight, and colour pushed the way a film would push it.",
+    hint: "Warmer, stronger and larger than life: the sun and moon drawn bigger than they really are, a warm cast through twilight, big cloud to catch that light, and colour pushed the way a film would push it.",
     preset: {
+      cloudCover: 0.5,
+      cloudScale: 3.4,
+      cloudSoftness: 0.16,
+      cloudDrift: 16,
       bodyScale: 3.2,
       glare: 1.45,
       turbidity: 1.5,
@@ -95,8 +104,12 @@ export const LOOKS = [
   {
     id: "quiet",
     name: "Quiet",
-    hint: "Softened and dimmed, for a desktop with a lot of icons on it. Low contrast and a high horizon keep the busy part of the sky away from where your files live.",
+    hint: "Softened and dimmed, for a desktop with a lot of icons on it. Low contrast and a high horizon keep the busy part of the sky away from where your files live, and what cloud there is drifts slowly and softly.",
     preset: {
+      cloudCover: 0.28,
+      cloudSoftness: 0.45,
+      cloudScale: 3.0,
+      cloudDrift: 7,
       exposure: -0.7,
       contrast: 0.82,
       saturation: 0.85,
@@ -108,10 +121,27 @@ export const LOOKS = [
     }
   },
   {
+    id: "weather",
+    name: "Big weather",
+    hint: "A sky with something happening in it: heavy, large cloud moving at a fair clip, with hard edges that catch the sun along their tops. The most expensive look here, because the more the sky moves the more often it has to be redrawn.",
+    preset: {
+      cloudCover: 0.72,
+      cloudScale: 4.2,
+      cloudSoftness: 0.12,
+      cloudDrift: 26,
+      turbidity: 1.4,
+      contrast: 1.12,
+      glare: 1.25,
+      horizon: 0.78
+    }
+  },
+  {
     id: "widescreen",
     name: "Wide horizon",
-    hint: "Almost the whole sky at once, so the sun is in frame from close to sunrise to close to sunset. The trade is that everything looks a little further away.",
+    hint: "Almost the whole sky at once, so the sun is in frame from close to sunrise to close to sunset. The trade is that everything looks a little further away. Scattered cloud gives the width something to measure itself against.",
     preset: {
+      cloudCover: 0.35,
+      cloudScale: 2.2,
       fieldOfView: 190,
       horizon: 0.86,
       glare: 1.2,
