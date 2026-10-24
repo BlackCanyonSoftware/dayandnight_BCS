@@ -1279,6 +1279,177 @@ test("clouds drift, and the picture does not jump when the field wraps (US-030)"
   ).toBeLessThan(findings.meanChange * 4);
 });
 
+test("a skyline stands on the horizon and leaves the sky alone (US-032)", async ({ page }) => {
+  const findings = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset } = await import("/engine/index.js");
+
+    const width = 320;
+    const height = 200;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+
+    const place = { lat: 39.74, lon: -104.99 };
+    const t = Date.UTC(2026, 5, 21, 19, 0);
+
+    const render = (overrides) => {
+      engine.setPreset({ ...defaultPreset(), horizon: 0.72, ...overrides });
+      engine.render({
+        t,
+        place,
+        crop: { x: 0, y: 0, w: width, h: height },
+        span: { w: width, h: height },
+        pixelRatio: 1
+      });
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      return pixels;
+    };
+
+    const open = render({ skyline: "none" });
+    const hills = render({ skyline: "mountains", skylineHeight: 9 });
+
+    // Below the threshold, so the pass is skipped and the frame must be
+    // exactly the open one.
+    const almostNothing = render({ skyline: "mountains", skylineHeight: 0.001 });
+
+    let identical = true;
+    for (let i = 0; i < open.length; i += 1) {
+      if (open[i] !== almostNothing[i]) {
+        identical = false;
+        break;
+      }
+    }
+
+    // readPixels is bottom-up, so a LARGER y is higher in the picture. The
+    // horizon sits at 0.72 of the way down, which is 0.28 of the way up.
+    const horizonY = Math.floor(height * 0.28);
+
+    // How much of the picture changed, in two bands: the sky well above where
+    // a nine-degree skyline could possibly reach, and the band just above the
+    // horizon where it lives.
+    const changed = (fromY, toY) => {
+      let total = 0;
+      let samples = 0;
+      for (let y = fromY; y < toY; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const i = (y * width + x) * 4;
+          total += Math.abs(open[i] - hills[i]);
+          samples += 1;
+        }
+      }
+      return total / samples;
+    };
+
+    // Nine degrees at this framing is well under a third of the way up from
+    // the horizon, so the top half of the sky must be untouched.
+    const topHalf = changed(Math.floor(height * 0.6), height);
+    const atHorizon = changed(horizonY, horizonY + Math.floor(height * 0.14));
+
+    return { topHalf, atHorizon, skipIsExact: identical };
+  });
+
+  // It is there.
+  expect(
+    findings.atHorizon,
+    "a skyline should change the band just above the horizon"
+  ).toBeGreaterThan(5);
+
+  // And it is only there. A silhouette that reached into the upper sky would
+  // mean the elevation mapping in the pass disagreed with the one the sky is
+  // drawn with - which is the bug this whole shared VIEW block exists to make
+  // impossible, and worth checking rather than assuming.
+  expect(
+    findings.topHalf,
+    `the top half of the sky changed by ${findings.topHalf.toFixed(2)}, so the skyline is not staying at the horizon`
+  ).toBeLessThan(0.6);
+
+  // And at a height of nothing the pass is skipped entirely.
+  expect(findings.skipIsExact, "a skyline of no height must change no pixels").toBe(true);
+});
+
+test("a city lights up after sunset and not before (US-032)", async ({ page }) => {
+  // The one part of the skyline that changes through the day, and the reason
+  // lightsOn() is in the frame signature: every probe is up in the sky, where
+  // nothing happens when a city switches its lights on.
+  const findings = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset, sunPosition } = await import("/engine/index.js");
+
+    const width = 300;
+    const height = 180;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+    engine.setPreset({
+      ...defaultPreset(),
+      horizon: 0.72,
+      skyline: "city",
+      skylineHeight: 8
+    });
+
+    const place = { lat: 39.74, lon: -104.99 };
+
+    // The brightest pixel in the band the buildings occupy, which is a window
+    // if any are lit and a roofline if none are.
+    const brightestInCity = (t) => {
+      engine.render({
+        t,
+        place,
+        crop: { x: 0, y: 0, w: width, h: height },
+        span: { w: width, h: height },
+        pixelRatio: 1
+      });
+
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+      // Bottom-up again: the city sits from the horizon downwards in the
+      // picture, which is upwards in the buffer from 0 to 0.28 of the height.
+      let best = 0;
+      let warm = 0;
+      for (let y = 0; y < Math.floor(height * 0.28); y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const i = (y * width + x) * 4;
+          const v = pixels[i] + pixels[i + 1] + pixels[i + 2];
+          if (v > best) {
+            best = v;
+            warm = pixels[i] - pixels[i + 2];
+          }
+        }
+      }
+      return { best, warm, altitude: sunPosition(t, place).altitude };
+    };
+
+    return {
+      noon: brightestInCity(Date.UTC(2026, 5, 21, 19, 0)),
+      night: brightestInCity(Date.UTC(2026, 5, 22, 7, 30))
+    };
+  });
+
+  expect(findings.noon.altitude).toBeGreaterThan(20);
+  expect(findings.night.altitude).toBeLessThan(-12);
+
+  // At night the brightest thing down there is a lit window, and it is warm -
+  // red well above blue. That is the check that it is a light rather than a
+  // patch of sky showing through.
+  expect(
+    findings.night.warm,
+    "the brightest thing in a night city should be a warm window, not a grey roof"
+  ).toBeGreaterThan(12);
+
+  // By day the buildings are silhouettes: dark, and not warm.
+  expect(
+    findings.noon.warm,
+    "nothing should be glowing out of a city in broad daylight"
+  ).toBeLessThan(findings.night.warm);
+});
+
 test("the grade changes the picture, and a neutral one does not", async ({ page }) => {
   // The grade sits on top of a sky that is already physically correct, so the
   // property worth protecting is that it can be absent: a default preset has

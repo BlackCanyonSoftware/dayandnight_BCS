@@ -801,6 +801,241 @@ void main() {
 }
 `;
 
+/**
+ * What stands between you and the horizon.
+ *
+ * Drawn after the clouds and before the tone map, so it occludes everything -
+ * a building in front of the moon hides the moon - and so it is exposed with
+ * the rest of the frame rather than separately. A silhouette tone-mapped on
+ * its own would be the one part of the picture that did not respond to the
+ * light, which is exactly what makes a pasted-on foreground look pasted on.
+ *
+ * **It is not black.** A real silhouette at dusk is very dark and not actually
+ * black: it is lit by the whole sky above it, which is why a ridge against a
+ * red sunset is a deep red-brown rather than a hole in the picture. So it is
+ * shaded by the ambient sky light with a very low albedo, and it goes the
+ * colour of whatever the sky is doing - for nothing, because the ambient term
+ * is already computed for the clouds.
+ *
+ * **Aerial perspective is the depth.** The far mountain range is mixed towards
+ * the sky colour by distance. That single blend is what separates two ranges
+ * into near and far; without it they read as one jagged shape, however
+ * different their outlines are.
+ */
+export const SKYLINE_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+
+${VIEW}
+
+uniform vec2 uResolution;
+uniform vec4 uCrop;
+uniform vec2 uSpan;
+
+uniform float uBearing;
+uniform float uHorizon;
+uniform float uFieldOfView;
+uniform float uDegreesPerSpanY;
+
+uniform int uStyle;
+uniform float uHeight;
+uniform float uSeed;
+uniform float uLights;
+uniform vec3 uAmbient;
+uniform float uSunAzimuth;
+uniform vec3 uHazeToSun;
+uniform vec3 uHazeAway;
+
+out vec4 outColour;
+
+float hash11(float p) {
+  p = fract(p * 0.1031);
+  p *= p + 33.33;
+  p *= p + p;
+  return fract(p);
+}
+
+float noise1(float x) {
+  float i = floor(x);
+  float f = x - i;
+  float u = f * f * (3.0 - 2.0 * f);
+  return mix(hash11(i), hash11(i + 1.0), u);
+}
+
+// Ridged noise: the absolute value folded over, which turns the smooth humps
+// of ordinary fBm into the creases and peaks a mountain actually has.
+float ridges(float x, float seed, int octaves) {
+  float sum = 0.0;
+  float amplitude = 0.5;
+  float total = 0.0;
+  float f = 1.0;
+
+  for (int i = 0; i < 6; i++) {
+    if (i >= octaves) break;
+    float n = noise1(x * f + seed * 19.7 + float(i) * 37.0);
+    sum += amplitude * (1.0 - abs(2.0 * n - 1.0));
+    total += amplitude;
+    f *= 2.0;
+    amplitude *= 0.5;
+  }
+
+  return sum / max(total, 1e-5);
+}
+
+// A city, as slots along the horizon. Each slot hashes to a width and a
+// height, so the blocks are of different sizes and the skyline is not a comb.
+// slotOut carries which building this is, for the windows.
+// How many buildings fit around the whole horizon.
+//
+// 72 rather than the 26 this started with. A slot is 360 degrees over this, so
+// 26 made each building fourteen degrees wide and a default field of view held
+// about eleven of them - which read as a comb rather than a city. At 72 the
+// same view holds thirty, which is what a skyline looks like from across a
+// river.
+const float CITY_SLOTS = 72.0;
+
+float cityHeight(float az, float seed, out float slotOut, out float widthOut) {
+  float slots = CITY_SLOTS;
+  float x = az * slots;
+  float slot = floor(x);
+  slotOut = slot;
+
+  float h = hash11(slot * 7.31 + seed * 11.3);
+
+  // A wide spread of widths, so the gaps between buildings are as varied as
+  // the buildings. Equal widths are most of what made the first version read
+  // as a row of teeth.
+  float w = 0.25 + 0.7 * hash11(slot * 3.17 + seed * 5.9);
+  widthOut = w;
+
+  // Within the slot, the building occupies the middle w of it; the rest is
+  // the gap between it and the next one.
+  float within = x - slot;
+  float edge = (1.0 - w) * 0.5;
+  if (within < edge || within > 1.0 - edge) return 0.0;
+
+  // A few are much taller, which is what stops a skyline reading as a wall.
+  float tall = step(0.86, hash11(slot * 13.9 + seed * 2.7));
+  return (0.25 + 0.45 * h) * (1.0 + 1.5 * tall);
+}
+
+void main() {
+  vec2 inWindow = gl_FragCoord.xy / uResolution;
+  vec2 inSpan = (uCrop.xy + vec2(inWindow.x, 1.0 - inWindow.y) * uCrop.zw) / uSpan;
+
+  float azimuth = uBearing + (inSpan.x - 0.5) * uFieldOfView;
+  float elevation = (uHorizon - inSpan.y) * uDegreesPerSpanY;
+
+  // Azimuth in turns, so the profile is continuous all the way round and a
+  // span that wraps past north does not meet a seam.
+  float az = azimuth / 360.0;
+
+  float profile = 0.0;
+  float far = 0.0;
+  float slot = 0.0;
+  float width = 0.0;
+
+  if (uStyle == 1) {
+    // Two ranges, and the far one sits HIGHER in the frame rather than lower.
+    //
+    // The obvious arrangement - a shorter far range behind a taller near one -
+    // does not work, and the reason is a property of the noise rather than of
+    // mountains. Ridged noise clusters near its mean, so two ranges drawn the
+    // same way differ by far less than their extremes suggest, and a far range
+    // scaled to two thirds is then hidden everywhere. It was: the first
+    // version drew one black mass.
+    //
+    // Giving the far range a high baseline and little variation, and the near
+    // range a low baseline and a lot, is also what the eye expects. A distant
+    // range reads as a pale band along the top of the near one, with the near
+    // ridge cutting into it.
+    far = 0.52 + 0.48 * ridges(az * 7.0, uSeed + 3.0, 4);
+
+    // Raised to a power to push the valleys down and leave the peaks, which
+    // is what gives the near range somewhere for the far one to show through.
+    profile = 0.92 * pow(ridges(az * 13.0, uSeed, 5), 1.7);
+  } else if (uStyle == 2) {
+    profile = cityHeight(az, uSeed, slot, width);
+  } else if (uStyle == 3) {
+    // Trees: high frequency, low amplitude, with a solid band underneath so
+    // the gaps between trunks do not show sky at ground level.
+    profile = 0.45 + 0.55 * ridges(az * 95.0, uSeed, 3);
+  }
+
+  float nearTop = profile * uHeight;
+  float farTop = far * uHeight;
+
+  // Nothing of ours is here; leave the frame alone.
+  if (elevation > nearTop && elevation > farTop) {
+    outColour = vec4(0.0, 0.0, 0.0, 1.0);
+    return;
+  }
+
+  bool isNear = elevation <= nearTop;
+
+  // The silhouette is lit by the whole sky above it. A very low albedo, so it
+  // reads as dark against anything bright, and takes the sky's own colour
+  // against anything dim.
+  vec3 body = uAmbient * 0.085;
+
+  if (!isNear) {
+    // The far range, mixed towards the haze by distance. This blend is what
+    // makes two ranges read as near and far rather than as one shape.
+    //
+    // The haze is not one colour across the frame. The sky near the horizon is
+    // warm towards the sun and cold away from it, and a distant range takes
+    // the colour of whatever is behind it - so a ridge below a sunset glows
+    // and the same ridge on the other side of the sky stays grey. Two samples
+    // and an interpolation, rather than the single colour this first had,
+    // which made the far range the same olive band all the way along.
+    float fromSun = abs(wrap180(azimuth - uSunAzimuth)) / 180.0;
+    vec3 haze = mix(uHazeToSun, uHazeAway, fromSun);
+
+    body = mix(uAmbient * 0.11, haze, 0.62);
+  }
+
+  if (uStyle == 2 && isNear && uLights > 0.0) {
+    // Windows. A grid inside each building, with a hash per window deciding
+    // both whether it is lit at all and how late it stays on - so they come on
+    // a few at a time through dusk rather than all together, and a scattering
+    // are still on in the small hours.
+    // The grid follows the building rather than the frame: a short block gets
+    // fewer rows than a tower, so a window is about the same size on both.
+    // Fixed rows made the windows on a low building into thin slots.
+    float rows = max(4.0, floor((nearTop / max(uHeight, 1e-4)) * 30.0));
+    float cols = 4.0;
+
+    float within = fract(az * CITY_SLOTS);
+    float edge = (1.0 - width) * 0.5;
+    float acrossBuilding = (within - edge) / max(width, 1e-4);
+
+    float wx = floor(acrossBuilding * cols);
+    float wy = floor((elevation / max(nearTop, 1e-4)) * rows);
+
+    float key = hash11(slot * 101.0 + wx * 17.0 + wy * 3.7 + uSeed * 29.0);
+
+    // Only the middle of each cell is glass; the rest is wall.
+    vec2 cell = fract(vec2(acrossBuilding * cols, (elevation / max(nearTop, 1e-4)) * rows));
+    float glass = step(0.22, cell.x) * step(cell.x, 0.78) * step(0.3, cell.y) * step(cell.y, 0.8);
+
+    // key below the threshold is lit. As uLights rises through dusk more of
+    // them pass it, and the brightest are the ones that come on first.
+    float lit = step(key, uLights * 0.42) * glass;
+
+    // Warm, and bright enough to read as light sources rather than as lighter
+    // paint - but deliberately under the point where they clip.
+    //
+    // The auto-exposure reaches 4000x at night, which is the whole reason the
+    // stars are visible at all. A window at the radiance this first used came
+    // to 220 through that and clipped to flat white, losing exactly the warmth
+    // that makes a lit window look lit. These land near 0.8 instead, so they
+    // are the brightest thing in the frame and still the colour of a lamp.
+    body += vec3(2.0e-4, 1.45e-4, 0.78e-4) * lit * uLights;
+  }
+
+  outColour = vec4(body, 0.0);
+}
+`;
+
 export const COMPOSITE_FRAG = /* glsl */ `#version 300 es
 precision highp float;
 ${OUTPUT}

@@ -523,6 +523,62 @@ of the way through itself. Measured at the time: one step of 8.2 levels where
 its neighbours moved 0.45. The conversion now happens before the wrap, so the
 shader is handed an offset already counted in lattice cells.
 
+## The horizon
+
+US-032 asks for "a bundled skyline or mountain library, or the user's own PNG".
+The library is **computed rather than bundled**, which is a departure from the
+story and worth the paragraph.
+
+Everything else in this product is arithmetic - the sky is scattering, the
+stars are a catalogue, the clouds are noise on a plane. A folder of silhouette
+PNGs would be the only painted thing in it, and would bring the three problems
+that come with painted things: somebody has to license them, they have to ship,
+and they have to be drawn at a resolution that is then stretched across a span
+that might be three monitors wide. A computed ridgeline has none of those, and
+it can be re-rolled - which turns "here are six skylines" into "here are all of
+them", with a seed to walk through them. The user's own PNG is a different
+feature and still worth having; it is not this one.
+
+Four styles: nothing, two mountain ranges, a city, a treeline. Each is a
+different kind of edge rather than a different picture, and anything else worth
+having is one of these with different numbers.
+
+**It is not black.** A real silhouette at dusk is very dark and not actually
+black: it is lit by the whole sky above it, which is why a ridge against a red
+sunset is a deep red-brown rather than a hole in the picture. So it is shaded
+by the same ambient term the clouds use, at a very low albedo.
+
+**Aerial perspective is what makes it deep.** The far mountain range is mixed
+towards the colour of the sky just above the horizon - and that colour is
+sampled twice, towards the sun and away from it, and interpolated across the
+frame. One haze colour made the far range the same olive band all the way
+along; two make a ridge below a sunset glow while the same ridge behind you
+stays grey.
+
+Two things the first version got wrong, both visible:
+
+- **The far range was invisible.** Drawn shorter than the near one, as a
+  distant range intuitively should be, it never showed: ridged noise clusters
+  near its mean, so two ranges drawn the same way differ far less than their
+  extremes suggest. It now has a high baseline and little variation while the
+  near range has a low baseline and a lot - which is also how the eye reads
+  distance, as a pale band with a dark ridge cutting into it.
+- **The city was a comb.** Twenty-six slots around the whole horizon made each
+  building fourteen degrees wide, so a default field of view held eleven of
+  them. Seventy-two slots holds thirty, which is what a skyline looks like from
+  across a river.
+
+The windows are the one part that changes through the day: a hash per window
+decides both whether it is lit and how late it stays on, compared against a
+threshold that rises through dusk, so they come on a few at a time and a
+scattering are still on in the small hours. That threshold is in the frame
+signature, because every probe is up in the sky where nothing happens when a
+city switches its lights on - without it the lights would appear only when
+something else forced a redraw.
+
+The shape never moves, so unlike the clouds there is no CPU half to keep in
+step with the shader, and the skyline costs no redraws at all.
+
 ## Performance
 
 The budget is NFR-1 in the PRD. Where it is spent, by design:

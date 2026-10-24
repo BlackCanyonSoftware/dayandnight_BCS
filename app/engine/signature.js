@@ -33,6 +33,7 @@
 
 import { verticalDegrees } from "./view.js";
 import { cloudSteps, cloudsVisible, kmPerPixel } from "./sky/clouds.js";
+import { lightsOn, skylineVisible, styleIndex } from "./sky/skyline.js";
 
 import { sunPosition } from "./astro/solar.js";
 import { resolveBearing } from "./defaults.js";
@@ -82,6 +83,27 @@ function cloudParts(preset, t, span) {
     Math.round(preset.cloudCover * 1000),
     Math.round(preset.cloudScale * 1000),
     Math.round(preset.cloudSoftness * 1000)
+  ];
+}
+
+/**
+ * The skyline's contribution, or nothing when there is no skyline.
+ *
+ * @param {Preset} preset
+ * @param {number} sunAltitude
+ * @returns {number[]}
+ */
+function skylineParts(preset, sunAltitude) {
+  if (!skylineVisible(preset.skyline, preset.skylineHeight)) return [];
+
+  return [
+    styleIndex(preset.skyline),
+    Math.round(preset.skylineHeight * 100),
+    preset.skylineSeed,
+    // Quantised to a hundred steps across the dusk it fades over, which is
+    // about one step every twenty seconds - far below anything the clouds or
+    // the sky itself ask for, so it never becomes the thing driving redraws.
+    Math.round(lightsOn(sunAltitude) * preset.skylineLights * 100)
   ];
 }
 
@@ -165,6 +187,13 @@ export function frameSignature(preset, request, bufferWidth, bufferHeight) {
     // why it is stated there in units rather than discovered here in
     // behaviour.
     ...cloudParts(preset, t, span),
+    // The skyline, which never moves - so unlike the clouds it costs no
+    // redraws at all and only its settings need to be here. Except for the
+    // windows: a city lighting up at dusk changes every pixel along the bottom
+    // of the picture, and every probe is in the sky, where nothing has
+    // happened. Without the last term the lights would come on only when
+    // something else happened to force a draw.
+    ...skylineParts(preset, sun.altitude),
     // Geometry: a window that moved or resized must redraw even if the sky
     // has not changed at all.
     crop.x,

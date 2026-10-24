@@ -16,6 +16,7 @@
  */
 
 import { defaultPreset } from "../engine/index.js";
+import { isStyle } from "../engine/sky/skyline.js";
 
 /** @typedef {import("../engine/types.js").Place} Place */
 /** @typedef {import("../engine/types.js").Preset} Preset */
@@ -166,6 +167,15 @@ function normaliseCfg(raw) {
       cloudDrift: num(presetRaw["cloudDrift"], defaults.cloudDrift, 0, 120),
       cloudScale: num(presetRaw["cloudScale"], defaults.cloudScale, 0.3, 12),
       cloudSoftness: num(presetRaw["cloudSoftness"], defaults.cloudSoftness, 0.02, 0.6),
+
+      // Checked against the list rather than clamped, because an unknown style
+      // is not a number out of range - it is a word this build does not know,
+      // and the honest answer to that is the default rather than a guess at
+      // which style was meant.
+      skyline: isStyle(presetRaw["skyline"]) ? String(presetRaw["skyline"]) : defaults.skyline,
+      skylineHeight: num(presetRaw["skylineHeight"], defaults.skylineHeight, 0, 25),
+      skylineSeed: Math.round(num(presetRaw["skylineSeed"], defaults.skylineSeed, 0, 9999)),
+      skylineLights: num(presetRaw["skylineLights"], defaults.skylineLights, 0, 1),
       dayTint: hex(presetRaw["dayTint"], defaults.dayTint),
       twilightTint: hex(presetRaw["twilightTint"], defaults.twilightTint),
       nightTint: hex(presetRaw["nightTint"], defaults.nightTint),

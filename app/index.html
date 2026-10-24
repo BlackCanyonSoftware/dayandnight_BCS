@@ -364,6 +364,74 @@
           </details>
 
           <details class="sec">
+            <summary>Horizon</summary>
+            <div class="sec-body">
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>What is out there</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="What stands between you and the horizon. These are drawn rather than photographed, so there is not a library of six of them - there is a library of all of them, and the seed below is how you walk through it."
+                      >i</span
+                    ></span
+                  >
+                </label>
+                <select id="skyline"></select>
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>How tall</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How high it stands, in degrees. Eight is about a range of hills twenty miles off, or a city seen from across its river. Much past fifteen and it stops being a horizon and starts being a wall."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="skylineHeightVal">8°</span>
+                </label>
+                <input id="skylineHeight" type="range" min="0" max="25" step="0.5" value="8" />
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Which one</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="Changes the shape without changing anything else. Every number is a different ridgeline or a different city, so if you do not like the one you have, take the next."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="skylineSeedVal">1</span>
+                </label>
+                <input id="skylineSeed" type="range" min="0" max="200" step="1" value="1" />
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Lights</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How brightly a city lights up after dark. They come on a few at a time as the sun goes down, and some are still on at three in the morning. Mountains and trees ignore this, having no windows."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="skylineLightsVal">100%</span>
+                </label>
+                <input id="skylineLights" type="range" min="0" max="1" step="0.01" value="1" />
+              </div>
+            </div>
+          </details>
+
+          <details class="sec">
             <summary>Clouds</summary>
             <div class="sec-body">
               <div class="row">

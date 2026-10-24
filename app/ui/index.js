@@ -16,6 +16,7 @@ import { createPreview } from "./preview.js";
 import { drawBands } from "./scrubber.js";
 import { guessPlace, labelFor, nearestCity, resolveCity, suggest } from "./place.js";
 import { LOOKS, lookIdFor, presetFor } from "./presets.js";
+import { STYLES as SKYLINE_STYLES } from "../engine/sky/skyline.js";
 import { readDocument, writeDocument } from "./settings.js";
 import {
   arrangement,
@@ -224,6 +225,16 @@ function wireControls() {
     if (event.key === "Escape" && !$("#reader").hidden) closeDocument();
   });
 
+  fillSkylineList();
+  select("skyline").addEventListener("change", () => {
+    setPreset({ skyline: select("skyline").value });
+    paintFromState();
+  });
+
+  bindRange("skylineHeight", (v) => setPreset({ skylineHeight: v }));
+  bindRange("skylineSeed", (v) => setPreset({ skylineSeed: Math.round(v) }));
+  bindRange("skylineLights", (v) => setPreset({ skylineLights: v }));
+
   bindRange("cloudCover", (v) => setPreset({ cloudCover: v }));
   bindRange("cloudDrift", (v) => setPreset({ cloudDrift: v }));
   bindRange("cloudScale", (v) => setPreset({ cloudScale: v }));
@@ -320,6 +331,25 @@ function wireControls() {
  * matches none of the shipped looks - which is worked out by comparison, so it
  * cannot fall out of step with what is on screen.
  */
+/**
+ * The horizon styles, with the hint moving to match the choice.
+ *
+ * Built from STYLES rather than written into the markup, for the same reason
+ * the look list is: a style added to the engine should appear here without
+ * anybody remembering to add it twice.
+ */
+function fillSkylineList() {
+  const list = select("skyline");
+  list.replaceChildren();
+
+  for (const style of SKYLINE_STYLES) {
+    const option = document.createElement("option");
+    option.value = style.id;
+    option.textContent = style.name;
+    list.append(option);
+  }
+}
+
 function fillLookList() {
   const list = select("look");
   list.replaceChildren();
@@ -545,6 +575,15 @@ function paintFromState() {
       : compass(preset.bearing);
   $("#horizonVal").textContent = `${Math.round(preset.horizon * 100)}%`;
   $("#fieldOfViewVal").textContent = `${Math.round(preset.fieldOfView)}°`;
+
+  select("skyline").value = preset.skyline;
+  input("skylineHeight").value = String(preset.skylineHeight);
+  input("skylineSeed").value = String(preset.skylineSeed);
+  input("skylineLights").value = String(preset.skylineLights);
+
+  $("#skylineHeightVal").textContent = `${preset.skylineHeight.toFixed(1)}°`;
+  $("#skylineSeedVal").textContent = String(preset.skylineSeed);
+  $("#skylineLightsVal").textContent = `${Math.round(preset.skylineLights * 100)}%`;
 
   $("#cloudCoverVal").textContent = `${Math.round(preset.cloudCover * 100)}%`;
   $("#cloudDriftVal").textContent = `${Math.round(preset.cloudDrift)} km/h`;

@@ -269,11 +269,24 @@ skips the pass entirely.
   the change it named as the condition for reconsidering.
 - Cloud settings in the editor, and looks that use them.
 
-### Milestone 4 - the horizon `planned` (M)
+### Milestone 4 - the horizon `in progress` (M)
 
-US-032. A silhouette layer: a bundled library of skylines, mountains and
-treelines, plus the user's own PNG. Cheap to render, and the largest single
-gain in perceived quality per unit of work.
+US-032. A silhouette layer. Cheap to render, and the largest single gain in
+perceived quality per unit of work.
+
+**Built, and not as the scope described.** The library is computed rather than
+bundled - four styles (nothing, mountains, a city, a treeline) with a seed that
+walks through every variation of each, rather than a folder of drawings. The
+reasoning is in `ARCHITECTURE.md`; briefly, a bitmap library would be the only
+painted thing in the product, needs licensing, needs shipping, and needs
+stretching across a span that may be three monitors wide.
+
+The silhouette is lit by the sky above it rather than drawn black, the far
+mountain range takes the colour of the horizon behind it, and a city's windows
+come on through dusk a few at a time.
+
+**Still to do.** The user's own PNG, which is the half of US-032 this does not
+cover and is a genuinely different feature. Looks that use a horizon.
 
 ### Milestone 5 - presets, sharing and polish `planned` (M)
 

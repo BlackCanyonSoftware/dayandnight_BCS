@@ -69,7 +69,11 @@
  * @property {number} cloudCover 0 for a clear sky, 1 for overcast
  * @property {number} cloudDrift the wind, in kilometres an hour
  * @property {number} cloudScale kilometres, the size of the features
- * @property {number} cloudSoftness how sharply a cloud ends how much haze the air holds; 1 is a clear day
+ * @property {number} cloudSoftness how sharply a cloud ends
+ * @property {string} skyline none, mountains, city or trees
+ * @property {number} skylineHeight degrees of elevation
+ * @property {number} skylineSeed which one; any whole number is a new one
+ * @property {number} skylineLights how brightly a city lights up at night how much haze the air holds; 1 is a clear day
  * @property {string} dayTint colour cast in full daylight, as hex
  * @property {string} twilightTint colour cast around the horizon, as hex
  * @property {string} nightTint colour cast at night, as hex

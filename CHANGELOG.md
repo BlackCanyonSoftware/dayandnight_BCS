@@ -29,6 +29,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Settings are kept in the OS app-data folder and written atomically, and can
   be saved out as a file.
 
+- **A horizon.** Mountains, a city or a treeline standing between you and the
+  sky, instead of a clean edge. They are drawn rather than photographed, so
+  there is not a library of six - there is a seed, and every number in it is a
+  different ridgeline. A city's windows come on through dusk a few at a time
+  and some are still on at three in the morning; a far mountain range goes pale
+  and takes the colour of whatever the sky is doing behind it.
 - **Clouds.** Three layers of them, drifting at their own speeds and lit by
   the real sun - so they turn gold from underneath at sunrise, flatten out at
   midday, and go blue-grey as the light leaves. They thin towards the horizon

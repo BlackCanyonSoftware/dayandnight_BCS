@@ -144,6 +144,44 @@ export function defaultPreset() {
      */
     cloudSoftness: 0.22,
 
+    /**
+     * What stands between you and the horizon: nothing, mountains, a city or
+     * a treeline.
+     *
+     * Nothing by default. An open horizon is what the sky model actually
+     * computes, and a silhouette is the one thing in this picture that is
+     * invented rather than derived - so it is offered rather than assumed.
+     * Nothing also skips the pass, which is the same bargain the clouds make.
+     */
+    skyline: "none",
+
+    /**
+     * How tall it stands, in degrees of elevation.
+     *
+     * Eight degrees is about what a range of hills twenty miles off subtends,
+     * and about what a city looks like from across its own river. Much more
+     * than fifteen and it stops being a horizon and starts being a wall.
+     */
+    skylineHeight: 8,
+
+    /**
+     * Which skyline. Any whole number gives a different one.
+     *
+     * The whole argument for computing these rather than shipping drawings:
+     * there is not a library of six, there is a library of all of them, and
+     * this is how you walk through it.
+     */
+    skylineSeed: 1,
+
+    /**
+     * How brightly a city lights up at night.
+     *
+     * Zero leaves it a flat silhouette after dark, which is what a city looks
+     * like in a power cut and nowhere else. It does nothing for the other
+     * styles, because mountains do not have windows.
+     */
+    skylineLights: 1,
+
     // A colour cast keyed to the sun's altitude, in three stops: full day,
     // the hour either side of the horizon, and night. Neutral greys leave the
     // physical sky exactly as it is, which is the default.

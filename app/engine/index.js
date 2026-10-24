@@ -32,6 +32,7 @@ import {
   CLOUD_FRAG,
   COMPOSITE_FRAG,
   FULLSCREEN_VERT,
+  SKYLINE_FRAG,
   SKY_FRAG,
   STAR_FRAG,
   STAR_VERT
@@ -39,12 +40,13 @@ import {
 import { moonBody, sunBody } from "./bodies.js";
 import { buildStarCatalogue, createStarBuffer } from "./stars.js";
 import { LUT_AZIMUTH, LUT_SUN, LUT_VIEW, ambientFor } from "./sky/atmosphere.js";
-import { autoExposure, skyLut, transmittanceFor } from "./sky/lut.js";
+import { autoExposure, sampleSky, skyLut, transmittanceFor } from "./sky/lut.js";
 import { tintFor } from "./sky/grade.js";
 import { defaultPreset, resolveBearing } from "./defaults.js";
 import { frameSignature } from "./signature.js";
 import { verticalDegrees } from "./view.js";
 import { CLOUD_SUNLIGHT, cloudsVisible, driftCells, evolution } from "./sky/clouds.js";
+import { lightsOn, skylineVisible, styleIndex } from "./sky/skyline.js";
 
 /** @typedef {import("./types.js").FrameInfo} FrameInfo */
 /** @typedef {import("./types.js").FrameRequest} FrameRequest */
@@ -169,6 +171,7 @@ export class DayNightEngine {
     this.stars = createProgram(gl, STAR_VERT, STAR_FRAG, "stars");
     this.bodies = createProgram(gl, BODY_VERT, BODY_FRAG, "bodies");
     this.clouds = createProgram(gl, FULLSCREEN_VERT, CLOUD_FRAG, "clouds");
+    this.skyline = createProgram(gl, FULLSCREEN_VERT, SKYLINE_FRAG, "skyline");
     this.composite = createProgram(gl, FULLSCREEN_VERT, COMPOSITE_FRAG, "composite");
     this.emptyVao = gl.createVertexArray();
 
@@ -283,6 +286,7 @@ export class DayNightEngine {
     const stars = this.stars;
     const bodies = this.bodies;
     const clouds = this.clouds;
+    const skyline = this.skyline;
     const composite = this.composite;
     const quad = this.quad;
     const skyTexture = this.skyTexture;
@@ -295,6 +299,7 @@ export class DayNightEngine {
       !stars ||
       !bodies ||
       !clouds ||
+      !skyline ||
       !composite ||
       !quad ||
       !skyTexture ||
@@ -502,7 +507,59 @@ export class DayNightEngine {
       quad.draw();
     }
 
-    /* ------------------------------- 5. expose and tone map the sum, once */
+    /* ------------------------ 5. what stands between you and the horizon */
+
+    // After the clouds, so a building in front of one hides it, and before the
+    // tone map, so the silhouette is exposed with the rest of the frame. A
+    // foreground tone-mapped separately is the one part of a picture that does
+    // not respond to the light, which is what makes a pasted-on foreground
+    // look pasted on.
+    if (skylineVisible(this.preset.skyline, this.preset.skylineHeight)) {
+      skyline.use();
+
+      // ONE, SRC_ALPHA again, and alpha is zero wherever the silhouette is -
+      // so it replaces the sky there rather than adding to it. Outside it the
+      // shader emits black with an alpha of one, which leaves the frame alone.
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.SRC_ALPHA);
+
+      gl.uniform2f(skyline.uniform("uResolution"), width, height);
+      gl.uniform4f(skyline.uniform("uCrop"), crop.x, crop.y, crop.w, crop.h);
+      gl.uniform2f(skyline.uniform("uSpan"), span.w, span.h);
+
+      gl.uniform1f(skyline.uniform("uBearing"), bearing);
+      gl.uniform1f(skyline.uniform("uHorizon"), this.preset.horizon);
+      gl.uniform1f(skyline.uniform("uFieldOfView"), this.preset.fieldOfView);
+      gl.uniform1f(skyline.uniform("uDegreesPerSpanY"), verticalSpread);
+
+      gl.uniform1i(skyline.uniform("uStyle"), styleIndex(this.preset.skyline));
+      gl.uniform1f(skyline.uniform("uHeight"), this.preset.skylineHeight);
+      gl.uniform1f(skyline.uniform("uSeed"), this.preset.skylineSeed);
+      gl.uniform1f(skyline.uniform("uLights"), lightsOn(sun.altitude) * this.preset.skylineLights);
+
+      // The same ambient the clouds are lit by: a silhouette is lit by the
+      // whole sky above it, which is why a ridge against a red sunset is a
+      // deep red-brown rather than a hole in the picture.
+      const skyAmbient = ambientFor(sun.altitude);
+      gl.uniform3f(skyline.uniform("uAmbient"), skyAmbient[0], skyAmbient[1], skyAmbient[2]);
+
+      // What a far range fades towards: the sky just above the horizon, which
+      // is what aerial perspective actually mixes distant things into. Two
+      // samples rather than one, because that sky is warm towards the sun and
+      // cold away from it, and a ridge below a sunset should glow while the
+      // same ridge behind you stays grey.
+      gl.uniform1f(skyline.uniform("uSunAzimuth"), sun.azimuth);
+
+      const toSun = sampleSky(sun.altitude, 1.5, 12);
+      const away = sampleSky(sun.altitude, 1.5, 168);
+      gl.uniform3f(skyline.uniform("uHazeToSun"), toSun[0], toSun[1], toSun[2]);
+      gl.uniform3f(skyline.uniform("uHazeAway"), away[0], away[1], away[2]);
+
+      quad.bind();
+      quad.draw();
+    }
+
+    /* ------------------------------- 6. expose and tone map the sum, once */
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, width, height);
