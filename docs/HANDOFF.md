@@ -6,7 +6,8 @@ session with no memory of this one. Newest session first.
 ## Current state
 
 **Milestones 0, 1 and 2 are done. Milestones 3 and 4 - the clouds and the
-horizon - are built and unmeasured.** The application runs, puts a computed sky on
+horizon - are built and unmeasured, and parts of Milestone 5 are in: share
+codes, and the accessibility audit NFR-6 has always asked for.** The application runs, puts a computed sky on
 the Windows desktop behind the icons on every screen, and the sky is the real
 one: scattering for its colour, Meeus astronomy for the sun and moon, stars
 turning at the sidereal rate, and a grade over the top.
@@ -15,7 +16,7 @@ turning at the sidereal rate, and a grade over the top.
 - **Remote:** `origin` is `github.com/BlackCanyonSoftware/dayandnight_BCS`.
   **Nothing has been pushed.** The owner pushes.
 - **Tier:** MVP
-- **Checks:** lint, format and typecheck clean; **156 unit and 31 browser
+- **Checks:** lint, format and typecheck clean; **164 unit and 36 browser
   tests**. The 12 desktop tests, the installer build and
   `node tools/verify-package.js` all passed on 2026-10-24 and have not been run
   since the clouds and the horizon went in - they open windows, and the owner
@@ -149,6 +150,33 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-10-24 - share codes, and the accessibility audit that found something
+
+- **Share codes** (`173d39c`), US-033. A look as a short string that carries
+  the preset and deliberately nothing else - not the place, not the frame rate.
+  A code that moved somebody's location would be the worst bug this product
+  could have, so the test checks the decoded object's keys as well as its
+  values. Decoded codes go through the settings validator rather than being
+  trusted, because a code arrives from outside.
+- Two bugs in the decoder, both about the prefix: punctuation was stripped
+  after the prefix was looked for, so a code pasted as `"DAN1-abc."` kept its
+  prefix in the body where it is itself valid base64url; and the prefix was
+  assumed rather than tried, when base64url can produce those four letters
+  followed by a dash. Both readings are attempted now.
+- **NFR-6 failed and nothing had checked** (`16e2dc0`). The PRD has named WCAG
+  2.2 AA since the beginning and only the keyboard half had ever been tested.
+  `--ink-faint` measured 3.06:1 where AA asks for 4.5, and that token draws
+  every hint marker, the footer and the product name - about forty pieces of
+  text in each theme. It is 5.06 and 5.05 now, and there is a test, so dimming
+  a token fails the suite rather than the standard.
+- **An hour lost to a test artefact that looked like a serious bug.** The audit
+  first reported the light theme buttons at 1.88:1. They are 5.9. The colour
+  tokens are transitioned when the theme changes and `getComputedStyle` during
+  a transition returns the interpolated value, so the measurement was reading
+  the colour of the theme being left. Disabling transitions before measuring is
+  now part of the test. Worth remembering as a shape: anything measured from
+  computed style needs animation turned off first.
 
 ### 2026-10-24 - clouds and a horizon
 
