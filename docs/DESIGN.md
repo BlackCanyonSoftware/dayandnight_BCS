@@ -73,6 +73,19 @@ kit's palette and Nunito would make every screen match the brand and change
 every screen, so it is the owner's decision rather than something to arrive
 with a logo. It is in the roadmap.
 
+## Contrast
+
+NFR-6 names WCAG 2.2 AA, and until 2026-10-24 only the keyboard half of it had
+ever been checked. The contrast half failed: `--ink-faint` measured 3.06:1
+against the panel, where AA asks for 4.5, and that token draws every hint
+marker, the footer and the product name. It is 5.06:1 in the dark theme and
+5.05:1 in the light now.
+
+Measured, not chosen. The other text tokens came out at ink 13.7 and 15.7, dim
+6.5 and 6.0, accent 9.4 and 4.8 - all passing, which is why only one needed
+moving. A browser test walks every piece of text in both themes and applies the
+AA thresholds, so dimming a token fails the suite rather than the standard.
+
 ## Tokens
 
 All tokens live in `app/tokens.css` and nowhere else. A one-off colour, radius

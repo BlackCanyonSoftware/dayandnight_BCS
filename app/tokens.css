@@ -57,7 +57,14 @@
   --line-soft: #1d2433;
   --ink: #e4e8f2;
   --ink-dim: #97a1b8;
-  --ink-faint: #5f6980;
+  /* The faintest text that is still text. Measured rather than chosen: NFR-6
+     asks for WCAG 2.2 AA, which is 4.5:1 for body text, and this is what the
+     hint markers and the footer are drawn in. It was #5f6980, which measured
+     3.06:1 against the panel - every hint in the application failed, and
+     nothing had ever checked. This is 5.06:1 against the darker of the two
+     panel colours, which leaves room to be read and no room to be dimmed.
+     There is a test; dimming this will fail it. */
+  --ink-faint: #848da1;
   --accent: #ffb257;
   --accent-2: #7c6cff;
   --warn: #ffb454;
@@ -88,7 +95,7 @@
   --line-soft: #e7ebf3;
   --ink: #141821;
   --ink-dim: #525b6d;
-  --ink-faint: #79839a;
+  --ink-faint: #5d6778;
   --accent: #9a5a00;
   --accent-2: #51389e;
   --warn: #8a5200;
@@ -116,7 +123,7 @@
     --line-soft: #e7ebf3;
     --ink: #141821;
     --ink-dim: #525b6d;
-    --ink-faint: #79839a;
+    --ink-faint: #5d6778;
     --accent: #9a5a00;
     --accent-2: #51389e;
     --warn: #8a5200;

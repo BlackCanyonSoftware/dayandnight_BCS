@@ -2031,6 +2031,182 @@ test("the code in the box follows the look on screen", async ({ page }) => {
   await expect(box).not.toHaveValue(before);
 });
 
+/**
+ * Every bit of text in the editor, with the colour it is actually drawn in
+ * and the colour actually behind it.
+ *
+ * The second is the hard half. An element's own background is usually
+ * transparent, so the colour a reader sees comes from an ancestor - and
+ * computing contrast against `rgba(0, 0, 0, 0)` gives a number that is both
+ * flattering and meaningless. This walks up until it finds something opaque.
+ *
+ * @param {import("@playwright/test").Page} page
+ */
+async function textContrasts(page) {
+  return page.evaluate(() => {
+    /** @param {string} css */
+    const parse = (css) => {
+      const match = css.match(/rgba?\(([^)]+)\)/);
+      if (!match) return null;
+      const parts = match[1].split(",").map((n) => parseFloat(n));
+      return { r: parts[0], g: parts[1], b: parts[2], a: parts.length > 3 ? parts[3] : 1 };
+    };
+
+    /** Relative luminance, per WCAG. */
+    const luminance = (c) => {
+      const channel = (v) => {
+        const s = v / 255;
+        return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+      };
+      return 0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b);
+    };
+
+    const ratio = (a, b) => {
+      const la = luminance(a);
+      const lb = luminance(b);
+      return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    };
+
+    /** The first opaque background at or above this element. */
+    const backdrop = (node) => {
+      let at = node;
+      while (at) {
+        const bg = parse(getComputedStyle(at).backgroundColor);
+        if (bg && bg.a > 0.95) return bg;
+        at = at.parentElement;
+      }
+      return { r: 255, g: 255, b: 255, a: 1 };
+    };
+
+    const results = [];
+
+    for (const node of document.querySelectorAll("body *")) {
+      // Only elements with their own visible text, so a container is not
+      // blamed for the text of its children.
+      const own = [...node.childNodes]
+        .filter((n) => n.nodeType === 3)
+        .map((n) => n.textContent.trim())
+        .join("");
+      if (!own) continue;
+
+      const style = getComputedStyle(node);
+      if (style.visibility === "hidden" || style.display === "none") continue;
+      if (parseFloat(style.opacity) < 0.95) continue;
+
+      const rect = node.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) continue;
+
+      const fg = parse(style.color);
+      if (!fg || fg.a < 0.95) continue;
+
+      const size = parseFloat(style.fontSize);
+      const weight = parseInt(style.fontWeight, 10) || 400;
+
+      // WCAG's definition of large text: 18.66px bold, or 24px at any weight.
+      const large = size >= 24 || (size >= 18.66 && weight >= 700);
+
+      results.push({
+        text: own.slice(0, 40),
+        selector: node.id ? `#${node.id}` : `${node.tagName.toLowerCase()}.${node.className}`,
+        size,
+        large,
+        ratio: ratio(fg, backdrop(node))
+      });
+    }
+
+    return results;
+  });
+}
+
+test("every piece of text meets WCAG 2.2 AA in both themes (NFR-6)", async ({ page }) => {
+  // NFR-6 names WCAG 2.2 AA and until now only the keyboard half of it had
+  // ever been checked. AA wants 4.5:1 for body text and 3:1 for large text,
+  // measured against what is actually behind the text rather than against
+  // whatever the element itself declares - which is usually transparent.
+  //
+  // Every panel is opened first, because a collapsed one has no laid-out text
+  // in it and would be audited as though it did not exist.
+  await page.evaluate(() => {
+    for (const section of document.querySelectorAll("details")) section.open = true;
+
+    // Transitions off before anything is measured. The colour tokens are
+    // transitioned when the theme changes, and getComputedStyle during one
+    // returns the interpolated value - so a measurement taken too early reads
+    // the colour of the theme being left rather than the one being entered.
+    // That is not a hypothetical: it reported the light theme buttons at
+    // 1.88:1 when the settled value is 5.9, and it cost an hour to tell a test
+    // artefact from a real failure.
+    const freeze = document.createElement("style");
+    freeze.textContent = "* { transition: none !important; animation: none !important; }";
+    document.head.append(freeze);
+  });
+
+  /** @type {Record<string, {text: string, ratio: number, selector: string}[]>} */
+  const failures = {};
+
+  for (const theme of ["dark", "light"]) {
+    await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
+    await page.waitForTimeout(80);
+
+    const measured = await textContrasts(page);
+    expect(measured.length, `${theme} should have text in it to measure`).toBeGreaterThan(30);
+
+    failures[theme] = measured
+      .filter((item) => item.ratio < (item.large ? 3 : 4.5))
+      .map((item) => ({
+        text: item.text,
+        ratio: Math.round(item.ratio * 100) / 100,
+        selector: item.selector
+      }));
+  }
+
+  const describe = (theme) =>
+    failures[theme].map((f) => `${f.selector} "${f.text}" at ${f.ratio}:1`).join("\n    ");
+
+  expect(failures.dark, `dark theme:\n    ${describe("dark")}`).toEqual([]);
+  expect(failures.light, `light theme:\n    ${describe("light")}`).toEqual([]);
+});
+
+test("focus is visible on everything that takes it (NFR-6)", async ({ page }) => {
+  // "Keyboard operable" is worth nothing if you cannot see where you are.
+  // WCAG 2.2 asks for a visible focus indicator; this checks that focusing an
+  // element changes how it is drawn at all, which is the weakest honest form
+  // of that and still catches a stylesheet that removed the outline.
+  await page.evaluate(() => {
+    for (const section of document.querySelectorAll("details")) section.open = true;
+  });
+
+  const invisible = await page.evaluate(() => {
+    const focusable = document.querySelectorAll(
+      "button, input, select, textarea, summary, [tabindex]:not([tabindex='-1'])"
+    );
+
+    const bad = [];
+
+    for (const node of focusable) {
+      if (node.disabled) continue;
+      const rect = node.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) continue;
+
+      const before = getComputedStyle(node);
+      const was = `${before.outlineWidth} ${before.outlineColor} ${before.boxShadow} ${before.borderColor}`;
+
+      node.focus();
+
+      const after = getComputedStyle(node);
+      const now = `${after.outlineWidth} ${after.outlineColor} ${after.boxShadow} ${after.borderColor}`;
+
+      if (was === now) {
+        bad.push(node.id || `${node.tagName.toLowerCase()}.${node.className}`);
+      }
+    }
+
+    return bad;
+  });
+
+  expect(invisible, `these show nothing when focused: ${invisible.join(", ")}`).toEqual([]);
+});
+
 test("the editor is keyboard operable (NFR-6)", async ({ page }) => {
   // Tab to the first control and check focus is visible rather than lost.
   await page.keyboard.press("Tab");
