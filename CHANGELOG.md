@@ -29,6 +29,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Settings are kept in the OS app-data folder and written atomically, and can
   be saved out as a file.
 
+- **Clouds.** Three layers of them, drifting at their own speeds and lit by
+  the real sun - so they turn gold from underneath at sunrise, flatten out at
+  midday, and go blue-grey as the light leaves. They thin towards the horizon
+  the way real ones do, because they are drawn on planes above you rather than
+  painted on the sky. Off by default: a clear sky is still exactly as cheap as
+  it was.
 - **It remembers that it was on.** Close the settings window, restart the
   computer, and the sky comes back by itself instead of waiting to be switched
   on again. A settings file from before this existed counts as off, so nothing

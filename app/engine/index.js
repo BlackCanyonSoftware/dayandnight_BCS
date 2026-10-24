@@ -29,6 +29,7 @@ import { toJulianDay } from "./astro/julian.js";
 import {
   BODY_FRAG,
   BODY_VERT,
+  CLOUD_FRAG,
   COMPOSITE_FRAG,
   FULLSCREEN_VERT,
   SKY_FRAG,
@@ -37,12 +38,13 @@ import {
 } from "./shaders.js";
 import { moonBody, sunBody } from "./bodies.js";
 import { buildStarCatalogue, createStarBuffer } from "./stars.js";
-import { LUT_AZIMUTH, LUT_SUN, LUT_VIEW } from "./sky/atmosphere.js";
+import { LUT_AZIMUTH, LUT_SUN, LUT_VIEW, ambientFor } from "./sky/atmosphere.js";
 import { autoExposure, skyLut, transmittanceFor } from "./sky/lut.js";
 import { tintFor } from "./sky/grade.js";
 import { defaultPreset, resolveBearing } from "./defaults.js";
 import { frameSignature } from "./signature.js";
 import { verticalDegrees } from "./view.js";
+import { CLOUD_SUNLIGHT, cloudsVisible, driftCells, evolution } from "./sky/clouds.js";
 
 /** @typedef {import("./types.js").FrameInfo} FrameInfo */
 /** @typedef {import("./types.js").FrameRequest} FrameRequest */
@@ -166,6 +168,7 @@ export class DayNightEngine {
     this.sky = createProgram(gl, FULLSCREEN_VERT, SKY_FRAG, "sky");
     this.stars = createProgram(gl, STAR_VERT, STAR_FRAG, "stars");
     this.bodies = createProgram(gl, BODY_VERT, BODY_FRAG, "bodies");
+    this.clouds = createProgram(gl, FULLSCREEN_VERT, CLOUD_FRAG, "clouds");
     this.composite = createProgram(gl, FULLSCREEN_VERT, COMPOSITE_FRAG, "composite");
     this.emptyVao = gl.createVertexArray();
 
@@ -279,6 +282,7 @@ export class DayNightEngine {
     const sky = this.sky;
     const stars = this.stars;
     const bodies = this.bodies;
+    const clouds = this.clouds;
     const composite = this.composite;
     const quad = this.quad;
     const skyTexture = this.skyTexture;
@@ -290,6 +294,7 @@ export class DayNightEngine {
       !sky ||
       !stars ||
       !bodies ||
+      !clouds ||
       !composite ||
       !quad ||
       !skyTexture ||
@@ -434,7 +439,70 @@ export class DayNightEngine {
 
     gl.bindVertexArray(null);
 
-    /* ------------------------------- 4. expose and tone map the sum, once */
+    /* --------------------------------------------- 4. the clouds, over it all */
+
+    // After the stars and the bodies, because a cloud in front of the moon
+    // should hide the moon. Skipped entirely at zero cover, which is what
+    // keeps a clear sky costing exactly what it cost before clouds existed.
+    if (cloudsVisible(this.preset.cloudCover)) {
+      clouds.use();
+
+      // ONE, SRC_ALPHA: source + destination * sourceAlpha. The shader emits
+      // the cloud's light as colour and its transmittance as alpha, which
+      // makes this the compositing equation without a second target or a copy
+      // of the frame. See the note at the end of CLOUD_FRAG.
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.SRC_ALPHA);
+
+      gl.uniform2f(clouds.uniform("uResolution"), width, height);
+      gl.uniform4f(clouds.uniform("uCrop"), crop.x, crop.y, crop.w, crop.h);
+      gl.uniform2f(clouds.uniform("uSpan"), span.w, span.h);
+
+      gl.uniform1f(clouds.uniform("uBearing"), bearing);
+      gl.uniform1f(clouds.uniform("uHorizon"), this.preset.horizon);
+      gl.uniform1f(clouds.uniform("uFieldOfView"), this.preset.fieldOfView);
+      gl.uniform1f(clouds.uniform("uDegreesPerSpanY"), verticalSpread);
+
+      gl.uniform1f(clouds.uniform("uSunAltitude"), sun.altitude);
+      gl.uniform1f(clouds.uniform("uSunAzimuth"), sun.azimuth);
+
+      // The same sunlight the discs are drawn with, so a cloud at dawn is lit
+      // in the colour the dawn actually is - which is where the rim-lighting
+      // US-030 asks for comes from, rather than from a rule about sunrises.
+      const sunlight = transmittanceFor(sun.altitude, this.preset.turbidity);
+      gl.uniform3f(
+        clouds.uniform("uSunColour"),
+        sunlight[0] * CLOUD_SUNLIGHT,
+        sunlight[1] * CLOUD_SUNLIGHT,
+        sunlight[2] * CLOUD_SUNLIGHT
+      );
+
+      // What the sky itself puts on them from every other direction. Without
+      // it the shadowed side of a cloud is black, which no cloud has ever
+      // been.
+      const ambient = ambientFor(sun.altitude);
+      gl.uniform3f(clouds.uniform("uAmbient"), ambient[0], ambient[1], ambient[2]);
+
+      gl.uniform1f(clouds.uniform("uCover"), this.preset.cloudCover);
+      gl.uniform1f(clouds.uniform("uSoftness"), this.preset.cloudSoftness);
+      gl.uniform1f(clouds.uniform("uScale"), this.preset.cloudScale);
+      gl.uniform1f(clouds.uniform("uEvolution"), evolution(t));
+
+      // One drift per layer, which is what makes the parallax: the layers are
+      // at different heights and move at different rates, so they slide past
+      // each other instead of together.
+      gl.uniform3f(
+        clouds.uniform("uDrift"),
+        driftCells(t, this.preset.cloudDrift, 0, this.preset.cloudScale),
+        driftCells(t, this.preset.cloudDrift, 1, this.preset.cloudScale),
+        driftCells(t, this.preset.cloudDrift, 2, this.preset.cloudScale)
+      );
+
+      quad.bind();
+      quad.draw();
+    }
+
+    /* ------------------------------- 5. expose and tone map the sum, once */
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, width, height);

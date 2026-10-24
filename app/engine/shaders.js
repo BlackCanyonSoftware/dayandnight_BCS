@@ -32,6 +32,7 @@ import {
   VIEW_MAX,
   VIEW_MIN
 } from "./sky/atmosphere.js";
+import { LAYERS, PERIOD } from "./sky/clouds.js";
 
 /**
  * Shared GLSL: the table's axes, and the view mapping the sky and the stars
@@ -64,6 +65,15 @@ float encodeElevation(float degrees, float lo, float hi) {
 // Fold an angle into -180..180.
 float wrap180(float degrees) {
   return mod(degrees + 540.0, 360.0) - 180.0;
+}
+
+// Henyey-Greenstein, for the clouds. The sky's own Mie phase is folded into
+// the scattering table and applied there; this is the same function at a
+// different asymmetry, which is why it is written out rather than shared.
+float miePhaseCloud(float cosTheta, float g) {
+  float gg = g * g;
+  float d = 1.0 + gg - 2.0 * g * cosTheta;
+  return (1.0 - gg) / (4.0 * PI * max(d * sqrt(max(d, 1e-4)), 1e-4));
 }
 
 // How many degrees of sky the span covers vertically arrives as the uniform
@@ -509,6 +519,288 @@ void main() {
 `;
 
 /** The composite pass: expose the summed light, tone map once, write sRGB. */
+
+/**
+ * The three layers, written into the shader from `clouds.js` rather than
+ * retyped - the same reason the LUT dimensions are injected above. A fourth
+ * layer would need `uDrift` to stop being a vec3, which is why this asserts
+ * rather than silently dropping one.
+ */
+const LAYER_CALLS = (() => {
+  if (LAYERS.length !== 3) {
+    throw new Error(`the cloud shader carries drift for 3 layers, not ${LAYERS.length}`);
+  }
+  // Every number written with a decimal point. GLSL ES 3.00 does not convert
+  // an int to a float at a call site, so a layer whose scale happens to be a
+  // round 1.0 serialises as "1" and the whole shader fails to compile with
+  // "no matching overloaded function" - which names the function rather than
+  // the argument, and so points at the wrong thing entirely.
+  const float = (/** @type {number} */ value) =>
+    Number.isInteger(value) ? `${value}.0` : String(value);
+
+  return LAYERS.map(
+    (layer, i) =>
+      `depth += layerDepth(dir, ${float(layer.height)}, ${float(layer.scale)}, ` +
+      `uDrift[${i}], ${float(layer.weight)});`
+  ).join("\n  ");
+})();
+
+/**
+ * The clouds: a plane of domain-warped noise, lit by the real sun.
+ *
+ * Drawn over the accumulated radiance rather than added to it, because a cloud
+ * is the one thing in this scene that takes light away as well as giving it.
+ * It runs after the stars and the bodies for the same reason: a cloud in front
+ * of the moon should hide the moon, and one in front of the sun should both
+ * hide it and light up.
+ *
+ * **The geometry is the half that matters.** Sampling noise by azimuth and
+ * elevation is the obvious thing and it looks wrong immediately: the features
+ * stay the same size all the way up, so the sky reads as a wall with a texture
+ * on it. Clouds sit on a plane at a height, so the view ray is intersected
+ * with that plane and the noise is sampled where it lands. Everything else
+ * follows - features shrink and crowd towards the horizon, the layers slide
+ * past each other at rates their heights decide, and a low sheet reaches the
+ * horizon sooner than a high one. That is the parallax US-030 asks for, and it
+ * is one divide.
+ *
+ * Near the horizon the ray turns parallel to the plane and the intersection
+ * runs away to infinity, so the sample fades out over the last stretch. Real
+ * cloudscapes do the same thing for the same reason - the far ones merge into
+ * haze - so the limit of the model and the look of the sky agree for once.
+ */
+export const CLOUD_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+
+${VIEW}
+
+uniform vec2 uResolution;
+uniform vec4 uCrop;
+uniform vec2 uSpan;
+
+uniform float uBearing;
+uniform float uHorizon;
+uniform float uFieldOfView;
+uniform float uDegreesPerSpanY;
+
+uniform float uSunAltitude;
+uniform float uSunAzimuth;
+uniform vec3 uSunColour;
+uniform vec3 uAmbient;
+
+uniform float uCover;
+uniform float uSoftness;
+uniform vec3 uDrift;
+uniform float uEvolution;
+uniform float uScale;
+
+out vec4 outColour;
+
+// A hash with no trigonometry in it. sin-based hashes band visibly on some
+// drivers at the precision this needs, and the banding looks exactly like a
+// cloud edge - the worst artefact available here.
+vec3 hash33(vec3 p) {
+  p = fract(p * vec3(0.1031, 0.1030, 0.0973));
+  p += dot(p, p.yxz + 33.33);
+  return fract((p.xxy + p.yxx) * p.zyx);
+}
+
+// Value noise on a lattice, smoothed with the quintic so the second
+// derivative is continuous. The cubic leaves creases that read as faint
+// straight lines across a cloud, which is the artefact that gives a procedural
+// sky away second-fastest.
+//
+// **Periodic, which is not decoration.** The lattice index is wrapped to
+// the period before it is hashed, so the field repeats exactly. That is what
+// lets the drift be wrapped on the CPU without the sky jumping: a single
+// precision uniform cannot hold an offset that grows from the Unix epoch, and
+// the alternative to a seamless wrap is a visible discontinuity every few
+// days.
+float noise3(vec3 p, float period) {
+  vec3 i = floor(p);
+  vec3 f = p - i;
+  vec3 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+
+  // Both corners wrapped, so a cell straddling the seam reads the same two
+  // hashes from either side of it.
+  vec3 lo = mod(i, period);
+  vec3 hi = mod(i + 1.0, period);
+
+  float n000 = hash33(vec3(lo.x, lo.y, lo.z)).x;
+  float n100 = hash33(vec3(hi.x, lo.y, lo.z)).x;
+  float n010 = hash33(vec3(lo.x, hi.y, lo.z)).x;
+  float n110 = hash33(vec3(hi.x, hi.y, lo.z)).x;
+  float n001 = hash33(vec3(lo.x, lo.y, hi.z)).x;
+  float n101 = hash33(vec3(hi.x, lo.y, hi.z)).x;
+  float n011 = hash33(vec3(lo.x, hi.y, hi.z)).x;
+  float n111 = hash33(vec3(hi.x, hi.y, hi.z)).x;
+
+  return mix(
+    mix(mix(n000, n100, u.x), mix(n010, n110, u.x), u.y),
+    mix(mix(n001, n101, u.x), mix(n011, n111, u.x), u.y),
+    u.z
+  );
+}
+
+// Lacunarity of exactly two, and whole-number offsets, so that every octave
+// shares the field's period. A lacunarity of 2.02 hides the octave alignment
+// slightly better and destroys the periodicity completely, which is a bad
+// trade: the alignment is invisible behind the domain warp, and the
+// periodicity is what keeps the sky from jumping.
+float fbm(vec3 p, int octaves) {
+  float sum = 0.0;
+  float amplitude = 0.5;
+  float total = 0.0;
+  float period = ${PERIOD}.0;
+
+  for (int i = 0; i < 6; i++) {
+    if (i >= octaves) break;
+    sum += amplitude * noise3(p, period);
+    total += amplitude;
+
+    // The offset is integral, so wrapping stays consistent; it exists only to
+    // stop the octaves sharing their lattice corners.
+    p = p * 2.0 + vec3(17.0, 9.0, 23.0);
+    period *= 2.0;
+    amplitude *= 0.5;
+  }
+
+  return sum / max(total, 1e-5);
+}
+
+// The warp is what turns fBm from a grey crust into something with billows in
+// it. Two octaves is enough; a third costs four more noise evaluations for a
+// difference nobody sees at this scale.
+float cloudDensity(vec3 p) {
+  // Whole-number offsets again: a fractional one shifts the lattice relative
+  // to the period and reintroduces the seam the wrapping exists to remove.
+  vec3 warp = vec3(
+    fbm(p, 2),
+    fbm(p + vec3(37.0, 11.0, 19.0), 2),
+    fbm(p + vec3(73.0, 29.0, 53.0), 2)
+  );
+
+  // The warp displacement is what turns fBm from a grey crust into something
+  // with billows in it. It is not periodic itself - it is a small local
+  // displacement of a periodic field, which stays periodic.
+  return fbm(p + 1.9 * (warp - 0.5), 4);
+}
+
+// One layer's optical depth along the view ray. Zero where the ray never
+// reaches the plane, which is everything at and below the horizon: clouds are
+// above you, and drawing them below it would put them in the ground.
+float layerDepth(vec3 dir, float height, float scale, float drift, float weight) {
+  if (dir.y < 0.02) return 0.0;
+
+  float distance = height / dir.y;
+
+  // Where the ray meets the plane, in kilometres, so the noise scale is a
+  // number a person can reason about.
+  vec2 at = dir.xz * (distance / 1000.0);
+
+  // Divided into lattice cells FIRST, then offset. The drift arrives already
+  // counted in cells, because that is the only place the wrap can be exactly
+  // one period - see driftCells() for what happens when it is not.
+  float cellKm = max(scale * uScale, 0.05);
+  vec3 p = vec3(at.x / cellKm + drift, uEvolution, at.y / cellKm);
+  float density = cloudDensity(p);
+
+  // Coverage as a threshold, not a multiply. Multiplying fades the whole field
+  // towards transparent and gives a permanent overcast haze; thresholding
+  // dissolves it into separate clouds with sky between them, which is what
+  // less cloud actually looks like.
+  //
+  // The range is set against the distribution this fBm actually has, which is
+  // centred near 0.5 and rarely leaves 0.2 to 0.8 - four octaves of value
+  // noise, normalised, so the tails are thin. Three layers then stack on top
+  // of one another, which compresses it further.
+  //
+  // Measured, with the first mapping of 0.85 down to 0.15: a cover setting of
+  // 0.3 gave 13 per cent of the sky, 0.4 gave 39, 0.5 gave 74 and 0.6 gave 96.
+  // Everything happened between a third and two thirds of the slider and the
+  // rest of it did nothing. Inverting that measurement gives the range below,
+  // which runs about linearly: 0.3 of the setting is a bit under a third of
+  // the sky, and 0.7 is a bit over two thirds.
+  float edge = mix(0.70, 0.40, uCover);
+  density = smoothstep(edge, edge + uSoftness, density);
+
+  // The far fade, where the plane is edge-on and the sample stops meaning
+  // anything - and where a real cloudscape turns into a band of haze.
+  float far = 1.0 - smoothstep(35.0, 70.0, distance / 1000.0);
+
+  return density * weight * far;
+}
+
+void main() {
+  vec2 inWindow = gl_FragCoord.xy / uResolution;
+  vec2 inSpan = (uCrop.xy + vec2(inWindow.x, 1.0 - inWindow.y) * uCrop.zw) / uSpan;
+
+  float azimuth = uBearing + (inSpan.x - 0.5) * uFieldOfView;
+  float elevation = (uHorizon - inSpan.y) * uDegreesPerSpanY;
+
+  // The view direction, y up, azimuth measured from north and going clockwise.
+  float ce = cos(elevation * RADIANS);
+  vec3 dir = vec3(
+    ce * sin(azimuth * RADIANS),
+    sin(elevation * RADIANS),
+    ce * cos(azimuth * RADIANS)
+  );
+
+  float depth = 0.0;
+  ${LAYER_CALLS}
+
+  // Nothing here. Alpha of one leaves what is already in the target exactly
+  // as it was - see the blend note at the bottom.
+  if (depth <= 0.0) {
+    outColour = vec4(0.0, 0.0, 0.0, 1.0);
+    return;
+  }
+
+  // How much of the sky behind still gets through.
+  float transmittance = exp(-depth * 3.2);
+
+  float sce = cos(uSunAltitude * RADIANS);
+  vec3 toSun = vec3(
+    sce * sin(uSunAzimuth * RADIANS),
+    sin(uSunAltitude * RADIANS),
+    sce * cos(uSunAzimuth * RADIANS)
+  );
+  float cosTheta = dot(dir, toSun);
+
+  // Strong forward scattering, which is why a cloud in front of the sun has a
+  // bright edge and the same cloud with the sun behind you is flat and white.
+  // Rim-lighting at sunrise falls out of this: uSunColour is already reddened
+  // by the long path through the atmosphere, so a cloud lit edge-on at dawn is
+  // lit in the colour the dawn actually is.
+  float forward = miePhaseCloud(cosTheta, 0.72);
+
+  // Deeper parts are darker, because less of the sun reaches them. One
+  // exponential rather than a second march: the difference is invisible
+  // against a sky and the march would roughly triple the pass.
+  float lit = exp(-depth * 1.1);
+
+  vec3 sunlit = uSunColour * (forward + 0.22) * lit;
+  vec3 ambient = uAmbient * (0.55 + 0.45 * lit);
+  vec3 cloud = sunlit + ambient;
+
+  // Written as a blend rather than by reading the target back.
+  //
+  // A pass cannot sample the texture it is drawing into, so the obvious
+  // version of this - read the sky, mix, write - needs a second full-size
+  // float target and a copy of the whole frame. It does not need either.
+  // glBlendFunc(ONE, SRC_ALPHA) computes
+  //
+  //     result = source + destination * sourceAlpha
+  //
+  // so emitting the cloud's own light as the colour and its transmittance as
+  // the alpha gives exactly sky * T + cloud * (1 - T), which is the
+  // compositing equation this pass wanted in the first place. No second
+  // target, no copy, and the sum stays in linear light where invariant 4
+  // requires it.
+  outColour = vec4(cloud * (1.0 - transmittance), transmittance);
+}
+`;
+
 export const COMPOSITE_FRAG = /* glsl */ `#version 300 es
 precision highp float;
 ${OUTPUT}

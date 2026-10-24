@@ -239,13 +239,35 @@ paperwork.
 
 ## Later
 
-### Milestone 3 - clouds `planned` (L)
+### Milestone 3 - clouds `in progress` (L)
 
-US-030. Domain-warped fBm in two or three parallax layers, shaded by the real
-sun direction so they rim-light at sunrise and flatten at midday. This is the
-layer that makes the scene feel alive rather than merely correct, and it is the
-first thing that will argue with the performance budget - so it arrives after
-the budget has been measured twice.
+US-030. Domain-warped fBm in three parallax layers, shaded by the real sun
+direction so they rim-light at sunrise and flatten at midday. This is the layer
+that makes the scene feel alive rather than merely correct, and it is the first
+thing that argues with the performance budget - so it arrives after the budget
+has been measured twice.
+
+**Built.** Three layers on horizontal planes at 7000, 2600 and 1200 metres,
+sampled where the view ray meets each; lit by the sun's own transmittance, so
+the rim-lighting is the real dawn colour rather than a rule about dawns;
+composited by blending rather than through a second render target. Coverage,
+wind, feature size and edge softness are preset settings, and zero coverage
+skips the pass entirely.
+
+**Still to do.**
+
+- **Measure it.** The redraw rate is four a second by construction against one
+  every sixteen seconds for a clear sky, which should be about 0.4 % of a core
+  against a budget of 2 - but that is arithmetic, not a measurement, and
+  `tools/measure-cost.js` has never been run with clouds on.
+- **The GPU, which has never been measured at all.** This pass is far heavier
+  per pixel than anything before it: a few hundred hashes a pixel against a
+  table lookup and two phase functions. NFR-1 budgets 4 % of the GPU and the
+  project has no way to check it.
+- **ADR 0007 reopens on the answer.** It dropped occlusion detection on the
+  grounds that the drawing component was below measurement; clouds are exactly
+  the change it named as the condition for reconsidering.
+- Cloud settings in the editor, and looks that use them.
 
 ### Milestone 4 - the horizon `planned` (M)
 

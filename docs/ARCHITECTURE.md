@@ -445,6 +445,84 @@ where a test can, in the suite.
 7. **Pausing is tearing down the loop**, not skipping work inside it.
 8. **`desktop/host-win32.js` is the only module that calls Win32.**
 
+## Clouds
+
+The first thing in this product that moves, which makes it the first thing that
+argues with the way the product is cheap.
+
+**The geometry.** Sampling noise by azimuth and elevation is the obvious
+approach and looks wrong at once: the features stay the same size all the way
+up, so the sky reads as a wall with a texture on it. Instead each layer is a
+horizontal plane at a height, the view ray is intersected with it, and the
+noise is sampled where it lands. Features then shrink and crowd towards the
+horizon, and three layers at different heights slide past each other at rates
+their heights decide - which is the parallax US-030 asks for, out of one
+divide. Near the horizon the ray turns parallel to the plane and the
+intersection runs away, so the sample fades out over the last stretch; real
+cloudscapes merge into haze there for the same reason.
+
+**The lighting is not a rule about sunrises.** The clouds are lit by the sun's
+own transmittance - the same value the sun and moon discs are drawn with -
+which is already reddened by the long path through the atmosphere at a low sun.
+A cloud lit edge-on at dawn therefore comes out the colour dawn is, with no
+special case anywhere. Forward scattering through a Henyey-Greenstein phase
+term gives the bright edge towards the sun; a single exponential stands in for
+self-shadowing, because a second ray march would roughly triple the pass for a
+difference invisible against a sky.
+
+**Compositing without a second target.** A pass cannot sample the texture it
+draws into, so the obvious version - read the sky, mix, write - needs another
+full-size float target and a copy of the frame. `glBlendFunc(ONE, SRC_ALPHA)`
+computes `source + destination * sourceAlpha`, so emitting the cloud's own
+light as colour and its transmittance as alpha _is_ the compositing equation.
+The clouds draw after the stars and the bodies, so a cloud in front of the moon
+hides the moon.
+
+### What clouds cost, and why they are still cheap
+
+Everything until now has been nearly still, which is what lets the host skip
+identical frames and is the whole reason a clear sky costs 0.15 % of a core
+rather than 1.97 %. A layer that is never twice the same would have ended that.
+
+It does not, because the field only translates and evolves. So "would this
+frame differ from the last" is two scalars rather than a noise field, and the
+frame signature answers it without evaluating an octave. The quantum is one
+pixel of the fastest layer, which makes the redraw rate a stated number rather
+than an emergent one: at the default wind, about **four redraws a second**
+against one every sixteen seconds for a clear sky, and against the twenty a
+second it would have cost to animate honestly.
+
+At the measured 0.09 % of a core per frame per second that is roughly 0.4 %,
+against a budget of 2. **Not yet measured end to end** - and the GPU side,
+which this pass loads far more heavily than anything before it, has never been
+measured at all.
+
+`cloudCover` of zero skips the pass entirely, so a clear sky costs exactly what
+it cost before clouds existed. A browser test checks that at the pixel level
+rather than as an intention.
+
+### Two bugs worth keeping
+
+Both produced a picture, which is what made them worth recording.
+
+**Precision.** The drift was first allowed to grow without limit from the Unix
+epoch, on the reasoning that a number increasing slowly takes millennia to lose
+precision. True in double precision, and irrelevant: the value reaches the
+shader through a `float` uniform, where the epoch's magnitude resolves in steps
+of four against a lattice measured in units of one. The sky came out visibly
+tiled. The drift is now wrapped, and the noise is built to be periodic - exact
+lacunarity of two, whole-number octave offsets, lattice index taken modulo a
+period that doubles per octave - so the wrap is seamless rather than a jolt
+every few days.
+
+**Units.** The wrap was then applied in kilometres, while the shader divides
+the sampled position by the layer's scale _and_ the preset's `cloudScale`. A
+wrap at `PERIOD * scale` kilometres arrives at the noise as `PERIOD /
+cloudScale` cells - 160 against a period of 256 - so the field wrapped a third
+of the way through itself. Measured at the time: one step of 8.2 levels where
+its neighbours moved 0.45. The conversion now happens before the wrap, so the
+shader is handed an offset already counted in lattice cells.
+
 ## Performance
 
 The budget is NFR-1 in the PRD. Where it is spent, by design:

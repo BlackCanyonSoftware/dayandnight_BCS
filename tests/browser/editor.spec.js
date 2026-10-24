@@ -926,6 +926,359 @@ test("the sun is drawn where it is, and sets behind the horizon", async ({ page 
   expect(result.down.altitude).toBeLessThan(-10);
 });
 
+test("clouds appear, cover the sky, and cost nothing when switched off (US-030)", async ({
+  page
+}) => {
+  const findings = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset } = await import("/engine/index.js");
+
+    const width = 320;
+    const height = 180;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+
+    const place = { lat: 39.74, lon: -104.99 };
+    const t = Date.UTC(2026, 5, 21, 20, 0);
+
+    const render = (cover, when = t) => {
+      engine.setPreset({ ...defaultPreset(), cloudCover: cover });
+      engine.render({
+        t: when,
+        place,
+        crop: { x: 0, y: 0, w: width, h: height },
+        span: { w: width, h: height },
+        pixelRatio: 1
+      });
+
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      return pixels;
+    };
+
+    // Only the sky, above the horizon. readPixels is bottom-up, so the upper
+    // part of the picture is the later part of the buffer; the ground is the
+    // bottom 18 per cent and has no clouds in it by construction.
+    const skyStats = (pixels) => {
+      let total = 0;
+      let samples = 0;
+      const values = [];
+
+      for (let y = Math.floor(height * 0.25); y < height; y += 1) {
+        for (let x = 0; x < width; x += 2) {
+          const i = (y * width + x) * 4;
+          const v = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+          total += v;
+          values.push(v);
+          samples += 1;
+        }
+      }
+
+      const mean = total / samples;
+      let variance = 0;
+      for (const v of values) variance += (v - mean) * (v - mean);
+      return { mean, spread: Math.sqrt(variance / samples) };
+    };
+
+    // Several instants, because one is a lottery: the field is noise, and
+    // whether a particular patch of it happens to be busy or calm in a single
+    // frame says nothing about clouds in general. The first version of this
+    // test compared one instant and started failing the moment the sampling
+    // changed underneath it.
+    const instants = [0, 37, 91, 160].map((minutes) => t + minutes * 60_000);
+
+    let difference = 0;
+    let cloudyMean = 0;
+    let clearMean = 0;
+    let cloudySpread = 0;
+    let clearSpread = 0;
+
+    for (const when of instants) {
+      const a = render(0, when);
+      const b = render(0.6, when);
+
+      let total = 0;
+      for (let i = 0; i < a.length; i += 4) total += Math.abs(a[i] - b[i]);
+      difference += total / (a.length / 4);
+
+      const clearStats = skyStats(a);
+      const cloudyStats = skyStats(b);
+      clearMean += clearStats.mean;
+      cloudyMean += cloudyStats.mean;
+      clearSpread += clearStats.spread;
+      cloudySpread += cloudyStats.spread;
+    }
+
+    const over = instants.length;
+    // The byte-identical check below needs a clear frame to compare against.
+    const clear = render(0);
+
+    // Below the threshold in cloudsVisible(), so the pass is skipped.
+    const almostClear = render(0.0005);
+
+    let identical = true;
+    for (let i = 0; i < clear.length; i += 1) {
+      if (clear[i] !== almostClear[i]) {
+        identical = false;
+        break;
+      }
+    }
+
+    return {
+      difference: difference / over,
+      clearMean: clearMean / over,
+      cloudyMean: cloudyMean / over,
+      clearSpread: clearSpread / over,
+      cloudySpread: cloudySpread / over,
+      skipIsExact: identical
+    };
+  });
+
+  // They change the picture, substantially and at every instant sampled. This
+  // is the robust form of the claim: the spread of a clear sky is not small -
+  // it has the sun and a horizon gradient in it - so "cloudy varies more" is a
+  // weaker statement than it sounds, while "the picture is different" is not.
+  expect(
+    findings.difference,
+    `clouds changed the picture by only ${findings.difference.toFixed(1)} levels on average`
+  ).toBeGreaterThan(8);
+
+  // A cloudy sky is still busier than a clear one, which is the shape of the
+  // difference rather than only its size.
+  expect(findings.cloudySpread).toBeGreaterThan(findings.clearSpread);
+
+  // And they are bright: clouds are lit, not grey holes in the sky.
+  expect(findings.cloudyMean).toBeGreaterThan(findings.clearMean);
+
+  // The claim that clouds cost nothing when switched off, at the pixel level
+  // rather than as an intention. Below the visibility threshold the whole pass
+  // is skipped, so the frame has to be exactly what it was before clouds
+  // existed - not nearly.
+  expect(
+    findings.skipIsExact,
+    "a sky below the cloud threshold must be byte-identical to a clear one"
+  ).toBe(true);
+});
+
+test("clouds are lit from the side the sun is on (US-030)", async ({ page }) => {
+  // The rim-lighting the story asks for, as a measurement. Nothing in the
+  // shader knows about sunrises: the clouds are lit by the sun's own
+  // transmittance, which is already reddened by the long path through the
+  // atmosphere at a low sun, so a cloud lit at dawn comes out the colour dawn
+  // is. What can be checked is the geometry - that the lit side is the side
+  // the sun is actually on.
+  const findings = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset, sunPosition, resolveBearing } =
+      await import("/engine/index.js");
+
+    const width = 360;
+    const height = 140;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+
+    const preset = { ...defaultPreset(), cloudCover: 0.65 };
+    engine.setPreset(preset);
+
+    const place = { lat: 39.74, lon: -104.99 };
+
+    // Morning, with the sun well to one side of the frame.
+    const t = Date.UTC(2026, 5, 21, 13, 30);
+    const sun = sunPosition(t, place);
+    const bearing = resolveBearing(preset, place);
+
+    engine.render({
+      t,
+      place,
+      crop: { x: 0, y: 0, w: width, h: height },
+      span: { w: width, h: height },
+      pixelRatio: 1
+    });
+
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+    // Where the sun is across the frame, as a fraction.
+    const offset = ((sun.azimuth - bearing + 540) % 360) - 180;
+    const sunFraction = 0.5 + offset / preset.fieldOfView;
+
+    // Mean brightness of the left third and the right third of the sky.
+    const band = (from, to) => {
+      let total = 0;
+      let samples = 0;
+      for (let y = Math.floor(height * 0.3); y < height; y += 1) {
+        for (let x = Math.floor(width * from); x < Math.floor(width * to); x += 1) {
+          const i = (y * width + x) * 4;
+          total += pixels[i] + pixels[i + 1] + pixels[i + 2];
+          samples += 1;
+        }
+      }
+      return total / (samples * 3);
+    };
+
+    return {
+      sunFraction,
+      sunAltitude: sun.altitude,
+      left: band(0, 0.28),
+      right: band(0.72, 1)
+    };
+  });
+
+  // The test is only meaningful if the sun is off to one side and up.
+  expect(findings.sunAltitude).toBeGreaterThan(5);
+  expect(
+    Math.abs(findings.sunFraction - 0.5),
+    "the sun should be well off centre for this to say anything"
+  ).toBeGreaterThan(0.15);
+
+  const sunSide = findings.sunFraction < 0.5 ? findings.left : findings.right;
+  const awaySide = findings.sunFraction < 0.5 ? findings.right : findings.left;
+
+  expect(
+    sunSide,
+    `the side the sun is on (${findings.sunFraction.toFixed(2)} across) should be brighter: ` +
+      `${sunSide.toFixed(1)} against ${awaySide.toFixed(1)}`
+  ).toBeGreaterThan(awaySide);
+});
+
+test("clouds drift, and the picture does not jump when the field wraps (US-030)", async ({
+  page
+}) => {
+  // Two claims at once, because they are the same claim. The drift is wrapped
+  // to keep a single-precision uniform honest, and that is only acceptable
+  // because the noise is periodic - so what is checked is that the picture
+  // changes steadily across the exact instant the fastest layer wraps.
+  //
+  // The first version of this test swept a fast wind through a wrap and
+  // passed with the periodicity deliberately removed. At four hundred
+  // kilometres an hour consecutive frames are already uncorrelated, so a
+  // discontinuity cannot stand out against them: the comparison was "very
+  // different" against "very different". It has to be a slow wind sampled
+  // tightly around the wrap, where neighbouring frames are nearly identical
+  // and a jump has nowhere to hide.
+  test.slow();
+
+  const findings = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset, sunPosition } = await import("/engine/index.js");
+    const { LAYERS, PERIOD, driftCells } = await import("/engine/sky/clouds.js");
+
+    const width = 220;
+    const height = 120;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+
+    const wind = 12;
+    const scale = defaultPreset().cloudScale;
+    engine.setPreset({ ...defaultPreset(), cloudCover: 0.6, cloudDrift: wind });
+
+    const place = { lat: 39.74, lon: -104.99 };
+
+    // The fastest layer wraps whenever the distance it has travelled crosses a
+    // multiple of its period, which happens every `interval` milliseconds.
+    // A period is PERIOD *cells*, and a cell is scale * cloudScale kilometres
+    // across. Computing this in kilometres alone is the exact slip that made
+    // the sky jump in the first place, so the test states it the same way the
+    // module does.
+    const fastest = LAYERS[2];
+    const cellKm = fastest.scale * scale;
+    const interval = ((PERIOD * cellKm) / (wind * fastest.drift)) * 3_600_000;
+
+    // Find a wrap that happens in daylight: at night the picture barely
+    // changes at all and the ratio this test depends on becomes meaningless.
+    let wrapAt = 0;
+    for (let k = 1; k < 4000; k += 1) {
+      const candidate = k * interval;
+      if (sunPosition(candidate, place).altitude > 25) {
+        wrapAt = candidate;
+        break;
+      }
+    }
+    if (wrapAt === 0) return { found: false };
+
+    const frame = (t) => {
+      engine.render({
+        t,
+        place,
+        crop: { x: 0, y: 0, w: width, h: height },
+        span: { w: width, h: height },
+        pixelRatio: 1
+      });
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      return pixels;
+    };
+
+    // One second a step, which at this wind moves the field a few pixels -
+    // enough that neighbouring frames differ, little enough that a wrap would
+    // tower over them.
+    const step = 1000;
+    const steps = 24;
+
+    let previous = null;
+    let worstJump = 0;
+    let totalChange = 0;
+    let frames = 0;
+    let crossed = false;
+    let lastDrift = null;
+
+    for (let i = -steps / 2; i <= steps / 2; i += 1) {
+      const t = wrapAt + i * step;
+      const pixels = frame(t);
+
+      const drift = driftCells(t, wind, 2, scale);
+      if (lastDrift !== null && drift < lastDrift) crossed = true;
+      lastDrift = drift;
+
+      if (previous) {
+        let difference = 0;
+        for (let q = 0; q < pixels.length; q += 4) {
+          difference += Math.abs(pixels[q] - previous[q]);
+        }
+        difference /= pixels.length / 4;
+
+        worstJump = Math.max(worstJump, difference);
+        totalChange += difference;
+        frames += 1;
+      }
+
+      previous = pixels;
+    }
+
+    return {
+      found: true,
+      crossed,
+      worstJump,
+      meanChange: totalChange / frames,
+      sunAltitude: sunPosition(wrapAt, place).altitude
+    };
+  });
+
+  expect(findings.found, "no daylight wrap was found to test").toBe(true);
+  expect(findings.crossed, "the sweep should have crossed a wrap").toBe(true);
+  expect(findings.sunAltitude).toBeGreaterThan(25);
+
+  // It moves at all.
+  expect(findings.meanChange, "the clouds should be drifting between frames").toBeGreaterThan(0.05);
+
+  // And never lurches. A field that is not periodic jumps by a whole period at
+  // the wrap, which against neighbours a second apart is enormous.
+  expect(
+    findings.worstJump,
+    `one step changed by ${findings.worstJump.toFixed(2)} against a mean of ` +
+      `${findings.meanChange.toFixed(2)} - that is a jump, so the field is not periodic`
+  ).toBeLessThan(findings.meanChange * 4);
+});
+
 test("the grade changes the picture, and a neutral one does not", async ({ page }) => {
   // The grade sits on top of a sky that is already physically correct, so the
   // property worth protecting is that it can be absent: a default preset has

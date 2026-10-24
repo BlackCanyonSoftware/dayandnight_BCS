@@ -101,6 +101,49 @@ export function defaultPreset() {
     // grade because that is where a user looks for it.
     turbidity: 1,
 
+    /**
+     * How much of the sky has cloud in it, from nothing to overcast.
+     *
+     * Zero by default, and that is a performance decision as much as a taste
+     * one. The cloud pass is skipped entirely at zero, so a sky without them
+     * costs exactly what it cost before they existed - which is the difference
+     * between a feature somebody can decline and a tax everybody pays. It is
+     * also the first thing in this product that moves, and moving is what
+     * stops frames being skipped.
+     */
+    cloudCover: 0,
+
+    /**
+     * The wind, in kilometres an hour.
+     *
+     * Kilometres rather than degrees, because the clouds are sampled where the
+     * view ray meets a plane and so move with the wind across that plane. The
+     * layers multiply it: the lowest moves at 1.9 times this and the highest
+     * at 0.55, which is what makes them slide past each other.
+     *
+     * Twelve is a light breeze, and a cloud feature then takes about five
+     * minutes to pass a point - which is what a real one does. It is also
+     * what sets the redraw rate: see the note in `sky/clouds.js`.
+     */
+    cloudDrift: 12,
+
+    /**
+     * The size of the features, in kilometres on the sampling plane.
+     *
+     * Larger is fewer, bigger clouds. Below about half a kilometre the field
+     * turns to grain, because the pixels run out before the octaves do.
+     */
+    cloudScale: 1.6,
+
+    /**
+     * How sharply a cloud ends.
+     *
+     * Small is cumulus with a hard edge; large is stratus that fades into the
+     * sky. It is the width of the threshold the density is cut at, so it also
+     * decides how much of the field survives the cut at a given cover.
+     */
+    cloudSoftness: 0.22,
+
     // A colour cast keyed to the sun's altitude, in three stops: full day,
     // the hour either side of the horizon, and night. Neutral greys leave the
     // physical sky exactly as it is, which is the default.

@@ -65,7 +65,11 @@
  * @property {number} airglow the night sky's own faint radiance
  * @property {number} glare how much the sun and moon flare
  * @property {number} bodyScale how much larger than life the discs are drawn
- * @property {number} turbidity how much haze the air holds; 1 is a clear day
+ * @property {number} turbidity
+ * @property {number} cloudCover 0 for a clear sky, 1 for overcast
+ * @property {number} cloudDrift the wind, in kilometres an hour
+ * @property {number} cloudScale kilometres, the size of the features
+ * @property {number} cloudSoftness how sharply a cloud ends how much haze the air holds; 1 is a clear day
  * @property {string} dayTint colour cast in full daylight, as hex
  * @property {string} twilightTint colour cast around the horizon, as hex
  * @property {string} nightTint colour cast at night, as hex

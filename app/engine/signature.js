@@ -32,6 +32,7 @@
  */
 
 import { verticalDegrees } from "./view.js";
+import { cloudSteps, cloudsVisible, kmPerPixel } from "./sky/clouds.js";
 
 import { sunPosition } from "./astro/solar.js";
 import { resolveBearing } from "./defaults.js";
@@ -58,6 +59,31 @@ const PROBES = [
   [0.98, 0.78],
   [0.5, 0.95]
 ];
+
+/**
+ * The clouds' contribution, or nothing at all when there are none.
+ *
+ * Returning an empty list at zero cover matters as much as the quantisation
+ * does: a clear sky then signs exactly as it did before clouds existed, so it
+ * redraws exactly as rarely, and somebody who does not want clouds pays
+ * nothing for their existence - not even the redraws.
+ *
+ * @param {Preset} preset
+ * @param {number} t
+ * @param {{ w: number, h: number }} span
+ * @returns {number[]}
+ */
+function cloudParts(preset, t, span) {
+  if (!cloudsVisible(preset.cloudCover)) return [];
+
+  return [
+    ...cloudSteps(t, preset.cloudDrift, kmPerPixel(preset.fieldOfView, span.w)),
+    // The shape settings, which change every cloud without moving any of them.
+    Math.round(preset.cloudCover * 1000),
+    Math.round(preset.cloudScale * 1000),
+    Math.round(preset.cloudSoftness * 1000)
+  ];
+}
 
 /**
  * A value that changes exactly when the rendered frame would.
@@ -126,6 +152,19 @@ export function frameSignature(preset, request, bufferWidth, bufferHeight) {
     Math.round(preset.turbidity * 1000),
     Math.round(preset.saturation * 1000),
     Math.round(preset.contrast * 1000),
+    // The clouds, which are the only thing in this scene that moves on its own
+    // and so the only thing that can make this value change while nothing else
+    // has. The probes cannot see them: they sample the scattering table, and
+    // the clouds are made on the GPU out of noise that is not worth evaluating
+    // twice.
+    //
+    // They do not need to be seen. The field translates and evolves and does
+    // nothing else, so "would this frame differ" is answered by how far it has
+    // done each - quantised, in clouds.js, to a pixel of the fastest layer and
+    // to a step of the evolution. That quantum is the redraw rate, which is
+    // why it is stated there in units rather than discovered here in
+    // behaviour.
+    ...cloudParts(preset, t, span),
     // Geometry: a window that moved or resized must redraw even if the sky
     // has not changed at all.
     crop.x,
