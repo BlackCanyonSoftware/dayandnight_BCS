@@ -5,7 +5,8 @@ session with no memory of this one. Newest session first.
 
 ## Current state
 
-**Milestones 0 and 1 are done; Milestone 2 is most of the way.** The application runs, puts a computed sky on
+**Milestones 0 and 1 are done. Milestone 2 is built; what is left of it needs
+hardware or a free machine rather than more code.** The application runs, puts a computed sky on
 the Windows desktop behind the icons on every screen, and the sky is the real
 one: scattering for its colour, Meeus astronomy for the sun and moon, stars
 turning at the sidereal rate, and a grade over the top.
@@ -14,10 +15,16 @@ turning at the sidereal rate, and a grade over the top.
 - **Remote:** `origin` is `github.com/BlackCanyonSoftware/dayandnight_BCS`.
   **Nothing has been pushed.** The owner pushes.
 - **Tier:** MVP
-- **Checks:** lint, format, typecheck clean. 127 unit, 22 browser and **9
-  desktop tests passing** - the desktop ones were run on 2026-10-19, the first
+- **Checks:** lint, format, typecheck clean. 127 unit and 26 browser tests
+  passing. **The 11 desktop tests have NOT been run since 2026-10-22** - they
+  open windows, and a great deal of `desktop/main.js` has changed since (the
+  tray, autostart, the legal IPC, restoring the wallpaper at launch). That is
+  the single biggest unverified thing in the project right now.
+
+  Older note, still true of the 9 that existed then: 9 desktop tests passing - the desktop ones were run on 2026-10-19, the first
   time since Milestone 0, because they open windows on the desktop and the owner
   has to be free.
+
 - **NFR-1: met.** 0.15 % of one core against a 2 % budget, on two screens with
   the editor closed. See `ARCHITECTURE.md` under Measurement, Milestone 1. GPU
   time and GPU memory are still unmeasured.
@@ -52,20 +59,19 @@ Two things to know before changing any of it:
 
 ## Next steps
 
-1. **Occlusion**, the last piece of the pause policy: stopping when windows
-   cover the desktop entirely. It needs `GetWindowRect`, `IsWindowVisible` and
-   `IsIconic` in `host-win32.js`, which is a real expansion of the Win32
-   surface ADR 0002 kept to five calls, so it is its own slice and probably its
-   own note in that ADR.
-2. **The tray icon and autostart** (OQ-1), the rest of Milestone 2's scope.
-3. **Verify by hand what only a person can:** a full-screen game pausing the
-   wallpaper, and a system time-zone change with the application running.
-   Lock, unlock, suspend and resume no longer need a person - the desktop tests
-   deliver the real events and count the surface's render-loop ticks. Running
-   the installer on a machine that has never had the project is the third.
-4. Then what is left of **Milestone 2**: monitor hot-plug under test, the
-   About window that opens the documents the build already ships, and NFR-1
-   re-measured with three screens active.
+1. **Run the window-opening checks**, in one go, when the machine is free:
+   `npm run test:desktop` (11 tests, two of them new and never run), then
+   `npm run build` and `node tools/verify-package.js`. Everything in Milestone 2
+   that can be checked without a window has been.
+2. **Verify by hand what only a person can:** a full-screen game pausing the
+   wallpaper, and a system time-zone change with the application running. Lock,
+   unlock, suspend and resume no longer need a person - the desktop tests
+   deliver the real events and count the surface's render-loop ticks.
+3. **The three-monitor criteria**, which need a third monitor: one continuous
+   sky with no seam by screenshot, and NFR-1 re-measured with three active.
+4. Then **Milestone 3**, the clouds - which is also the event that reopens
+   ADR 0007, because clouds need real frames and the sum that killed occlusion
+   was done at the cost of a sky that barely redraws.
 
 ### Older, still open
 
@@ -132,6 +138,41 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-10-24 - Milestone 2 finished, as far as code can finish it
+
+- **Tray icon and autostart** (`9c607d9`), which is OQ-1. A wallpaper normally
+  has nothing on screen, so until now the application had no way back to it and
+  no way to quit it. Autostart is read back from Windows rather than
+  remembered, because the user can turn it off in Task Manager and a checkbox
+  that disagreed with the machine is worse than none.
+- **The login path found its own bug.** Started by Windows there is no editor,
+  and the editor is what reads the settings and pushes them down - so the
+  wallpaper would have come up drawing a sky for Denver rather than for
+  wherever the user is. The shell now loads the settings itself when it starts
+  without a renderer.
+- **Occlusion dropped, with the arithmetic written down** (ADR 0007). It was
+  scoped when the wallpaper cost 8.56 % of one core; at 0.15 % the polling it
+  needs - about 250 foreign calls a second, all day - costs roughly what it
+  would save, and a false positive stops the wallpaper while somebody is
+  looking at it. It reopens if Milestone 3's clouds make drawing expensive
+  again, and the condition is a measurement rather than an opinion.
+- **It remembers that it was on** (`d3e15c4`). Wiring autostart made the gap
+  obvious. The flag is mirrored from the shell, not kept by the editor, because
+  the tray can change it too.
+- **The sun crossing three screens is now a test** (`d3e15c4`), which is an
+  exit criterion in the words it was written in. It asserts the order rather
+  than the coverage, because a sun that jumped about would satisfy "appears on
+  all three". Its first version failed by sweeping a UTC day, which at Denver
+  starts at sunset; it starts at local solar midnight now.
+- **An About panel** (`1d02831`) that opens the five documents every build has
+  been shipping and nothing could read. The renderer picks an index into a
+  fixed list, so no path crosses the IPC boundary.
+- **A test that passed while the thing it tested was broken.** The reader's
+  focus-restoration test drove the dialog by setting `hidden` directly, which
+  bypassed the function that records where focus came from. It goes through the
+  page API now. Worth remembering: a test that reconstructs the path instead of
+  calling it will pass for the wrong reason.
 
 ### 2026-10-22 - Milestone 2: the span, the brand, and the pause policy
 
