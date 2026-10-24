@@ -72,6 +72,11 @@ if (role === "wallpaper") {
 
     getWallpaperState: () => ipcRenderer.invoke("wallpaper:state"),
 
+    getVersion: () => ipcRenderer.invoke("app:version"),
+    listLegal: () => ipcRenderer.invoke("legal:list"),
+    /** @param {string} id */
+    readLegal: (id) => ipcRenderer.invoke("legal:read", String(id)),
+
     getStartWithWindows: () => ipcRenderer.invoke("startup:get"),
     /** @param {boolean} on */
     setStartWithWindows: (on) => ipcRenderer.send("startup:set", Boolean(on)),

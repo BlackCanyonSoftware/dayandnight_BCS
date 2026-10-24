@@ -46,6 +46,7 @@ declare global {
     /** @returns a problem to show the user, or null on success */
     apply(raw: unknown): string | null;
     setScreens(list: import("./engine/span.js").Monitor[]): void;
+    showDocument(id: string, title: string): Promise<void>;
     scrubTo(minute: number): void;
     dateTo(value: string): void;
     version(): string;
@@ -58,6 +59,9 @@ declare global {
     onMonitorsChanged(cb: (monitors: DayAndNightMonitor[]) => void): void;
     setWallpaper(on: boolean): Promise<DayAndNightWallpaperState>;
     getWallpaperState(): Promise<DayAndNightWallpaperState>;
+    getVersion(): Promise<string>;
+    listLegal(): Promise<{ id: string; title: string }[]>;
+    readLegal(id: string): Promise<string | null>;
     getStartWithWindows(): Promise<boolean>;
     setStartWithWindows(on: boolean): void;
     onWallpaperState(cb: (state: DayAndNightWallpaperState) => void): void;

@@ -1345,6 +1345,71 @@ test("the theme toggle cycles and is reflected on the document", async ({ page }
   expect(await read()).toBe("dark");
 });
 
+test("the About panel says what this build is, and admits what a browser cannot show", async ({
+  page
+}) => {
+  // The documents are copied next to the application by the packaging step and
+  // do not exist for a page served over http, so the panel has to be honest
+  // about that rather than offering buttons that do nothing.
+  await expect(page.locator("#aboutVersion")).toHaveText("browser preview");
+  await expect(page.locator("#legalList")).toContainText("part of the application");
+  await expect(page.locator("#legalList button")).toHaveCount(0);
+});
+
+test("the document reader closes on Escape and gives focus back (NFR-6)", async ({ page }) => {
+  // A modal that cannot be closed from the keyboard is the usual way an
+  // application stops being keyboard operable, and this one cannot be reached
+  // in a browser at all - there are no documents to open - so it is driven
+  // directly. What is being checked is the behaviour around the dialog, which
+  // is the same however it was opened.
+  await page.evaluate(() => {
+    const trigger = document.querySelector("#wallBtn");
+    trigger.focus();
+  });
+
+  // The real open path, through the page API, so what is under test is the
+  // code a click runs rather than a reconstruction of it.
+  await page.evaluate(() => window.DayAndNight.showDocument("eula", "Licence agreement"));
+
+  // A browser ships no documents, so this is also the only place the missing
+  // case gets exercised - and it should say so plainly rather than show an
+  // empty panel.
+  await expect(page.locator("#readerText")).toContainText("missing from this build");
+  await expect(page.locator("#readerTitle")).toHaveText("Licence agreement");
+
+  await expect(page.locator("#reader")).toBeVisible();
+  await expect(page.locator("#readerClose")).toBeFocused();
+
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#reader")).toBeHidden();
+
+  // Closing it with the keyboard and leaving focus on the body would strand
+  // somebody at the top of the document, which is the half of this that is
+  // easy to forget.
+  const focused = await page.evaluate(() => document.activeElement?.id ?? "");
+  expect(focused, "focus should come back to whatever opened it").toBe("wallBtn");
+});
+
+test("the reader is a dialog, and the backdrop closes it", async ({ page }) => {
+  const reader = page.locator("#reader");
+
+  await expect(page.locator(".readerbox")).toHaveAttribute("role", "dialog");
+  await expect(page.locator(".readerbox")).toHaveAttribute("aria-modal", "true");
+
+  await page.evaluate(() => {
+    document.querySelector("#reader").hidden = false;
+  });
+  await expect(reader).toBeVisible();
+
+  // The backdrop is the element itself; the box inside it is not. Clicking the
+  // document must not dismiss what you are reading.
+  await page.locator(".readertext").click({ force: true });
+  await expect(reader).toBeVisible();
+
+  await reader.click({ position: { x: 5, y: 5 } });
+  await expect(reader).toBeHidden();
+});
+
 test("the editor is keyboard operable (NFR-6)", async ({ page }) => {
   // Tab to the first control and check focus is visible rather than lost.
   await page.keyboard.press("Tab");

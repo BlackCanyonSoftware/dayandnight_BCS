@@ -22,6 +22,7 @@ const monitors = require("./monitors.js");
 const store = require("./store.js");
 const { PauseWatcher } = require("./pause.js");
 const tray = require("./tray.js");
+const legal = require("./legal.js");
 
 const APP_DIR = path.join(__dirname, "..", "app");
 const SCHEME = "dayandnight";
@@ -458,6 +459,10 @@ function registerIpc() {
   // Asked of Windows every time rather than remembered, because the user can
   // turn it off in Task Manager's Startup tab or with any cleanup tool, and a
   // checkbox that disagreed with the machine is worse than none.
+  ipcMain.handle("legal:list", () => legal.list());
+  ipcMain.handle("legal:read", (_event, id) => legal.read(id));
+  ipcMain.handle("app:version", () => app.getVersion());
+
   ipcMain.handle("startup:get", () => tray.startsWithWindows());
 
   ipcMain.on("startup:set", (_event, on) => {

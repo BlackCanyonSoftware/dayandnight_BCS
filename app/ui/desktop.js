@@ -26,6 +26,9 @@
  * @property {(cb: (monitors: Monitor[]) => void) => void} onMonitorsChanged
  * @property {(on: boolean) => Promise<WallpaperState>} setWallpaper
  * @property {() => Promise<WallpaperState>} getWallpaperState
+ * @property {() => Promise<string>} getVersion
+ * @property {() => Promise<{ id: string, title: string }[]>} listLegal
+ * @property {(id: string) => Promise<string | null>} readLegal
  * @property {() => Promise<boolean>} getStartWithWindows
  * @property {(on: boolean) => void} setStartWithWindows
  * @property {(cb: (s: WallpaperState) => void) => void} onWallpaperState
@@ -142,6 +145,34 @@ export async function getStartWithWindows() {
 /** @param {boolean} on */
 export function setStartWithWindows(on) {
   shell()?.setStartWithWindows(on);
+}
+
+/**
+ * The documents the build ships, or none in a browser where there is no build.
+ *
+ * @returns {Promise<{ id: string, title: string }[]>}
+ */
+export async function listLegal() {
+  const api = shell();
+  if (!api) return [];
+  return api.listLegal();
+}
+
+/**
+ * @param {string} id
+ * @returns {Promise<string | null>}
+ */
+export async function readLegal(id) {
+  const api = shell();
+  if (!api) return null;
+  return api.readLegal(id);
+}
+
+/** @returns {Promise<string>} */
+export async function getVersion() {
+  const api = shell();
+  if (!api) return "";
+  return api.getVersion();
 }
 
 /**

@@ -509,6 +509,41 @@
           </details>
 
           <details class="sec">
+            <summary>About</summary>
+            <div class="sec-body">
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Version</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="Which build this is. Worth quoting if you ever report something that looks wrong, because the answer usually depends on it."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="aboutVersion">&mdash;</span>
+                </label>
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Documents</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="The licence you agreed to, what the application does with your location, and whose work is in it. They ship with every build rather than living on a website, so they are readable with no network and cannot change under you."
+                      >i</span
+                    ></span
+                  >
+                </label>
+                <div class="legallist" id="legalList"></div>
+              </div>
+            </div>
+          </details>
+
+          <details class="sec">
             <summary>Performance</summary>
             <div class="sec-body">
               <div class="row">
@@ -624,5 +659,20 @@
     </div>
 
     <script type="module" src="ui/index.js"></script>
+    <div class="reader" id="reader" hidden>
+      <div
+        class="readerbox"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="readerTitle"
+        tabindex="-1"
+      >
+        <div class="readerhead">
+          <h2 id="readerTitle">Document</h2>
+          <button class="ghost" id="readerClose" type="button">Close</button>
+        </div>
+        <pre class="readertext" id="readerText" tabindex="0"></pre>
+      </div>
+    </div>
   </body>
 </html>

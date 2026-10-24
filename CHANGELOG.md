@@ -33,6 +33,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   computer, and the sky comes back by itself instead of waiting to be switched
   on again. A settings file from before this existed counts as off, so nothing
   takes over a desktop unasked.
+- **An About panel** with the version and the documents the build ships: the
+  licence you agreed to, the disclaimers, what it does with your location, and
+  whose work is in it. They are read from the application itself, so they work
+  with no network and cannot change under you.
 - **A tray icon**, so the application is reachable with no window open. It
   says what the wallpaper is doing, turns it on and off, opens this panel, and
   quits - which until now there was no way to do once you had closed the

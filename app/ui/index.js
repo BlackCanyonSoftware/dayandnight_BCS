@@ -83,6 +83,7 @@ async function boot() {
   }
 
   wireControls();
+  void wireAbout();
   timeline.snapToNow(Date.now());
   paintFromState();
   syncClockControls();
@@ -212,6 +213,17 @@ function wireControls() {
     bandsDirty = true;
   });
   bindRange("fieldOfView", (v) => setPreset({ fieldOfView: v }));
+  $("#readerClose").addEventListener("click", closeDocument);
+
+  $("#reader").addEventListener("click", (event) => {
+    // Clicking the backdrop closes it; clicking the document does not.
+    if (event.target === $("#reader")) closeDocument();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !$("#reader").hidden) closeDocument();
+  });
+
   bindRange("fps", (v) => setFps(Math.round(v)));
 
   // Not part of the settings document: it is a fact about the machine, which
@@ -642,6 +654,67 @@ function paintArrangement(s) {
   }
 }
 
+/**
+ * The About panel: which build this is, and the documents it ships.
+ *
+ * In a browser there is no build and no documents, so the list says so rather
+ * than offering buttons that cannot do anything.
+ */
+async function wireAbout() {
+  const list = $("#legalList");
+  const version = await shell.getVersion();
+  $("#aboutVersion").textContent = version ? `v${version}` : "browser preview";
+
+  const documents = await shell.listLegal();
+  list.replaceChildren();
+
+  if (documents.length === 0) {
+    const note = document.createElement("span");
+    note.className = "meta";
+    note.textContent = "The shipped documents are part of the application, not of this page.";
+    list.append(note);
+    return;
+  }
+
+  for (const entry of documents) {
+    const button = document.createElement("button");
+    button.className = "ghost";
+    button.type = "button";
+    button.textContent = entry.title;
+    button.addEventListener("click", () => void openDocument(entry.id, entry.title));
+    list.append(button);
+  }
+}
+
+/** What had focus before the reader opened, so it can be given back. */
+let readerReturn = /** @type {HTMLElement | null} */ (null);
+
+/**
+ * @param {string} id
+ * @param {string} title
+ */
+async function openDocument(id, title) {
+  const text = await shell.readLegal(id);
+
+  $("#readerTitle").textContent = title;
+  $("#readerText").textContent =
+    text ?? "That document is missing from this build, which is a packaging fault.";
+
+  readerReturn = /** @type {HTMLElement | null} */ (document.activeElement);
+  $("#reader").hidden = false;
+
+  // Focus moves into the dialog, and Escape closes it: NFR-6 asks for the
+  // editor to be keyboard operable throughout, and a modal that traps you is
+  // the usual way that stops being true.
+  /** @type {HTMLElement} */ ($("#readerClose")).focus();
+}
+
+function closeDocument() {
+  $("#reader").hidden = true;
+  readerReturn?.focus();
+  readerReturn = null;
+}
+
 /** @param {import("./desktop.js").WallpaperState} state */
 function paintWallpaperState(state) {
   // Mirrored rather than decided here: the wallpaper can be turned on and off
@@ -812,6 +885,20 @@ Object.defineProperty(window, "DayAndNight", {
       paintFromState();
       return null;
     },
+
+    /**
+     * Open one of the shipped documents, as clicking its button would.
+     *
+     * The same door a test uses for the screens: there is no way to click the
+     * real button in a browser, because a browser ships no documents and the
+     * panel correctly offers nothing - and the behaviour around the dialog,
+     * which is what NFR-6 cares about, is the same however it was opened.
+     *
+     * @param {string} id
+     * @param {string} title
+     * @returns {Promise<void>}
+     */
+    showDocument: (id, title) => openDocument(id, title),
 
     /**
      * Pretend the machine has these screens.

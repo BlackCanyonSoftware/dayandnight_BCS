@@ -200,10 +200,13 @@ paperwork.
 - Tray icon and autostart.
 - Monitor hot-plug: a screen arriving or leaving adds or removes its window
   without disturbing the others.
-- The About window, which shows the EULA, the disclaimers, the privacy notice
-  and the third-party notices that `electron-builder.yml` already copies next
-  to the application. The documents ship today and nothing in the application
-  opens them yet.
+- The About panel, which shows the EULA, the disclaimers, the privacy notice,
+  the trademarks and the third-party notices that `electron-builder.yml`
+  already copies next to the application. **Done.** They are read and shown as
+  text rather than handed to the shell: a `.md` file has no reliable
+  association on Windows, and "your licence is in a file you may not be able to
+  open" is not an answer. The renderer picks an index into a fixed list, so no
+  path ever crosses the IPC boundary.
 
 **Exit criteria.**
 
