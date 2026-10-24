@@ -76,6 +76,15 @@ export let fps = 20;
  */
 export let awaySeconds = 600;
 
+/**
+ * Whether the wallpaper was up when the settings were last written.
+ *
+ * Kept so that a restart puts the sky back rather than leaving somebody to
+ * wonder where it went. It is the shell's fact rather than the editor's, so
+ * the editor only ever mirrors what the shell reports.
+ */
+export let wallpaperOn = false;
+
 /** @type {Monitor[]} */
 export let monitors = [];
 
@@ -109,6 +118,11 @@ export function setFps(next) {
 /** @param {number} next */
 export function setAwaySeconds(next) {
   awaySeconds = Math.max(0, Math.round(next));
+}
+
+/** @param {boolean} next */
+export function setWallpaperOn(next) {
+  wallpaperOn = next;
 }
 
 /** @param {Monitor[]} next */

@@ -29,7 +29,7 @@ export const VERSION = 1;
  * @property {string} app
  * @property {number} version
  * @property {string} savedAt ISO 8601
- * @property {{ preset: Preset, place: Place, fps: number, awaySeconds: number }} cfg
+ * @property {{ preset: Preset, place: Place, fps: number, awaySeconds: number, wallpaperOn: boolean }} cfg
  * @property {{ theme: Theme }} ui
  */
 
@@ -47,7 +47,7 @@ const MIGRATIONS = {};
 /**
  * Build a document from the current state.
  *
- * @param {{ preset: Preset, place: Place, fps: number, awaySeconds: number, theme: Theme }} from
+ * @param {{ preset: Preset, place: Place, fps: number, awaySeconds: number, wallpaperOn: boolean, theme: Theme }} from
  * @param {number} now timestamp, passed in rather than read from the clock
  * @returns {SettingsDoc}
  */
@@ -60,7 +60,8 @@ export function writeDocument(from, now) {
       preset: { ...from.preset },
       place: { ...from.place },
       fps: from.fps,
-      awaySeconds: from.awaySeconds
+      awaySeconds: from.awaySeconds,
+      wallpaperOn: from.wallpaperOn
     },
     ui: { theme: from.theme }
   };
@@ -179,7 +180,14 @@ function normaliseCfg(raw) {
     // written before this setting existed, so the default stands in - which is
     // a default rather than a migration, because nothing was renamed and
     // nothing changed meaning.
-    awaySeconds: Math.round(num(cfg["awaySeconds"], 600, 0, 86_400))
+    awaySeconds: Math.round(num(cfg["awaySeconds"], 600, 0, 86_400)),
+
+    // Whether the sky was up when the application last closed. Defaulting to
+    // false matters: a settings file written before this existed belongs to
+    // somebody who has never seen the wallpaper start itself, and turning it
+    // on for them at the next launch would be the application taking over
+    // their desktop unasked.
+    wallpaperOn: cfg["wallpaperOn"] === true
   };
 }
 

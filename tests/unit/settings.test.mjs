@@ -6,7 +6,7 @@ import { defaultPreset } from "../../app/engine/defaults.js";
 
 const NOW = Date.UTC(2026, 9, 18, 12, 0, 0);
 
-/** @returns {{ preset: import("../../app/engine/types.js").Preset, place: { lat: number, lon: number }, fps: number, awaySeconds: number, theme: "dark" }} */
+/** @returns {{ preset: import("../../app/engine/types.js").Preset, place: { lat: number, lon: number }, fps: number, awaySeconds: number, wallpaperOn: boolean, theme: "dark" }} */
 function state() {
   return {
     // Built from the defaults rather than written out, so a new preset key
@@ -15,6 +15,7 @@ function state() {
     place: { lat: 39.7, lon: -105 },
     fps: 20,
     awaySeconds: 600,
+    wallpaperOn: true,
     theme: "dark"
   };
 }
@@ -30,10 +31,16 @@ test("a written document round-trips through the reader unchanged", () => {
   assert.deepEqual(doc.cfg, state_cfg());
 });
 
-/** @returns {{ preset: import("../../app/engine/types.js").Preset, place: { lat: number, lon: number }, fps: number, awaySeconds: number }} */
+/** @returns {{ preset: import("../../app/engine/types.js").Preset, place: { lat: number, lon: number }, fps: number, awaySeconds: number, wallpaperOn: boolean }} */
 function state_cfg() {
   const s = state();
-  return { preset: s.preset, place: s.place, fps: s.fps, awaySeconds: s.awaySeconds };
+  return {
+    preset: s.preset,
+    place: s.place,
+    fps: s.fps,
+    awaySeconds: s.awaySeconds,
+    wallpaperOn: s.wallpaperOn
+  };
 }
 
 test("the timestamp comes from the caller, not the clock", () => {

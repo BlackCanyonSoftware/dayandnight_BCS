@@ -29,6 +29,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Settings are kept in the OS app-data folder and written atomically, and can
   be saved out as a file.
 
+- **It remembers that it was on.** Close the settings window, restart the
+  computer, and the sky comes back by itself instead of waiting to be switched
+  on again. A settings file from before this existed counts as off, so nothing
+  takes over a desktop unasked.
 - **A tray icon**, so the application is reachable with no window open. It
   says what the wallpaper is doing, turns it on and off, opens this panel, and
   quits - which until now there was no way to do once you had closed the

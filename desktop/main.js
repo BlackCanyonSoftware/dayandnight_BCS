@@ -492,13 +492,20 @@ async function startWithoutEditor() {
   try {
     const saved = await store.read();
     const doc = asRecord(saved);
-    const next = validateConfig(asRecord(doc["cfg"]));
+    const cfg = asRecord(doc["cfg"]);
+    const next = validateConfig(cfg);
     if (next) {
       runtime = next;
       pauseWatcher?.setAwaySeconds(next.awaySeconds);
     }
+
+    // Started at login but the wallpaper was off when they last closed it.
+    // Honour that: autostart is permission to put back what was there, not to
+    // turn something on that the user had turned off.
+    if (cfg["wallpaperOn"] !== true) return;
   } catch (error) {
     console.error("[main] could not read settings at login; using defaults", error);
+    return;
   }
 
   createSurfaces();

@@ -19,9 +19,9 @@ import { LOOKS, lookIdFor, presetFor } from "./presets.js";
 import { readDocument, writeDocument } from "./settings.js";
 import {
   arrangement,
+  awaySeconds,
   clock,
   cropFor,
-  awaySeconds,
   fps,
   monitors,
   place,
@@ -32,7 +32,9 @@ import {
   setMonitors,
   setPlace,
   setPreset,
-  span
+  setWallpaperOn,
+  span,
+  wallpaperOn
 } from "./state.js";
 import { cycleTheme, initTheme, setTheme, theme } from "./theme.js";
 import {
@@ -87,6 +89,16 @@ async function boot() {
 
   preview.start();
   void refreshWallpaperState();
+
+  // Put the sky back if it was up when the application last closed. Without
+  // this, a restart leaves somebody looking at their old wallpaper wondering
+  // where theirs went, and reaching for a button they should not have to press
+  // twice. The shell is the authority on whether it is on, so this asks first
+  // and then lets the ordinary state message paint the answer.
+  if (wallpaperOn && shell.hasShell()) {
+    const current = await shell.getWallpaperState();
+    if (!current.on) paintWallpaperState(await shell.setWallpaper(true));
+  }
 
   shell.onMonitorsChanged((next) => {
     setMonitors(next);
@@ -452,7 +464,10 @@ function resetAll() {
  * lands in Milestone 5; this is the honest minimum until then.
  */
 function downloadSettings() {
-  const doc = writeDocument({ preset, place, fps, awaySeconds, theme: theme() }, Date.now());
+  const doc = writeDocument(
+    { preset, place, fps, awaySeconds, wallpaperOn, theme: theme() },
+    Date.now()
+  );
   const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
 
@@ -629,6 +644,10 @@ function paintArrangement(s) {
 
 /** @param {import("./desktop.js").WallpaperState} state */
 function paintWallpaperState(state) {
+  // Mirrored rather than decided here: the wallpaper can be turned on and off
+  // from the tray as well, and a flag the editor kept for itself would be
+  // wrong the moment somebody used it.
+  setWallpaperOn(state.on);
   $("#wallBtn").textContent = state.on ? "Turn the wallpaper off" : "Turn the wallpaper on";
 
   const box = $("#wallState");
@@ -755,7 +774,7 @@ function save() {
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     shell.saveSettings(
-      writeDocument({ preset, place, fps, awaySeconds, theme: theme() }, Date.now())
+      writeDocument({ preset, place, fps, awaySeconds, wallpaperOn, theme: theme() }, Date.now())
     );
   }, 400);
 }
@@ -772,7 +791,8 @@ Object.defineProperty(window, "DayAndNight", {
     lastFrame: () => preview?.lastFrame() ?? null,
 
     /** @returns {import("./settings.js").SettingsDoc} */
-    document: () => writeDocument({ preset, place, fps, awaySeconds, theme: theme() }, Date.now()),
+    document: () =>
+      writeDocument({ preset, place, fps, awaySeconds, wallpaperOn, theme: theme() }, Date.now()),
 
     /**
      * @param {unknown} raw

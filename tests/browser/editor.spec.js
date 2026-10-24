@@ -287,6 +287,115 @@ test("a vertical stack of screens does not flatten the top of the sky (US-012)",
   ).toBeGreaterThan(30);
 });
 
+test("over a day the sun crosses from the left screen to the right (US-012)", async ({ page }) => {
+  // Milestone 2's exit criterion, in the words it was written in. The existing
+  // azimuth test renders one span and finds the sun in it; this renders each
+  // screen's crop SEPARATELY, the way three real surfaces do, and asks which
+  // of them the sun is on. That difference is the point - it is the crop path
+  // that would put the same sun on all three screens, or on the wrong one.
+  test.slow();
+
+  const findings = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset, sunPosition } = await import("/engine/index.js");
+
+    // Three screens in a row. Small, because this renders 3 crops an hour for
+    // a whole day and the arithmetic does not care about resolution.
+    const screenW = 160;
+    const screenH = 90;
+    const span = { w: screenW * 3, h: screenH };
+
+    const canvas = document.createElement("canvas");
+    canvas.width = screenW;
+    canvas.height = screenH;
+
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+    engine.setPreset(defaultPreset());
+
+    // An equinox, so the day is symmetric and the sun rises near due east and
+    // sets near due west - which with the default southward bearing means it
+    // should enter on the left and leave on the right.
+    const place = { lat: 39.74, lon: -104.99 };
+
+    // Start at local SOLAR midnight, not at UTC midnight. A UTC day at Denver
+    // runs from six in the evening to six the next evening, so a sweep from
+    // Date.UTC(...) begins at sunset and the sun is already on the rightmost
+    // screen - which is how the first version of this test failed. The offset
+    // is longitude over fifteen degrees an hour, which needs no time-zone
+    // data and is the quantity that actually matters here.
+    const day = Date.UTC(2026, 2, 20) - (place.lon / 15) * 3_600_000;
+
+    /** The brightest column total on one screen's crop. */
+    const brightestOn = (t, screen) => {
+      engine.render({
+        t,
+        place,
+        crop: { x: screen * screenW, y: 0, w: screenW, h: screenH },
+        span,
+        pixelRatio: 1
+      });
+
+      const pixels = new Uint8Array(screenW * screenH * 4);
+      gl.readPixels(0, 0, screenW, screenH, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+      let best = -1;
+      for (let x = 0; x < screenW; x += 1) {
+        let total = 0;
+        for (let y = 0; y < screenH; y += 1) {
+          const i = (y * screenW + x) * 4;
+          total += pixels[i] + pixels[i + 1] + pixels[i + 2];
+        }
+        best = Math.max(best, total);
+      }
+      return best;
+    };
+
+    const seen = [];
+    let frames = 0;
+
+    // Every twenty minutes through the day, wherever the sun is properly up.
+    for (let minute = 0; minute < 1440; minute += 20) {
+      const t = day + minute * 60_000;
+      const sun = sunPosition(t, place);
+      if (sun.altitude < 3) continue;
+
+      const totals = [brightestOn(t, 0), brightestOn(t, 1), brightestOn(t, 2)];
+      frames += 3;
+
+      let on = 0;
+      for (let i = 1; i < 3; i += 1) if (totals[i] > totals[on]) on = i;
+
+      seen.push({ minute, screen: on, azimuth: Math.round(sun.azimuth) });
+    }
+
+    return { seen, frames };
+  });
+
+  expect(findings.frames, "the sweep should have rendered a day").toBeGreaterThan(50);
+
+  const screens = findings.seen.map((s) => s.screen);
+
+  // It starts on the left and ends on the right. Not "appears on all three" -
+  // the order is the claim, and a sun that jumped about would satisfy a
+  // coverage check while being obviously wrong.
+  expect(screens[0], "the sun should come up on the leftmost screen").toBe(0);
+  expect(screens.at(-1), "and go down on the rightmost").toBe(2);
+
+  // Never backwards. One screen at a time, in order, all day.
+  for (let i = 1; i < screens.length; i += 1) {
+    expect(
+      screens[i],
+      `the sun went back from screen ${screens[i - 1]} to ${screens[i]} at minute ` +
+        `${findings.seen[i].minute} (azimuth ${findings.seen[i].azimuth} deg)`
+    ).toBeGreaterThanOrEqual(screens[i - 1]);
+  }
+
+  // And it really does visit the middle one, rather than stepping over it.
+  expect(new Set(screens), "every screen should get the sun at some point").toEqual(
+    new Set([0, 1, 2])
+  );
+});
+
 test("the sun's glow tracks its real azimuth across the frame (US-012)", async ({ page }) => {
   // The product's central promise: the sun is where the sun actually is, so it
   // crosses the screen through the day rather than sitting still. Checked by

@@ -215,7 +215,12 @@ paperwork.
   unit tests over eight arrangements in `tests/unit/span.test.mjs`, plus a
   browser test that drives the editor's panel through four of them. The
   vertical stack found a real bug in the projection - see below.
-- The sun crosses from the leftmost screen to the rightmost over a scrubbed day.
+- The sun crosses from the leftmost screen to the rightmost over a scrubbed
+  day. **Done**, and in the form it was asked for: three screens, each one's
+  crop rendered separately the way three real surfaces do, every twenty minutes
+  through an equinox. The order is what is asserted rather than the coverage -
+  a sun that jumped about would satisfy "appears on all three" while being
+  obviously wrong.
 - Every pause signal verified by hand, each with the observed result written
   down. **Partly done, and the split is worth stating.** Lock, unlock, suspend
   and resume are now verified automatically, by delivering the real event to
