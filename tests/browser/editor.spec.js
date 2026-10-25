@@ -2207,6 +2207,84 @@ test("focus is visible on everything that takes it (NFR-6)", async ({ page }) =>
   expect(invisible, `these show nothing when focused: ${invisible.join(", ")}`).toEqual([]);
 });
 
+test("a slider drag is one undo, through the real controls (US-024)", async ({ page }) => {
+  // The unit tests cover the folding rule; this covers the thing that would
+  // actually be wrong in use - that a drag of the real slider, firing an event
+  // per pixel, comes back in one press rather than forty.
+  const undo = page.locator("#undoBtn");
+  await expect(undo).toBeDisabled();
+
+  const before = await page.evaluate(() => window.DayAndNight.document().cfg.preset.exposure);
+
+  await page.evaluate(() => {
+    const slider = document.querySelector("#exposure");
+    for (let i = 1; i <= 30; i += 1) {
+      slider.value = String(i / 10);
+      slider.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+
+  const dragged = await page.evaluate(() => window.DayAndNight.document().cfg.preset.exposure);
+  expect(dragged).toBeCloseTo(3, 5);
+  await expect(undo).toBeEnabled();
+
+  await undo.click();
+
+  const undone = await page.evaluate(() => window.DayAndNight.document().cfg.preset.exposure);
+  expect(undone, "one press should take back the whole drag").toBeCloseTo(before, 5);
+
+  await page.locator("#redoBtn").click();
+  const redone = await page.evaluate(() => window.DayAndNight.document().cfg.preset.exposure);
+  expect(redone).toBeCloseTo(3, 5);
+});
+
+test("Ctrl+Z undoes, and Ctrl+Y and Ctrl+Shift+Z both put it back (US-024)", async ({ page }) => {
+  await page.evaluate(() => {
+    const slider = document.querySelector("#contrast");
+    slider.value = "1.5";
+    slider.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  const read = () => page.evaluate(() => window.DayAndNight.document().cfg.preset.contrast);
+  expect(await read()).toBeCloseTo(1.5, 5);
+
+  await page.keyboard.press("Control+z");
+  const undone = await read();
+  expect(undone).not.toBeCloseTo(1.5, 5);
+
+  // Windows uses Ctrl+Y; everything else uses Ctrl+Shift+Z. People carry
+  // their habits between machines, so both work.
+  await page.keyboard.press("Control+y");
+  expect(await read()).toBeCloseTo(1.5, 5);
+
+  await page.keyboard.press("Control+z");
+  expect(await read()).toBeCloseTo(undone, 5);
+
+  await page.keyboard.press("Control+Shift+z");
+  expect(await read()).toBeCloseTo(1.5, 5);
+});
+
+test("Ctrl+Z in a text field belongs to the field (US-024)", async ({ page }) => {
+  // Taking it would mean the city box could not be corrected without undoing
+  // the whole application, which is what makes a shortcut worse than none.
+  await page.evaluate(() => {
+    const slider = document.querySelector("#saturation");
+    slider.value = "0.6";
+    slider.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  const saturation = () => page.evaluate(() => window.DayAndNight.document().cfg.preset.saturation);
+  expect(await saturation()).toBeCloseTo(0.6, 5);
+
+  const city = page.locator("#city");
+  await city.click();
+  await city.fill("Reykjavik");
+  await page.keyboard.press("Control+z");
+
+  // The look is untouched: the keystroke went to the text field.
+  expect(await saturation(), "Ctrl+Z while typing must not undo the picture").toBeCloseTo(0.6, 5);
+});
+
 test("the editor is keyboard operable (NFR-6)", async ({ page }) => {
   // Tab to the first control and check focus is visible rather than lost.
   await page.keyboard.press("Tab");

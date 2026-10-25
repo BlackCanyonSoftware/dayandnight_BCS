@@ -19,6 +19,7 @@ import { LOOKS, lookIdFor, presetFor } from "./presets.js";
 import { STYLES as SKYLINE_STYLES } from "../engine/sky/skyline.js";
 import { readDocument, writeDocument } from "./settings.js";
 import { decodeLook, encodeLook } from "./share-code.js";
+import * as history from "./history.js";
 import {
   arrangement,
   awaySeconds,
@@ -41,6 +42,7 @@ import {
 import { cycleTheme, initTheme, setTheme, theme } from "./theme.js";
 import {
   $,
+  button,
   fmtBearing,
   fmtDegrees,
   fmtExposure,
@@ -85,6 +87,7 @@ async function boot() {
   }
 
   wireControls();
+  wireHistory();
   void wireAbout();
   timeline.snapToNow(Date.now());
   paintFromState();
@@ -713,6 +716,64 @@ function paintArrangement(s) {
 }
 
 /**
+ * Undo and redo: the buttons, the keys, and the state to restore.
+ *
+ * The history is given the editor's own load path rather than a private one,
+ * so an undo is exactly a loaded settings document - the same code, the same
+ * validation, the same repaint. A separate restore path would be a second way
+ * to apply a state and therefore a second place for the two to disagree.
+ */
+function wireHistory() {
+  history.connect({
+    read: () =>
+      writeDocument({ preset, place, fps, awaySeconds, wallpaperOn, theme: theme() }, Date.now()),
+
+    apply: (doc) => {
+      replacePreset(doc.cfg.preset);
+      setPlace(doc.cfg.place);
+      setFps(doc.cfg.fps);
+      setAwaySeconds(doc.cfg.awaySeconds);
+
+      bandsDirty = true;
+      paintFromState();
+    },
+
+    changed: () => {
+      button("undoBtn").disabled = !history.canUndo();
+      button("redoBtn").disabled = !history.canRedo();
+    }
+  });
+
+  button("undoBtn").addEventListener("click", () => history.undo());
+  button("redoBtn").addEventListener("click", () => history.redo());
+
+  document.addEventListener("keydown", (event) => {
+    if (!event.ctrlKey && !event.metaKey) return;
+
+    // Not while somebody is typing. Ctrl+Z in a text field belongs to the
+    // field - taking it would mean the city box and the share box could not be
+    // corrected without undoing the whole application, which is the kind of
+    // thing that makes a keyboard shortcut worse than none.
+    const target = event.target;
+    if (target instanceof HTMLInputElement && target.type !== "range") return;
+    if (target instanceof HTMLTextAreaElement) return;
+
+    const key = event.key.toLowerCase();
+
+    // Ctrl+Y and Ctrl+Shift+Z both redo: the first is what Windows uses, the
+    // second is what everything else does, and people carry their habits.
+    if (key === "y" || (key === "z" && event.shiftKey)) {
+      if (history.redo()) event.preventDefault();
+      return;
+    }
+
+    if (key === "z") {
+      if (history.undo()) event.preventDefault();
+    }
+  });
+}
+
+/**
  * The share panel.
  *
  * The code in the box is rebuilt whenever the look changes, so what is shown
@@ -959,6 +1020,12 @@ let saveTimer = 0;
 
 /** Debounced, so a slider drag is one write rather than one per pixel. */
 function save() {
+  // Every edit in the editor calls save(), which makes it the one place a
+  // change is known to have happened - so it is also where a history step is
+  // taken. Recording an unchanged state does nothing, so being generous here
+  // costs nothing, where missing a call site would cost a missing undo.
+  history.record();
+
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     shell.saveSettings(

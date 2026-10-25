@@ -29,6 +29,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Settings are kept in the OS app-data folder and written atomically, and can
   be saved out as a file.
 
+- **Undo and redo.** Ctrl+Z takes back any change and Ctrl+Y puts it back,
+  including a whole slider drag in one press rather than forty. Typing in a
+  text box keeps its own undo, as it should.
 - **Share a look as a code.** A short string you can paste into a message,
   carrying everything about how a sky looks and nothing about where you are -
   so somebody else's code changes your colours and leaves your sunrise alone.

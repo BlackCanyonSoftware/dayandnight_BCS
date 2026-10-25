@@ -39,6 +39,14 @@ export function select(id) {
 }
 
 /**
+ * @param {string} id
+ * @returns {HTMLButtonElement}
+ */
+export function button(id) {
+  return $(`#${id}`);
+}
+
+/**
  * @param {number} v
  * @param {number} lo
  * @param {number} hi
