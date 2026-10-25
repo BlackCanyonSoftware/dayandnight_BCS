@@ -309,8 +309,13 @@ WCAG 2.2 AA.
   application - and is fixed and pinned by a test. `DESIGN.md` has the measured
   ratios.
 
-**Still to do:** the preset library with thumbnails, the guide and FAQ, and the
-first-run welcome.
+- **The preset library with thumbnails.** A gallery rather than a list, with
+  every look rendered at the same low sun so the pictures compare with each
+  other rather than with the hour. A proper radio group: one tab stop, arrows
+  within it.
+
+**Still to do:** the guide and FAQ, and the first-run welcome. Both are writing
+rather than engineering, which is the only reason they are last.
 
 ### Beyond
 

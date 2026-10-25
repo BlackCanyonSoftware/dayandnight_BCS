@@ -16,7 +16,7 @@ turning at the sidereal rate, and a grade over the top.
 - **Remote:** `origin` is `github.com/BlackCanyonSoftware/dayandnight_BCS`.
   **Nothing has been pushed.** The owner pushes.
 - **Tier:** MVP
-- **Checks:** lint, format and typecheck clean; **177 unit and 39 browser
+- **Checks:** lint, format and typecheck clean; **177 unit and 43 browser
   tests**. The 12 desktop tests, the installer build and
   `node tools/verify-package.js` all passed on 2026-10-24 and have not been run
   since the clouds and the horizon went in - they open windows, and the owner
@@ -150,6 +150,23 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-10-24 - the look gallery
+
+- **Thumbnails** (\), the last substantial piece of Milestone 5. A
+  preset list is a column of words for things that are entirely visual.
+- All eight are rendered at one low June sun rather than at the current moment.
+  At the current moment they would all be the same near-black rectangle for
+  half of every day, which is exactly when somebody is most likely to be
+  choosing one. The hint says so, since a thumbnail that does not match the sky
+  would otherwise look like a bug.
+- A second engine, used once and released along with its WebGL context - a
+  browser limits live contexts rather than memory, and the preview needs the
+  one it holds. The scattering table is cached at module level, so the second
+  engine pays for a texture upload rather than the 780 ms bake.
+- A real radio group: one tab stop, arrows within it that wrap, and no Custom
+  tile - Custom is what the panel says when you have edited a look, not
+  something you can choose.
 
 ### 2026-10-24 - undo and redo
 
