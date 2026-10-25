@@ -16,7 +16,7 @@ turning at the sidereal rate, and a grade over the top.
 - **Remote:** `origin` is `github.com/BlackCanyonSoftware/dayandnight_BCS`.
   **Nothing has been pushed.** The owner pushes.
 - **Tier:** MVP
-- **Checks:** lint, format and typecheck clean; **164 unit and 36 browser
+- **Checks:** lint, format and typecheck clean; **177 unit and 39 browser
   tests**. The 12 desktop tests, the installer build and
   `node tools/verify-package.js` all passed on 2026-10-24 and have not been run
   since the clouds and the horizon went in - they open windows, and the owner
@@ -150,6 +150,29 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-10-24 - undo and redo
+
+- **US-024** (`459369e`). A history of whole settings documents rather than
+  diffs, because a diff history needs an inverse for every kind of change and
+  the first missing inverse is a silent corruption. Undo applies a document
+  through the editor's own load path, so there is one way to apply a state
+  rather than two that can disagree.
+- A slider drag folds into one step when the change is to the same single
+  setting _and_ within the fold window. Both conditions are needed: time alone
+  merges a drag with whatever came next, the key alone merges two deliberate
+  edits made minutes apart.
+- The theme and the wallpaper's on/off state are deliberately outside the
+  history - a view preference and an action with an effect outside the
+  application, neither of which is an edit.
+- **The tests hid a bug.** `connect()` did not take the state as it found it as
+  a baseline, so the first edit after opening the editor became the baseline
+  and could not be undone - the first thing a user does being the one thing
+  they cannot take back. The unit tests missed it because they called
+  `record()` by hand after connecting, which the editor does not; the browser
+  test caught it. The manual calls are gone and the first edit has its own
+  test. Worth remembering: a fake that is more helpful than the real caller
+  tests something other than the real caller.
 
 ### 2026-10-24 - share codes, and the accessibility audit that found something
 

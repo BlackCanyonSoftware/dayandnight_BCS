@@ -295,10 +295,22 @@ share codes, the guide and FAQ, the first-run welcome, light and dark editor
 themes with the sun/moon toggle, and a full accessibility pass against
 WCAG 2.2 AA.
 
-**Share codes are done** (US-033): a look as a short string that carries the
-preset and deliberately nothing else - not the place, not the frame rate.
-`ARCHITECTURE.md` has why that matters more than anything else about the
-feature.
+**Done so far:**
+
+- **Share codes** (US-033): a look as a short string carrying the preset and
+  deliberately nothing else - not the place, not the frame rate.
+  `ARCHITECTURE.md` has why that matters more than anything else about it.
+- **Undo and redo** (US-024), with a slider drag folding into one step. The
+  theme and the wallpaper's on/off state are deliberately outside the history;
+  `app/ui/history.js` says why.
+- **The accessibility pass.** NFR-6 has named WCAG 2.2 AA since the PRD and
+  only the keyboard half had ever been checked. The contrast half failed -
+  `--ink-faint` at 3.06:1 where AA asks 4.5, which is every hint marker in the
+  application - and is fixed and pinned by a test. `DESIGN.md` has the measured
+  ratios.
+
+**Still to do:** the preset library with thumbnails, the guide and FAQ, and the
+first-run welcome.
 
 ### Beyond
 
