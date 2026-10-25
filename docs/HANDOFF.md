@@ -153,7 +153,7 @@ its browser tests are headless.
 
 ### 2026-10-24 - the look gallery
 
-- **Thumbnails** (\), the last substantial piece of Milestone 5. A
+- **Thumbnails** (`8efff44`), the last substantial piece of Milestone 5. A
   preset list is a column of words for things that are entirely visual.
 - All eight are rendered at one low June sun rather than at the current moment.
   At the current moment they would all be the same near-black rectangle for
