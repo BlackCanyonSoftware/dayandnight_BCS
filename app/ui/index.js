@@ -20,6 +20,7 @@ import { STYLES as SKYLINE_STYLES } from "../engine/sky/skyline.js";
 import { readDocument, writeDocument } from "./settings.js";
 import { decodeLook, encodeLook } from "./share-code.js";
 import * as history from "./history.js";
+import { renderLookThumbnails } from "./thumbnails.js";
 import {
   arrangement,
   awaySeconds,
@@ -157,17 +158,37 @@ async function loadSaved() {
 function wireControls() {
   fillLookList();
 
-  select("look").addEventListener("change", (event) => {
-    const chosen = presetFor(/** @type {HTMLSelectElement} */ (event.target).value);
-    if (!chosen) return;
+  $("#lookGallery").addEventListener("click", (event) => {
+    const shot = /** @type {HTMLElement | null} */ (event.target)?.closest?.(".shot");
+    if (!(shot instanceof HTMLElement)) return;
+    chooseLook(shot.dataset["look"] ?? "");
+  });
 
-    // A look replaces the whole appearance rather than patching it, so
-    // switching away from an edited preset does not leave fragments of the
-    // old one behind.
-    replacePreset(chosen);
-    bandsDirty = true;
-    paintFromState();
-    save();
+  // A radio group is driven with the arrow keys, not with Tab - Tab is how you
+  // leave it. Without this the gallery would be eight tab stops in the middle
+  // of a settings panel, which is what makes a picture grid tiring to use from
+  // a keyboard.
+  $("#lookGallery").addEventListener("keydown", (event) => {
+    const keys = ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp", "Home", "End"];
+    if (!keys.includes(event.key)) return;
+
+    const shots = [...$("#lookGallery").querySelectorAll(".shot")];
+    if (shots.length === 0) return;
+
+    const at = shots.findIndex((shot) => shot === document.activeElement);
+    const forward = event.key === "ArrowRight" || event.key === "ArrowDown";
+
+    let next;
+    if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = shots.length - 1;
+    else if (at < 0) next = 0;
+    else next = (at + (forward ? 1 : -1) + shots.length) % shots.length;
+
+    event.preventDefault();
+
+    const target = /** @type {HTMLElement} */ (shots[next]);
+    target.focus();
+    chooseLook(target.dataset["look"] ?? "");
   });
 
   bindRange("lat", (v) => {
@@ -355,21 +376,62 @@ function fillSkylineList() {
   }
 }
 
-function fillLookList() {
-  const list = select("look");
-  list.replaceChildren();
+/**
+ * Apply a look by id, from a click or an arrow key.
+ *
+ * @param {string} id
+ */
+function chooseLook(id) {
+  const chosen = presetFor(id);
+  if (!chosen) return;
 
-  const custom = document.createElement("option");
-  custom.value = "";
-  custom.textContent = "Custom";
-  list.append(custom);
+  // A look replaces the whole appearance rather than patching it, so switching
+  // away from an edited preset does not leave fragments of the old one behind.
+  replacePreset(chosen);
+  bandsDirty = true;
+  paintFromState();
+  save();
+}
+
+/**
+ * The gallery, with a place for each picture before the pictures exist.
+ *
+ * Built empty and filled later, so the editor is usable in the half second the
+ * thumbnails take rather than waiting on them. There is no "Custom" tile: it is
+ * not a look you can choose, it is what the panel says when you have edited
+ * one, so it belongs in the label rather than in the grid.
+ */
+function fillLookList() {
+  const gallery = $("#lookGallery");
+  gallery.replaceChildren();
 
   for (const look of LOOKS) {
-    const option = document.createElement("option");
-    option.value = look.id;
-    option.textContent = look.name;
-    list.append(option);
+    const shot = document.createElement("button");
+    shot.type = "button";
+    shot.className = "shot";
+    shot.dataset["look"] = look.id;
+    shot.setAttribute("role", "radio");
+    shot.setAttribute("aria-checked", "false");
+    shot.title = look.hint;
+
+    const image = document.createElement("img");
+    image.alt = "";
+    gallery.append(shot);
+
+    const name = document.createElement("span");
+    name.textContent = look.name;
+
+    shot.append(image, name);
   }
+
+  // After the editor is up, because a thumbnail is worth none of the delay it
+  // would cause at boot.
+  void renderLookThumbnails(192, 108).then((shots) => {
+    for (const [id, data] of shots) {
+      const image = gallery.querySelector(`.shot[data-look="${id}"] img`);
+      if (image instanceof HTMLImageElement) image.src = data;
+    }
+  });
 }
 
 /**
@@ -610,7 +672,22 @@ function paintFromState() {
 
   // Which look this is, by comparison rather than by memory.
   const look = lookIdFor(preset);
-  select("look").value = look ?? "";
+
+  for (const shot of $("#lookGallery").querySelectorAll(".shot")) {
+    const mine = shot instanceof HTMLElement && shot.dataset["look"] === look;
+    shot.setAttribute("aria-checked", mine ? "true" : "false");
+
+    // Roving tabindex: the chosen one is the group's single tab stop, and the
+    // arrow keys move between them from there. With nothing chosen - an edited
+    // preset, which the panel calls Custom - the first tile takes the stop so
+    // the group can still be reached at all.
+    if (shot instanceof HTMLElement) shot.tabIndex = mine ? 0 : -1;
+  }
+
+  if (!look) {
+    const first = $("#lookGallery").querySelector(".shot");
+    if (first instanceof HTMLElement) first.tabIndex = 0;
+  }
 
   const described = LOOKS.find((entry) => entry.id === look);
   $("#lookHint").setAttribute(

@@ -2285,6 +2285,117 @@ test("Ctrl+Z in a text field belongs to the field (US-024)", async ({ page }) =>
   expect(await saturation(), "Ctrl+Z while typing must not undo the picture").toBeCloseTo(0.6, 5);
 });
 
+test("the look gallery shows a picture of every preset", async ({ page }) => {
+  const shots = page.locator("#lookGallery .shot");
+  await expect(shots).toHaveCount(8);
+
+  // Every tile carries the look's own hint, which is what a title is for on a
+  // control that is a picture rather than a word.
+  const titles = await shots.evaluateAll((nodes) => nodes.map((n) => n.title));
+  for (const title of titles) {
+    expect(title.length, "a tile with no hint is a picture nobody can interpret").toBeGreaterThan(
+      40
+    );
+  }
+
+  // The pictures arrive after the editor does, on purpose, so this waits.
+  await expect
+    .poll(
+      async () =>
+        shots.evaluateAll(
+          (nodes) =>
+            nodes.filter((n) => (n.querySelector("img")?.getAttribute("src") ?? "").length > 100)
+              .length
+        ),
+      { timeout: 20_000 }
+    )
+    .toBe(8);
+
+  // And they are different pictures. Eight identical rectangles would pass
+  // every check above and be worth nothing.
+  const sources = await shots.evaluateAll((nodes) =>
+    nodes.map((n) => n.querySelector("img")?.getAttribute("src") ?? "")
+  );
+  expect(new Set(sources).size, "the thumbnails should not all be the same").toBe(8);
+});
+
+test("a look can be chosen by clicking its picture", async ({ page }) => {
+  const weather = page.locator('#lookGallery .shot[data-look="weather"]');
+  await weather.click();
+
+  await expect(weather).toHaveAttribute("aria-checked", "true");
+
+  const applied = await page.evaluate(() => window.DayAndNight.document().cfg.preset.cloudCover);
+  expect(applied).toBeGreaterThan(0.5);
+
+  // Exactly one is chosen at a time, which is what a radio group means.
+  const checked = await page
+    .locator("#lookGallery .shot")
+    .evaluateAll((nodes) => nodes.filter((n) => n.getAttribute("aria-checked") === "true").length);
+  expect(checked).toBe(1);
+});
+
+test("the gallery is one tab stop, and the arrows move inside it (NFR-6)", async ({ page }) => {
+  // A picture grid that is eight tab stops in the middle of a settings panel
+  // is tiring to use from a keyboard. A radio group is one stop, and the
+  // arrows move within it.
+  await page.locator('#lookGallery .shot[data-look="clear"]').click();
+
+  const tabbable = await page
+    .locator("#lookGallery .shot")
+    .evaluateAll((nodes) => nodes.filter((n) => n.tabIndex === 0).length);
+  expect(tabbable, "a radio group has a single tab stop").toBe(1);
+
+  await page.locator('#lookGallery .shot[data-look="clear"]').focus();
+  await page.keyboard.press("ArrowRight");
+
+  // Moving the focus moves the choice, which is how a radio group behaves.
+  const chosen = await page.evaluate(() => document.activeElement?.getAttribute("data-look") ?? "");
+  expect(chosen).not.toBe("clear");
+  await expect(page.locator(`#lookGallery .shot[data-look="${chosen}"]`)).toHaveAttribute(
+    "aria-checked",
+    "true"
+  );
+
+  // And it wraps rather than stopping, so there is no dead end.
+  await page.locator('#lookGallery .shot[data-look="clear"]').focus();
+  await page.keyboard.press("ArrowLeft");
+  const wrapped = await page.evaluate(
+    () => document.activeElement?.getAttribute("data-look") ?? ""
+  );
+  expect(wrapped, "going left from the first should reach the last").toBeTruthy();
+  expect(wrapped).not.toBe("clear");
+});
+
+test("editing a control leaves the gallery with nothing chosen", async ({ page }) => {
+  // "Custom" is not a look you can pick, it is what the panel says once you
+  // have edited one - so it is the absence of a chosen tile rather than a tile
+  // of its own.
+  await page.locator('#lookGallery .shot[data-look="clear"]').click();
+  await expect(page.locator('#lookGallery .shot[data-look="clear"]')).toHaveAttribute(
+    "aria-checked",
+    "true"
+  );
+
+  await page.evaluate(() => {
+    const slider = document.querySelector("#saturation");
+    slider.value = "0.42";
+    slider.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  const checked = await page
+    .locator("#lookGallery .shot")
+    .evaluateAll((nodes) => nodes.filter((n) => n.getAttribute("aria-checked") === "true").length);
+  expect(checked, "an edited preset is no longer any of the looks").toBe(0);
+
+  // The group is still reachable, which it would not be if every tile had
+  // given up its tab stop along with its selection.
+  const tabbable = await page
+    .locator("#lookGallery .shot")
+    .evaluateAll((nodes) => nodes.filter((n) => n.tabIndex === 0).length);
+  expect(tabbable).toBe(1);
+});
+
 test("the editor is keyboard operable (NFR-6)", async ({ page }) => {
   // Tab to the first control and check focus is visible rather than lost.
   await page.keyboard.press("Tab");

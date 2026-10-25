@@ -550,6 +550,56 @@ button.primary:hover {
   background: rgb(255 255 255 / 0.35);
 }
 
+/* The look gallery: a picture of each preset, chosen by looking at it. */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: var(--s-2);
+}
+
+.gallery .shot {
+  display: block;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel-2);
+  color: var(--ink-dim);
+  cursor: pointer;
+  text-align: left;
+}
+
+.gallery .shot img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--panel-2);
+}
+
+/* A name under the picture, because a thumbnail at this size cannot be told
+   from its neighbour at a glance and the names are what people remember. */
+.gallery .shot span {
+  display: block;
+  padding: var(--s-1) var(--s-2);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gallery .shot:hover {
+  border-color: var(--ink-faint);
+  color: var(--ink);
+}
+
+.gallery .shot[aria-checked="true"] {
+  border-color: var(--accent);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
 /* The share panel: a code to copy out, and a box to paste one into. */
 .row textarea {
   width: 100%;

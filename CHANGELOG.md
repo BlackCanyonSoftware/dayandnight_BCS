@@ -29,6 +29,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Settings are kept in the OS app-data folder and written atomically, and can
   be saved out as a file.
 
+- **Looks you can see before you pick them.** The preset list is a gallery
+  now, with a picture of each one. They are all the same morning, so you are
+  comparing the looks rather than the hour.
 - **Undo and redo.** Ctrl+Z takes back any change and Ctrl+Y puts it back,
   including a whole slider drag in one press rather than forty. Typing in a
   text box keeps its own undo, as it should.
