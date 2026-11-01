@@ -86,6 +86,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The editor is set in the brand's own typeface.** It used to borrow whatever
+  Windows had; it is now in Jost, the face the logo beside it is drawn in, so
+  the panel and the name at the top of it finally look like the same product.
+  The face ships with the application, so it looks the same on a machine that
+  has never seen it.
 - **The wallpaper now costs almost nothing to leave running.** It redraws only
   when the picture would actually differ, which for a sky is a few thousand
   times a day rather than nearly two million, and the result is 0.15 % of one

@@ -1,7 +1,23 @@
 /* dayandnight / styles.css
    Every value comes from tokens.css. See docs/DESIGN.md. */
 
-@import url("tokens.css");
+/* The face this brand is set in comes from the kit's own sheets, not from
+   here. `fonts.css` declares the face and points at `brand/font/jost.woff`
+   beside it; `tokens.css` names the family in `--font`. Both are imported
+   because naming the family here instead would be a second place that
+   decision lives, which is what app/brand/BRAND.md asks us not to do.
+
+   The kit's sheet sits in a layer *under* ours, so every value this project
+   measured for itself - its radii, its spacing step, its shadows - wins over
+   the kit's generic ones whatever the selector weight. Without the layer the
+   kit's `:root:not([data-theme="light"])` dark block would outweigh our plain
+   `:root` and quietly replace the shadows. Everything below is unlayered, and
+   unlayered beats every layer. */
+@layer brand, app;
+
+@import url("brand/template/fonts.css");
+@import url("brand/template/tokens.css") layer(brand);
+@import url("tokens.css") layer(app);
 
 * {
   box-sizing: border-box;
@@ -76,9 +92,8 @@ select {
 
 /* ------------------------------------------------------------- brand slot */
 
-/* Deliberately empty and deliberately sized: it holds its space so the layout
-   holds the mark and the wordmark the brand kit built. See
-   app/brand/README.md for where they came from and what was not taken. */
+/* Sized for the mark and the wordmark the brand kit built, which are files
+   under app/brand/ rather than type set here. See app/brand/README.md. */
 .brand {
   min-height: 76px;
   padding: var(--s-3) var(--s-4);

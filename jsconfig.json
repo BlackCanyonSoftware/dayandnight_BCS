@@ -17,5 +17,5 @@
     "types": ["node"]
   },
   "include": ["app/**/*.js", "app/**/*.d.ts", "desktop/**/*.js", "tools/**/*.js"],
-  "exclude": ["node_modules/**", "dist/**", "app/vendor/**"]
+  "exclude": ["node_modules/**", "dist/**", "app/vendor/**", "app/brand/**"]
 }

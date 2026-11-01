@@ -130,7 +130,7 @@ app/                      the web app; everything a window loads
     guide.js  faq.js      the guide and its questions
     desktop.js            the shell when there is one; the browser's way when there is not
     util.js               $, el, clamp, formatting, the modal, the info dot
-  brand/                  the mark and wordmarks. EMPTY until the owner supplies them
+  brand/                  a brandkit bundle: mark, wordmarks, icons, typeface. Generated
 desktop/                  the Electron shell
   main.js                 app lifecycle, the custom scheme, window creation
   monitors.js             enumeration and change events

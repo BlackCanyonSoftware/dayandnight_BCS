@@ -1807,6 +1807,47 @@ test("every control carries a hint, and none is a bare label (US-023)", async ({
   }
 });
 
+test("the editor is set in the brand's own face, named by the kit and not by us", async ({
+  page
+}) => {
+  // The family a brand is set in is recorded in the brand definition, which
+  // reaches the page as `--font` from brand/template/tokens.css. Naming it in
+  // app/tokens.css instead would work and would be a second place that
+  // decision lives, so this asserts both halves: that the face arrives, and
+  // that it arrives from there.
+  const applied = await page.evaluate(() => ({
+    token: getComputedStyle(document.documentElement).getPropertyValue("--font").trim(),
+    body: getComputedStyle(document.body).fontFamily
+  }));
+
+  expect(applied.token, "--font should come from the brand kit's token sheet").toContain("Jost");
+  expect(applied.body, "the body should be set in it").toContain("Jost");
+
+  // And the file behind it actually loads. A @font-face whose src 404s leaves
+  // the page in the fallback with no error anywhere, which is the failure this
+  // catches: a brand rebuild that renames the file.
+  const face = await page.evaluate(async () => {
+    await document.fonts.ready;
+    const loaded = [...document.fonts].filter((f) => f.status === "loaded");
+    return {
+      families: loaded.map((f) => f.family),
+      // 500 is one of the three weights the brand is set at, and the face is
+      // variable - a browser given a static cut would fake the others.
+      has: document.fonts.check('500 13px "Jost"')
+    };
+  });
+
+  expect(face.families, `only these faces loaded: ${face.families.join(", ")}`).toContain("Jost");
+  expect(face.has, "jost.woff did not load - check brand/font/ after a brand rebuild").toBe(true);
+
+  // The monospace stack is the brand's too, by alias. An application that
+  // reached for Consolas by name here would be the same second place.
+  const mono = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim()
+  );
+  expect(mono, "--font-mono should resolve through the brand's --mono").toContain("monospace");
+});
+
 test("the brand slot carries the mark and the right wordmark for the theme", async ({ page }) => {
   // The wordmark is a file the brand kit built, not type set in CSS, so the
   // failure mode is a silently empty corner rather than a wrong font: a moved

@@ -1,0 +1,325 @@
+{
+  "brand": "daynnight",
+  "colourways": [
+    {
+      "background": "#f1f0ef",
+      "name": "light",
+      "note": "full colour, for light backgrounds"
+    },
+    {
+      "background": "#131211",
+      "name": "dark",
+      "note": "full colour, for dark backgrounds"
+    },
+    {
+      "background": "#f1f0ef",
+      "name": "mono-black",
+      "note": "one colour, for faxes, embroidery, single-colour print and anywhere the full palette cannot be trusted"
+    },
+    {
+      "background": "#131211",
+      "name": "mono-white",
+      "note": "one colour, reversed out of a dark or photographic background"
+    }
+  ],
+  "contrast": {
+    "dark": {
+      "accent": {
+        "passes": true,
+        "ratio": 5.88,
+        "required": 3.0
+      },
+      "bad on bad_bg": {
+        "passes": true,
+        "ratio": 5.17,
+        "required": 4.5
+      },
+      "bad on card": {
+        "passes": true,
+        "ratio": 5.47,
+        "required": 4.5
+      },
+      "bad on page": {
+        "passes": true,
+        "ratio": 5.79,
+        "required": 4.5
+      },
+      "control on card": {
+        "passes": true,
+        "ratio": 3.22,
+        "required": 3.0
+      },
+      "control on page": {
+        "passes": true,
+        "ratio": 3.4,
+        "required": 3.0
+      },
+      "ink": {
+        "passes": true,
+        "ratio": 12.02,
+        "required": 3.0
+      },
+      "logo": {
+        "passes": true,
+        "ratio": 5.18,
+        "required": 3.0
+      },
+      "mute": {
+        "passes": true,
+        "ratio": 5.64,
+        "required": 4.5
+      },
+      "ok on card": {
+        "passes": true,
+        "ratio": 9.15,
+        "required": 4.5
+      },
+      "ok on ok_bg": {
+        "passes": true,
+        "ratio": 8.05,
+        "required": 4.5
+      },
+      "ok on page": {
+        "passes": true,
+        "ratio": 9.68,
+        "required": 4.5
+      },
+      "on_bad on bad": {
+        "passes": true,
+        "ratio": 6.1,
+        "required": 4.5
+      },
+      "on_brand on brand": {
+        "passes": true,
+        "ratio": 5.37,
+        "required": 4.5
+      },
+      "warn on card": {
+        "passes": true,
+        "ratio": 5.47,
+        "required": 4.5
+      },
+      "warn on page": {
+        "passes": true,
+        "ratio": 5.79,
+        "required": 4.5
+      },
+      "warn on warn_bg": {
+        "passes": true,
+        "ratio": 5.44,
+        "required": 4.5
+      }
+    },
+    "light": {
+      "accent": {
+        "passes": true,
+        "ratio": 4.82,
+        "required": 3.0
+      },
+      "bad on bad_bg": {
+        "passes": true,
+        "ratio": 4.88,
+        "required": 4.5
+      },
+      "bad on card": {
+        "passes": true,
+        "ratio": 5.22,
+        "required": 4.5
+      },
+      "bad on page": {
+        "passes": true,
+        "ratio": 4.74,
+        "required": 4.5
+      },
+      "control on card": {
+        "passes": true,
+        "ratio": 3.56,
+        "required": 3.0
+      },
+      "control on page": {
+        "passes": true,
+        "ratio": 3.23,
+        "required": 3.0
+      },
+      "ink": {
+        "passes": true,
+        "ratio": 12.01,
+        "required": 3.0
+      },
+      "logo": {
+        "passes": true,
+        "ratio": 3.41,
+        "required": 3.0
+      },
+      "mute": {
+        "passes": true,
+        "ratio": 4.74,
+        "required": 4.5
+      },
+      "ok on card": {
+        "passes": true,
+        "ratio": 5.93,
+        "required": 4.5
+      },
+      "ok on ok_bg": {
+        "passes": true,
+        "ratio": 5.33,
+        "required": 4.5
+      },
+      "ok on page": {
+        "passes": true,
+        "ratio": 5.39,
+        "required": 4.5
+      },
+      "on_bad on bad": {
+        "passes": true,
+        "ratio": 4.96,
+        "required": 4.5
+      },
+      "on_brand on brand": {
+        "passes": true,
+        "ratio": 5.37,
+        "required": 4.5
+      },
+      "warn on card": {
+        "passes": true,
+        "ratio": 5.22,
+        "required": 4.5
+      },
+      "warn on page": {
+        "passes": true,
+        "ratio": 4.74,
+        "required": 4.5
+      },
+      "warn on warn_bg": {
+        "passes": true,
+        "ratio": 5.01,
+        "required": 4.5
+      }
+    },
+    "mono-black": {
+      "accent": {
+        "passes": true,
+        "ratio": 18.45,
+        "required": 3.0
+      },
+      "ink": {
+        "passes": true,
+        "ratio": 18.45,
+        "required": 3.0
+      },
+      "logo": {
+        "passes": true,
+        "ratio": 18.45,
+        "required": 3.0
+      },
+      "mute": {
+        "passes": true,
+        "ratio": 18.45,
+        "required": 4.5
+      }
+    },
+    "mono-white": {
+      "accent": {
+        "passes": true,
+        "ratio": 18.71,
+        "required": 3.0
+      },
+      "ink": {
+        "passes": true,
+        "ratio": 18.71,
+        "required": 3.0
+      },
+      "logo": {
+        "passes": true,
+        "ratio": 18.71,
+        "required": 3.0
+      },
+      "mute": {
+        "passes": true,
+        "ratio": 18.71,
+        "required": 4.5
+      }
+    }
+  },
+  "derived": [
+    "on_brand",
+    "control",
+    "bad",
+    "bad_bg",
+    "warn",
+    "warn_bg",
+    "on_bad",
+    "ok",
+    "ok_bg"
+  ],
+  "kind": "product",
+  "name": "DAYnNIGHT",
+  "palette": {
+    "dark": {
+      "accent": "#e76b4b",
+      "bad": "#ff4d63",
+      "bad_bg": "#361216",
+      "brand": "#e45a36",
+      "card": "#1a1818",
+      "control": "#60697e",
+      "ink": "#c4cfed",
+      "line": "#2c2726",
+      "logo": "#e45a36",
+      "mute": "#858da2",
+      "ok": "#55d189",
+      "ok_bg": "#14281c",
+      "on_bad": "#1a0407",
+      "on_brand": "#170a07",
+      "page": "#131211",
+      "warn": "#ff4d63",
+      "warn_bg": "#2e0f13"
+    },
+    "light": {
+      "accent": "#be3b19",
+      "bad": "#d3122e",
+      "bad_bg": "#fff0f2",
+      "brand": "#e45a36",
+      "card": "#fcfbfb",
+      "control": "#7b85a1",
+      "ink": "#1c2b58",
+      "line": "#dcd7d6",
+      "logo": "#e2502a",
+      "mute": "#5f6a86",
+      "ok": "#17703f",
+      "ok_bg": "#e3f3ea",
+      "on_bad": "#f7f5f5",
+      "on_brand": "#170a07",
+      "page": "#f1f0ef",
+      "warn": "#d3122e",
+      "warn_bg": "#fff4f6"
+    }
+  },
+  "roles": {
+    "accent": "links, focus rings, the one word that is not ink",
+    "bad": "something is wrong: an error",
+    "bad_bg": "the wash behind an error",
+    "brand": "fills: buttons, bars, the rule across the top",
+    "card": "a raised surface on the page",
+    "control": "the edge of a text box, a select, a switch track. 3:1, because the edge is the only thing that says where the control is",
+    "ink": "body text, headings, the name itself",
+    "line": "borders and dividers",
+    "logo": "the mark, and any word set to match it",
+    "mute": "small print, captions, secondary text",
+    "ok": "something worked",
+    "ok_bg": "the wash behind it",
+    "on_bad": "text on a solid red fill",
+    "on_brand": "text and icons on top of a brand fill - never --page, which on a mid-toned brand reads at 3:1",
+    "page": "the background behind everything",
+    "warn": "...and a warning. The same red, because two reds a few degrees apart are not distinguishable - a warning is told apart by its icon and the weight of its edge",
+    "warn_bg": "the wash behind a warning - a quieter ground"
+  },
+  "status_hue_warning": {
+    "degrees_from_brand": {
+      "dark": 19.8,
+      "light": 21.1
+    },
+    "note": "this brand's own hue is close to the red that means something is wrong; set bad in [palette.light] and [palette.dark] to choose a colour that stands apart"
+  },
+  "typeface": "Jost"
+}

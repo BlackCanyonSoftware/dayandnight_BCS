@@ -88,11 +88,15 @@ timers inside `app/engine/`. It is not there to be worked around.
   the control, not what it is called. A control without one is a bug (US-023).
 - No loose explanatory text in the settings panel. The `i` is where words go.
 - Every colour, radius, duration and spacing step comes from `app/tokens.css`.
+  The typeface is the exception: it is named by the brand kit's own token
+  sheet, which `app/styles.css` imports, because the face a brand is set in is
+  recorded in the brand definition rather than here.
 - Every screen state is designed: loading, empty, error, disabled, pending.
 - WCAG 2.2 AA. Keyboard operable, visible focus, 4.5:1 text contrast,
   `prefers-reduced-motion` honoured.
-- The brand slot in the sidebar stays empty until the owner supplies the mark.
-  See `app/brand/README.md`.
+- Nothing under `app/brand/` is edited by hand. It is written whole by
+  `brandkit bundle` and an edit there is lost at the next one; a change belongs
+  in the brand definition. See `app/brand/README.md`.
 
 ## Testing
 

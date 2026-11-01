@@ -71,9 +71,14 @@ win:
     - nsis
   # The brand's own .ico rather than a PNG for electron-builder to convert: the
   # kit builds the icon at every size Windows asks for, including the 16px one
-  # that a taskbar and a file listing use, and a downscale from 1024 is not the
+  # that a taskbar and a file listing use, and a downscale from 512 is not the
   # same picture at that size.
-  icon: desktop/build/icon.ico
+  #
+  # Pointed straight at the brand bundle rather than at a copy in
+  # buildResources. A copy is a file that has to be remembered at every brand
+  # rebuild and looks identical when it has been forgotten; this way
+  # `brandkit check` vouches for the icon the installer uses.
+  icon: app/brand/icon/favicon.ico
 nsis:
   # Not one-click: a wallpaper is something people want to put where they
   # choose, and a silent installer that just happens is the wrong first

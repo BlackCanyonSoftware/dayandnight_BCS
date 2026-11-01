@@ -12,11 +12,12 @@ same commit (`README.md` in this folder says how).
 
 These are in the running application and reach every customer.
 
-| Component                | Where                                          | Version | Licence                                                                                                                                | Copyright                                                                |
-| ------------------------ | ---------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| koffi                    | `desktop/host-win32.js` calls into it          | 3.3.3   | MIT ([text](third-party/koffi.MIT.txt))                                                                                                | Copyright (C) 2026 Niels Martignène                                      |
-| @koromix/koffi-win32-x64 | koffi's prebuilt native binary for Windows     | 3.3.3   | MIT ([text](third-party/koffi.MIT.txt))                                                                                                | Copyright (C) 2026 Niels Martignène                                      |
-| Electron                 | `desktop/` - the shell the application runs in | 44.9.0  | MIT ([text](third-party/Electron.MIT.txt)); Chromium and Node.js under their own licences, in `LICENSES.chromium.html` next to the app | Copyright (c) Electron contributors, Copyright (c) 2013-2020 GitHub Inc. |
+| Component                | Where                                          | Version       | Licence                                                                                                                                | Copyright                                                                |
+| ------------------------ | ---------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| koffi                    | `desktop/host-win32.js` calls into it          | 3.3.3         | MIT ([text](third-party/koffi.MIT.txt))                                                                                                | Copyright (C) 2026 Niels Martignène                                      |
+| @koromix/koffi-win32-x64 | koffi's prebuilt native binary for Windows     | 3.3.3         | MIT ([text](third-party/koffi.MIT.txt))                                                                                                | Copyright (C) 2026 Niels Martignène                                      |
+| Electron                 | `desktop/` - the shell the application runs in | 44.9.0        | MIT ([text](third-party/Electron.MIT.txt)); Chromium and Node.js under their own licences, in `LICENSES.chromium.html` next to the app | Copyright (c) Electron contributors, Copyright (c) 2013-2020 GitHub Inc. |
+| Jost                     | `app/brand/font/jost.woff` - the editor's type | 1.49.0 bundle | SIL Open Font License 1.1 ([text](third-party/Jost.OFL.txt))                                                                           | Copyright 2020 The Jost Project Authors                                  |
 
 Notes:
 
@@ -34,9 +35,23 @@ Notes:
 - **Electron** carries Chromium and Node.js. Every build ships the complete
   Chromium licence file (`LICENSES.chromium.html`) next to the application; the
   packaging step fails without it.
-- **No fonts are shipped.** The editor uses whatever Windows already has, in a
-  stack beginning with Segoe UI and Cascadia Mono (`app/tokens.css`), so there
-  is no font file in the product and no font licence to carry.
+- **Jost** is the face this brand is set in, and the one font file in the
+  product. It arrives as part of the brand kit's bundle rather than on its own
+  (`app/brand/`, built by `brandkit bundle`), which is why its version is the
+  bundle's: the font and the stylesheet that declares it are generated
+  together and `brandkit check` compares both against the brand definition.
+  The OFL has two clauses that matter to a product sold under the EULA in this
+  folder. The font may be sold **as part of a larger package but not by
+  itself**, which this is - nobody buys Day and Night for its typeface, and no
+  build offers the file separately. And the copyright notice and licence must
+  travel with the font: they do, both inside the application
+  (`app/brand/font/Jost-LICENCE.txt`, as the kit shipped it) and beside the
+  other notices here, where `check-bundle.js` fails the build without it.
+  Jost is not modified; "Jost" is not a Reserved Font Name in its own notice,
+  and the question does not arise while the file is passed through untouched.
+  The monospace stack is still whatever Windows already has, named by the
+  brand's `--mono` and aliased in `app/tokens.css`, so there is no second font
+  file.
 
 ## Credited, not licensed
 

@@ -10,10 +10,13 @@
 
 :root {
   /* ------------------------------------------------------------ typography */
-  --font:
-    "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, Roboto, "Helvetica Neue",
-    sans-serif;
-  --font-mono: "Cascadia Mono", ui-monospace, Consolas, "Courier New", monospace;
+  /* `--font` is not defined here on purpose. The family this brand is set in
+     is recorded in the brand definition and reaches the page through
+     `brand/template/tokens.css`, imported by styles.css; writing it here too
+     would be a second place that decision lives. Same for the monospace
+     stack, which the kit calls `--mono` - this is the alias, so the rest of
+     the application keeps one vocabulary for its tokens. */
+  --font-mono: var(--mono);
 
   --text-xs: 11px;
   --text-sm: 12px;

@@ -44,7 +44,7 @@ Then a lawyer reads `EULA.md` and `DISCLAIMER.md` once. They are written in
 plain language to be reviewed cheaply, not to replace the review. Nothing in
 this folder is legal advice.
 
-Two more things are deliberately absent until they are real:
+One more thing is deliberately absent until it is real:
 
 - **No store is named.** The documents say "the store you got it from" because
   the distribution channel for v1 is a downloadable Windows installer and
@@ -52,8 +52,13 @@ Two more things are deliberately absent until they are real:
   Steam Subscriber Agreement, a Steam paragraph to `PRIVACY.md`, and the
   Steamworks SDK to `THIRD-PARTY-NOTICES.md`; Pixel Galaxy Studio's copies of
   all three are the model.
-- **No brand assets.** `app/brand/` is empty by design, awaiting the owner's
-  logo and wordmark, so `TRADEMARKS.md` names the word marks only.
+
+The brand assets are real now. `app/brand/` is a `brandkit bundle` - the mark,
+the wordmarks, the icons and the typeface - so `TRADEMARKS.md` claims the drawn
+marks as well as the words, and the font it brings with it is the only
+third-party licence in the product that is not MIT. Re-running `bundle` after a
+brand change can change the font: check `THIRD-PARTY-NOTICES.md` still names
+the right one.
 
 ## Adding a third-party component
 

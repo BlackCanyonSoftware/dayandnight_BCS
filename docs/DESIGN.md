@@ -66,12 +66,14 @@ and the images carry that as their alt text, because a screen reader should be
 told the name rather than the stylisation. `licenses/TRADEMARKS.md` claims both
 and says they are the same name.
 
-**Not taken from the kit, yet:** its palette and its typeface. The editor keeps
-the tokens in `app/tokens.css` and the system font stacks, and ships no font
-file - which is why the third-party notices have no font row. Adopting the
-kit's palette and Nunito would make every screen match the brand and change
-every screen, so it is the owner's decision rather than something to arrive
-with a logo. It is in the roadmap.
+**Not taken from the kit, yet:** its palette. The editor keeps the colour
+tokens in `app/tokens.css`, which are measured for contrast here rather than
+inherited; adopting the kit's palette would change every screen and is the
+owner's decision. It is in the roadmap.
+
+**The typeface was taken, on 2026-11-01**, at the owner's instruction, when the
+kit was rebuilt at 1.49.0 and the brand's face changed to Jost. See Type
+below for what that cost.
 
 ## Contrast
 
@@ -121,14 +123,37 @@ check is part of the browser test suite, not a one-time review.
 
 ### Type
 
-System UI, as Pixel Galaxy Studio does - a wallpaper tool should look like the
-operating system it sits on, and shipping a webfont for chrome is weight for
-nothing.
+**Jost**, the face this brand is set in, from the brand kit. This replaced the
+system stack on 2026-11-01 at the owner's instruction. The old decision was
+that a wallpaper tool should look like the operating system it sits on and that
+shipping a webfont for chrome is weight for nothing; both were true and the
+brand won anyway, because a product whose editor is set in Segoe and whose
+wordmark is drawn in Jost is a product with two typefaces. The cost is 61 KB of
+`.woff` in the installer and the first third-party licence in the product that
+is not MIT (SIL OFL 1.1; `licenses/THIRD-PARTY-NOTICES.md` works through the
+two clauses that matter to a paid product).
+
+**Neither the family nor the file is named here.** `app/styles.css` imports the
+kit's own two sheets - `brand/template/fonts.css`, which declares the face and
+points at `brand/font/jost.woff` beside it, and `brand/template/tokens.css`,
+which sets `--font` - because the face a brand is set in is recorded in the
+brand definition, and writing it in `app/tokens.css` as well would be a second
+place that decision lives. `app/brand/BRAND.md` asks for exactly this.
+
+The kit's token sheet carries more than type, so it is imported into a CSS
+layer _underneath_ this project's own tokens: every value measured here - the
+radii, the spacing step, the shadows - wins whatever the selector weight.
+Without the layer the kit's `:root:not([data-theme="light"])` dark block would
+outweigh our plain `:root` and silently replace the shadows.
 
 ```
---font: "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
---font-mono: "Cascadia Mono", ui-monospace, "Consolas", monospace;
+--font      from brand/template/tokens.css: "Jost", system-ui, -apple-system, ...
+--font-mono: var(--mono);   the brand's monospace stack, aliased
 ```
+
+The monospace side is still whatever Windows already has: the brand names the
+stack and ships no file for it, so `app/tokens.css` only keeps this
+application's name for it.
 
 | Token         | Size / line | Used for                                    |
 | ------------- | ----------- | ------------------------------------------- |

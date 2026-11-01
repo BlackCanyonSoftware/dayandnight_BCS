@@ -16,18 +16,17 @@ turning at the sidereal rate, and a grade over the top.
 - **Remote:** `origin` is `github.com/BlackCanyonSoftware/dayandnight_BCS`.
   **Nothing has been pushed.** The owner pushes.
 - **Tier:** MVP
-- **Checks:** lint, format and typecheck clean; **177 unit and 43 browser
-  tests**. The 12 desktop tests, the installer build and
-  `node tools/verify-package.js` all passed on 2026-10-24 and have not been run
-  since the clouds and the horizon went in - they open windows, and the owner
-  asked for those to wait.
+- **Checks:** lint, format and typecheck clean; **177 unit and 44 browser
+  tests**, all passing on 2026-11-01. `npm run build` is green on the same
+  date, including `check-bundle.js` with its eight legal documents.
+- **Not run since the clouds and the horizon went in:** the 12 desktop tests
+  and `node tools/verify-package.js`. Both open windows, and the owner asked
+  for those to wait. They last passed on 2026-10-24.
 - **Nothing since Milestone 2 has been measured.** The clouds are the first
   thing in the product that moves, which is the one change that could undo
   frame-skipping, and `tools/measure-cost.js` now has a scenario for them that
   has never been run. The owner asked to hold the measurement until more was
-  built; more is built. - the desktop ones were run on 2026-10-19, the first
-  time since Milestone 0, because they open windows on the desktop and the owner
-  has to be free.
+  built; more is built.
 
 - **NFR-1: met.** 0.15 % of one core against a 2 % budget, on two screens with
   the editor closed. See `ARCHITECTURE.md` under Measurement, Milestone 1. GPU
@@ -106,9 +105,11 @@ Two things to know before changing any of it:
   fill - publisher legal name and form, governing law and venue, support address,
   whether any mark is registered - plus a lawyer's single pass over `EULA.md` and
   `DISCLAIMER.md`. None of it blocks Milestone 2; all of it blocks a release.
-- **The brand.** `app/brand/` is empty by design and the sidebar slot holds its
-  space. There is still no `dayandnight-bcs` brand in the kit at
-  `C:\Users\Kpier\Documents\brand logos`.
+- **The brand.** Settled. `app/brand/` is a `brandkit bundle` of the
+  `daynnight` brand at **1.49.0**, verified by `brandkit check`, and the
+  sidebar carries the mark and both wordmarks. The typeface changed to Jost in
+  that rebuild and is now a shipped third-party licence (SIL OFL 1.1); see
+  `app/brand/README.md` for what to check after the next brand change.
 
 ## Gotchas
 
@@ -150,6 +151,53 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-11-01 - the brand kit re-synced, and the editor set in Jost
+
+- The kit was rebuilt at **1.49.0** and this brand's face changed. `app/brand/`
+  is now a `brandkit bundle` of 41 files in the kit's own folder shape, written
+  by `brandkit bundle` and reporting `matches daynnight`, replacing four SVGs
+  that had been copied in by hand.
+- **The typeface is the brand's now**, which reverses the design decision that
+  the editor should use the system stack. The owner asked for it; `DESIGN.md`
+  under Type records what it cost - 61 KB of `.woff`, and the first
+  third-party licence in the product that is not MIT.
+- **Neither the family nor the file is named in this project's CSS.**
+  `app/styles.css` imports the kit's `template/fonts.css` and
+  `template/tokens.css`; `app/tokens.css` no longer defines `--font` at all and
+  keeps `--font-mono: var(--mono)` as an alias. This is what
+  `app/brand/BRAND.md` asks for: the face a brand is set in is recorded in the
+  brand definition, not in the application.
+- **The kit's token sheet is imported into a CSS layer underneath ours**, so
+  this project's measured radii, spacing and shadows win whatever the selector
+  weight. That is not tidiness: the kit's dark block is
+  `:root:not([data-theme="light"])`, which outweighs our plain `:root`, and
+  without the layer it would have replaced the shadows silently.
+- **Prettier reformatted fourteen files inside the bundle** the first time it
+  saw them, and `brandkit check` immediately called it a forked brand.
+  `app/brand/` is now in `.prettierignore`, in ESLint's `ignores` and in
+  `jsconfig.json`'s `exclude`, for the same reason `app/vendor/` is.
+- **The Windows icon is no longer copied.** `electron-builder.yml` points
+  `win.icon` at `app/brand/icon/favicon.ico` directly and the two hand copies
+  under `desktop/build/` are gone - a copy is a file that has to be remembered
+  at every brand rebuild and looks identical when it has been forgotten. The
+  build is green and the brand icon's bytes are in the packaged `.exe`.
+- **The font is a licence now**, not just an asset. SIL OFL 1.1, text in
+  `licenses/third-party/Jost.OFL.txt`, required by `check-bundle.js` so a
+  build that drops it fails. `THIRD-PARTY-NOTICES.md` works through the two
+  clauses that matter to a product sold under this EULA: it may be sold as part
+  of a larger package but not by itself, and the notice must travel with the
+  file.
+- **Git was normalising two of the bundle's files.** `.gitattributes` sets
+  `eol=lf` for the whole repository and the kit writes `BRAND.md` and
+  `BUNDLE.json` with CRLF; `check` compares bytes, so a fresh clone would have
+  reported a forked brand in a repository nobody had touched. `app/brand/**`
+  is `-text` now, and `git checkout-index` into a scratch folder reports
+  `matches daynnight`.
+- One new browser test, which asserts the face arrives _from the kit_ - that
+  `--font` contains Jost and that `jost.woff` actually loaded. A `@font-face`
+  whose `src` 404s leaves the page in the fallback and reports nothing
+  anywhere, which is exactly what a brand rebuild that renames a file would do.
 
 ### 2026-10-24 - the look gallery
 

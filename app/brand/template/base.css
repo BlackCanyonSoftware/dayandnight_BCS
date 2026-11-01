@@ -1,0 +1,36 @@
+/* Scrollbars, and anything else the browser draws for itself, in the theme the
+   page is actually showing. theme.css names the scheme - without which a page
+   toggled to dark on a light machine gets a white scrollbar and white autofill
+   - and this names the colour, out of the palette. */
+html { scrollbar-color: color-mix(in srgb, var(--mute) 55%, transparent) transparent; }
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: calc(var(--header-h) + 16px); }
+body { margin: 0; font: 500 var(--fs-md)/1.55 var(--font); color: var(--ink); background: var(--page); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+body::before { content: ""; position: fixed; inset: 0 0 auto 0; height: 420px; z-index: -1; pointer-events: none; background: radial-gradient(60% 100% at 50% 0, color-mix(in srgb, var(--brand) 9%, transparent), transparent 70%); }
+h1, h2, h3, h4 { margin: 0; line-height: 1.2; letter-spacing: -.01em; font-weight: 800; font-family: var(--font-display); }
+.stat .n, .type-display { font-family: var(--font-display); }
+h1 { font-size: var(--fs-2xl); } h2 { font-size: var(--fs-xl); } h3 { font-size: var(--fs-lg); } h4 { font-size: var(--fs-md); font-weight: 700; }
+p { margin: 0; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:hover { text-decoration-thickness: 2px; }
+code, kbd { font-family: var(--mono); font-size: .88em; }
+code { padding: 1px 6px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--card); }
+kbd { padding: 1px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: var(--r-sm); background: var(--card); color: var(--mute); }
+hr { border: 0; border-top: 1px solid var(--line); margin: var(--s-5) 0; }
+::selection { background: var(--brand); color: var(--on-brand); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-sm); }
+.muted { color: var(--mute); } .small { font-size: var(--fs-sm); } .eyebrow { font-size: var(--fs-xs); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.stack > * + * { margin-top: var(--s-4); } .row { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
+.grow { flex: 1 1 auto; } .right { margin-inline-start: auto; }
+.grid { display: grid; gap: var(--s-4); } .cols-2 { grid-template-columns: repeat(2, 1fr); } .cols-3 { grid-template-columns: repeat(3, 1fr); } .cols-4 { grid-template-columns: repeat(4, 1fr); }
+.auto-grid { display: grid; gap: var(--s-4); grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.icon { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon.sm { width: 16px; height: 16px; } .icon.lg { width: 24px; height: 24px; }
+
+/* light/dark image pairs — chosen by CSS, never script (no flash) */
+.bk-only-dark { display: none; }
+@media (prefers-color-scheme: dark) { .bk-only-light { display: none; } .bk-only-dark { display: inline-block; } }
+:root[data-theme="dark"] .bk-only-light { display: none; } :root[data-theme="dark"] .bk-only-dark { display: inline-block; }
+:root[data-theme="light"] .bk-only-light { display: inline-block; } :root[data-theme="light"] .bk-only-dark { display: none; }

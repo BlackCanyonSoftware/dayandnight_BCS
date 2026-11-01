@@ -37,7 +37,16 @@ const NO_AMBIENT_STATE = [
 
 export default [
   {
-    ignores: ["node_modules/**", "dist/**", "playwright-report/**", "test-results/**"]
+    // app/brand is a brandkit bundle: generated files, verified by hash, and
+    // not ours to fix. Its template/ carries a UI shell this application does
+    // not use.
+    ignores: [
+      "node_modules/**",
+      "dist/**",
+      "playwright-report/**",
+      "test-results/**",
+      "app/brand/**"
+    ]
   },
 
   js.configs.recommended,

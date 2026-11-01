@@ -1,0 +1,38 @@
+{
+  "id": "/",
+  "lang": "en",
+  "name": "DAYnNIGHT",
+  "short_name": "DAYnNIGHT",
+  "description": "Wallpapers that follow the sun",
+  "icons": [
+    {
+      "src": "/icon-transparent-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-transparent-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "theme_color": "#e45a36",
+  "background_color": "#f1f0ef",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/"
+}

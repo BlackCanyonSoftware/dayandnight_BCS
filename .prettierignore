@@ -4,3 +4,7 @@ package-lock.json
 playwright-report/
 test-results/
 app/vendor/
+
+# A brandkit bundle: generated whole and verified by hashes. Formatting it is
+# an edit in place, which `brandkit check` reports as a forked brand.
+app/brand/

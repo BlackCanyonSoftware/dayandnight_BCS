@@ -9,18 +9,19 @@
   <body>
     <div id="app">
       <aside id="side">
-        <!-- The brand slot holds its space and ships empty until the owner
-             supplies the mark and wordmark. See app/brand/README.md. -->
         <div class="brand">
           <!-- The symbol and the name, as the brand kit's own header template
                arranges them. Both are the files the kit built, not type set in
                CSS, so the application and the brand cannot drift apart. The
-               name is spoken once: the mark is decorative and the wordmark
+               paths keep the kit's folder shape because its stylesheets reach
+               their neighbours as ../mark/ and ../font/, and a copy that
+               flattens them is a copy `brandkit check` no longer recognises.
+               The name is spoken once: the mark is decorative and the wordmark
                carries the alt text. -->
-          <img class="brandmark" src="brand/mark.svg" alt="" aria-hidden="true" />
+          <img class="brandmark" src="brand/mark/mark.svg" alt="" aria-hidden="true" />
           <div class="brandtext">
-            <img class="wm wmlight" src="brand/wordmark-light.svg" alt="Day and Night" />
-            <img class="wm wmdark" src="brand/wordmark-dark.svg" alt="Day and Night" />
+            <img class="wm wmlight" src="brand/wordmark/wordmark-light.svg" alt="Day and Night" />
+            <img class="wm wmdark" src="brand/wordmark/wordmark-dark.svg" alt="Day and Night" />
           </div>
         </div>
 
