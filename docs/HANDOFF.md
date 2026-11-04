@@ -17,8 +17,10 @@ turning at the sidereal rate, and a grade over the top.
   **Nothing has been pushed.** The owner pushes.
 - **Tier:** MVP
 - **Checks:** lint, format and typecheck clean; **177 unit and 44 browser
-  tests**, all passing on 2026-11-01. `npm run build` is green on the same
-  date, including `check-bundle.js` with its eight legal documents.
+  tests**, all passing on 2026-11-03, and `npm run build` green on the same
+  date including `check-bundle.js` with its eight legal documents. `npm audit
+--audit-level=high` is clean too, which it was not before Electron 44.10.2.
+  **CI itself is still red on GitHub** until these commits are pushed.
 - **Not run since the clouds and the horizon went in:** the 12 desktop tests
   and `node tools/verify-package.js`. Both open windows, and the owner asked
   for those to wait. They last passed on 2026-10-24.
@@ -151,6 +153,47 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-11-03 - CI's first real run, and the repository in public
+
+- **CI had never passed.** The 2026-10-29 run did not start at all - GitHub
+  blocked it for billing, which is what a three-second "failure" means. The
+  2026-11-01 run was the first to execute, and it failed for real.
+- **Two tests depended on the developer's timezone**, which nobody had
+  declared. `fromDateInputValue` builds the day with `new Date(y, mo - 1, d)`,
+  local midnight, which is right for the product; but a test that scrubs to
+  minute 0 and expects night has fixed a zone whether it says so or not. On a
+  UTC runner that instant is 18:00 the previous day in Denver, sun 26.26
+  degrees up. The snapshot test was the same bug: a different instant, so 94%
+  of the picture differed. `playwright.config.mjs` now pins
+  `timezoneId: "America/Denver"`.
+- **The snapshot was never Denver's sky.** This machine is America/Phoenix,
+  which keeps no DST, so `sunrise-denver-june.png` held Denver's sky an hour
+  out of step with Denver's clock. Regenerated under the pin; same 0.002 diff
+  ratio, and the picture now matches the name.
+- **A second CI failure was queued behind the first.** `npm audit
+--audit-level=high` never ran, and would have failed: Electron 44.9.0 carries
+  GHSA-jr5w-w6x2-84p9. Bumped to 44.10.2 within the existing `^44.9.0` range.
+  The build is green on it; **the desktop tests have not been run against the
+  new runtime.**
+- **The repository is public and pinned now.** Four lines named a local
+  filesystem with a Windows account in it, three of them written in the brand
+  re-sync two days earlier. Gone from the working tree. They remain in two
+  commits - the root commit and the re-sync - and clearing that means rewriting
+  from the root and force-pushing something public and pinned: the owner's
+  call, and arguably not worth it when every commit carries their name and
+  email anyway.
+- **The README has a banner** - a second `brandkit bundle`, `--set readme`, in
+  `docs/brand/`, both cuts in a `<picture>` so the half of readers on a dark
+  page see one too. Four claims in it had stopped being true: the milestone
+  count, the known limitations, the number of ADRs, and a build carrying
+  Electron's default icon.
+- **The brand has moved again.** The kit is at **1.55.0** and now reads in a
+  second face: `--font-display` stays Jost for the wordmark and headings,
+  `--font` becomes **Public Sans** for body copy. `app/brand/` is a 1.49.0
+  bundle and `brandkit check` reports the difference. Re-syncing changes the
+  editor's body type, adds a second font file and a second OFL row, and wants
+  our headings moved onto `--font-display` - its own piece of work.
 
 ### 2026-11-01 - the brand kit re-synced, and the editor set in Jost
 
