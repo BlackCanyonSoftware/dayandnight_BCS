@@ -1,0 +1,9 @@
+{
+  "brand": "daynnight",
+  "files": {
+    "lockup/banner/lockup-horizontal-dark-banner.png": "24323ebf39ab0ec5e427a9606a2186dd8d7950a7dddbb4bbe002c73a81c4f7e6",
+    "lockup/banner/lockup-horizontal-light-banner.png": "665164bd46e9d502bdf47303ec669da7a477d33eb53878f2c16079f6c0117069"
+  },
+  "note": "The readme set of this brand - the two images a repository's front page shows: the banner lockup, light and dark, for a <picture> block that follows the reader's own page colour. Every file with a hash of it. The folder names are part of it: a copy that renames or flattens them is a copy nothing written down describes. Export with: brandkit bundle daynnight <folder> --set readme. Check a copy with: brandkit check daynnight <folder> --set readme.",
+  "set": "readme"
+}

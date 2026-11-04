@@ -5,6 +5,8 @@ playwright-report/
 test-results/
 app/vendor/
 
-# A brandkit bundle: generated whole and verified by hashes. Formatting it is
-# an edit in place, which `brandkit check` reports as a forked brand.
+# brandkit bundles: generated whole and verified by hashes. Formatting one is
+# an edit in place, which `brandkit check` reports as a forked brand - and
+# docs/brand holds a BUNDLE.json that Prettier would reformat on sight.
 app/brand/
+docs/brand/

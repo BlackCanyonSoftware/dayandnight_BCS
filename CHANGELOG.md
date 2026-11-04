@@ -177,9 +177,10 @@ as finished.
   of lit atmosphere about eight degrees below the horizon, so the blue glow
   that lingers towards the sunset through nautical twilight is missing. The
   airglow floor keeps it from being black.
-- **It costs more than it should.** At 20 frames a second on two screens it
-  used about 8.5% of one CPU core against a budget of 2%, and about 570 MB.
-  Measured, not estimated; see `docs/ARCHITECTURE.md`. The application now
-  skips frames that would look identical, which removes 99.7% of the
-  redrawing over a day - but **the resulting CPU saving has not been measured
-  yet**, so the budget is still formally unmet.
+- **Memory is about double what was estimated** - roughly 488 MB across the
+  shell and two surfaces, against the 150-250 MB ADR 0001 guessed at. It is
+  not the quantity the performance budget names, and the CPU side of that
+  budget is met with room: 0.15% of one core on two screens against 2%, after
+  frame-skipping removed 99.7% of the redrawing over a day. **GPU time and GPU
+  memory are still unmeasured**, so those two lines of the budget are
+  unverified rather than met.
