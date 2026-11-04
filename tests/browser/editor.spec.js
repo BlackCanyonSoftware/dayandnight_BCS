@@ -1807,45 +1807,67 @@ test("every control carries a hint, and none is a bare label (US-023)", async ({
   }
 });
 
-test("the editor is set in the brand's own face, named by the kit and not by us", async ({
+test("the editor is set in the brand's two faces, named by the kit and not by us", async ({
   page
 }) => {
-  // The family a brand is set in is recorded in the brand definition, which
-  // reaches the page as `--font` from brand/template/tokens.css. Naming it in
-  // app/tokens.css instead would work and would be a second place that
-  // decision lives, so this asserts both halves: that the face arrives, and
-  // that it arrives from there.
-  const applied = await page.evaluate(() => ({
-    token: getComputedStyle(document.documentElement).getPropertyValue("--font").trim(),
-    body: getComputedStyle(document.body).fontFamily
-  }));
-
-  expect(applied.token, "--font should come from the brand kit's token sheet").toContain("Jost");
-  expect(applied.body, "the body should be set in it").toContain("Jost");
-
-  // And the file behind it actually loads. A @font-face whose src 404s leaves
-  // the page in the fallback with no error anywhere, which is the failure this
-  // catches: a brand rebuild that renames the file.
-  const face = await page.evaluate(async () => {
-    await document.fonts.ready;
-    const loaded = [...document.fonts].filter((f) => f.status === "loaded");
+  // This brand is *named* in one face and *read* in another. Which face does
+  // which job is recorded in the brand definition and reaches the page as
+  // --font and --font-display from brand/template/tokens.css; naming either
+  // in app/tokens.css would be a second place that decision lives, and the
+  // place it would be wrong, since the display face is drawn to be a logo
+  // rather than a paragraph.
+  const tokens = await page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
     return {
-      families: loaded.map((f) => f.family),
-      // 500 is one of the three weights the brand is set at, and the face is
-      // variable - a browser given a static cut would fake the others.
-      has: document.fonts.check('500 13px "Jost"')
+      read: root.getPropertyValue("--font").trim(),
+      display: root.getPropertyValue("--font-display").trim(),
+      mono: root.getPropertyValue("--font-mono").trim(),
+      body: getComputedStyle(document.body).fontFamily
     };
   });
 
-  expect(face.families, `only these faces loaded: ${face.families.join(", ")}`).toContain("Jost");
-  expect(face.has, "jost.woff did not load - check brand/font/ after a brand rebuild").toBe(true);
-
-  // The monospace stack is the brand's too, by alias. An application that
-  // reached for Consolas by name here would be the same second place.
-  const mono = await page.evaluate(() =>
-    getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim()
+  expect(tokens.read, "--font is what a sentence is set in").toContain("Public Sans");
+  expect(tokens.display, "--font-display is what the name is drawn in").toContain("Jost");
+  expect(tokens.body, "the page is read, so the body takes the reading face").toContain(
+    "Public Sans"
   );
-  expect(mono, "--font-mono should resolve through the brand's --mono").toContain("monospace");
+  expect(tokens.mono, "--font-mono should resolve through the brand's --mono").toContain(
+    "monospace"
+  );
+
+  // The mapping, not just the tokens. Getting these the wrong way round would
+  // satisfy every assertion above and put a logo face in every paragraph.
+  const headings = await page.evaluate(() => {
+    const summary = document.querySelector(".sec > summary");
+    const label = document.querySelector(".row label, .sec label");
+    return {
+      heading: summary ? getComputedStyle(summary).fontFamily : "",
+      label: label ? getComputedStyle(label).fontFamily : ""
+    };
+  });
+
+  expect(headings.heading, "a panel heading is a heading").toContain("Jost");
+  expect(headings.label, "a control's label is read, not drawn").toContain("Public Sans");
+
+  // And both files actually load. A @font-face whose src 404s leaves the page
+  // in the fallback and reports nothing anywhere - no console error, no broken
+  // image, just the wrong type. That is what a brand rebuild which renames a
+  // file would do, and it is the only way this test earns its place.
+  const faces = await page.evaluate(async () => {
+    await document.fonts.ready;
+    return {
+      loaded: [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family),
+      // 500 is one of the three weights the brand is named at, and both faces
+      // are variable - a browser given a static cut would synthesise the rest.
+      jost: document.fonts.check('500 15px "Jost"'),
+      publicSans: document.fonts.check('500 13px "Public Sans"')
+    };
+  });
+
+  expect(faces.jost, `jost.woff did not load; loaded: ${faces.loaded.join(", ")}`).toBe(true);
+  expect(faces.publicSans, `publicsans.woff did not load; loaded: ${faces.loaded.join(", ")}`).toBe(
+    true
+  );
 });
 
 test("the brand slot carries the mark and the right wordmark for the theme", async ({ page }) => {

@@ -154,6 +154,32 @@ its browser tests are headless.
 
 ## Session log
 
+### 2026-11-04 - two faces: named in Jost, read in Public Sans
+
+- **The kit's 1.55.0 rebuild, taken.** `app/brand/` is 43 files now and
+  `brandkit check` reports `matches daynnight`. The brand split its type: Jost
+  is the display face - the wordmark, the headings - and **Public Sans** is
+  what everything else is read in.
+- **Most of this cost nothing to adopt.** `--font` already came from
+  `brand/template/tokens.css`, so the body changed face the moment the bundle
+  landed. What this project had to decide was where the display face goes, and
+  the answer was two rules: `.sec > summary`, the panel's section headings, and
+  `.readerhead h2`, the document reader's title.
+- **A token that never existed.** `.readerhead h2` asked for `--text-md`, which
+  this project has never defined, so the declaration was invalid and the dialog
+  title had been inheriting body size since it was written. It is `--text-xl`
+  now, which is what `DESIGN.md`'s own table says a dialog title is.
+- **The test pins the mapping, not the tokens.** A heading computes to Jost, a
+  label computes to Public Sans, and both `.woff` files reach `document.fonts`.
+  Swapping the two faces would pass any check that only read the tokens, and
+  would put a logo face in every sentence - which is the mistake the kit's
+  BRAND.md explicitly warns about.
+- **A second OFL licence.** Public Sans joins Jost in
+  `licenses/third-party/` and in `check-bundle.js`'s required list, so a build
+  that drops either fails. Both Jost and Public Sans licence texts were re-taken
+  from the new bundle rather than assumed unchanged. Nine legal documents now.
+- 112 KB of `.woff` in the installer, up from 61.
+
 ### 2026-11-03 - CI's first real run, and the repository in public
 
 - **CI had never passed.** The 2026-10-29 run did not start at all - GitHub

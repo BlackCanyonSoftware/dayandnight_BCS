@@ -213,8 +213,11 @@ button.primary:hover {
   border-bottom: 1px solid var(--line-soft);
 }
 
+/* The display face, because these are the panel's headings and the brand is
+   named in Jost and read in Public Sans. See app/brand/BRAND.md, Type. */
 .sec > summary {
   padding: var(--s-2) var(--s-3);
+  font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: 600;
   cursor: pointer;
@@ -687,7 +690,11 @@ button.primary:hover {
 
 .readerhead h2 {
   margin: 0;
-  font-size: var(--text-md);
+  font-family: var(--font-display);
+  /* This asked for --text-md, which this project has never defined: the
+     declaration was invalid and the title has been inheriting body size ever
+     since. --text-xl is what docs/DESIGN.md's table says a dialog title is. */
+  font-size: var(--text-xl);
   font-weight: 600;
 }
 

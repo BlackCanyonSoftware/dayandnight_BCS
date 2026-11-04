@@ -10,12 +10,17 @@
 
 :root {
   /* ------------------------------------------------------------ typography */
-  /* `--font` is not defined here on purpose. The family this brand is set in
-     is recorded in the brand definition and reaches the page through
-     `brand/template/tokens.css`, imported by styles.css; writing it here too
-     would be a second place that decision lives. Same for the monospace
-     stack, which the kit calls `--mono` - this is the alias, so the rest of
-     the application keeps one vocabulary for its tokens. */
+  /* Neither `--font` nor `--font-display` is defined here, on purpose. This
+     brand is *named* in one face and *read* in another - Jost for the
+     wordmark and the headings, Public Sans for everything that is a sentence
+     - and which face does which job is recorded in the brand definition.
+     Both reach the page through `brand/template/tokens.css`, imported by
+     styles.css. Writing either here would be a second place that decision
+     lives, and the place it would be wrong: the display face is drawn to be a
+     logo, not a paragraph.
+
+     The monospace stack is the brand's too, under the name `--mono`. This is
+     the alias, so the rest of the application keeps one vocabulary. */
   --font-mono: var(--mono);
 
   --text-xs: 11px;

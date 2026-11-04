@@ -22,9 +22,11 @@ const REQUIRED_DOCUMENTS = [
   "THIRD-PARTY-NOTICES.md",
   path.join("third-party", "Electron.MIT.txt"),
   path.join("third-party", "koffi.MIT.txt"),
-  // The OFL requires the licence to travel with the font, and the font is in
-  // every build: see THIRD-PARTY-NOTICES.md.
-  path.join("third-party", "Jost.OFL.txt")
+  // The OFL requires the licence to travel with the font, and both faces are
+  // in every build - the brand is named in one and read in the other. See
+  // THIRD-PARTY-NOTICES.md.
+  path.join("third-party", "Jost.OFL.txt"),
+  path.join("third-party", "PublicSans.OFL.txt")
 ];
 
 /**

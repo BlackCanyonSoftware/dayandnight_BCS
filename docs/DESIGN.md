@@ -124,22 +124,41 @@ check is part of the browser test suite, not a one-time review.
 
 ### Type
 
-**Jost**, the face this brand is set in, from the brand kit. This replaced the
-system stack on 2026-11-01 at the owner's instruction. The old decision was
-that a wallpaper tool should look like the operating system it sits on and that
-shipping a webfont for chrome is weight for nothing; both were true and the
-brand won anyway, because a product whose editor is set in Segoe and whose
-wordmark is drawn in Jost is a product with two typefaces. The cost is 61 KB of
-`.woff` in the installer and the first third-party licence in the product that
-is not MIT (SIL OFL 1.1; `licenses/THIRD-PARTY-NOTICES.md` works through the
-two clauses that matter to a paid product).
+**Two faces: the brand is _named_ in Jost and _read_ in Public Sans.** Both
+come from the brand kit. They replaced the system stack on 2026-11-01 at the
+owner's instruction, and the split arrived with the kit's 1.55.0 rebuild on
+2026-11-04.
 
-**Neither the family nor the file is named here.** `app/styles.css` imports the
-kit's own two sheets - `brand/template/fonts.css`, which declares the face and
-points at `brand/font/jost.woff` beside it, and `brand/template/tokens.css`,
-which sets `--font` - because the face a brand is set in is recorded in the
-brand definition, and writing it in `app/tokens.css` as well would be a second
-place that decision lives. `app/brand/BRAND.md` asks for exactly this.
+The old decision was that a wallpaper tool should look like the operating
+system it sits on and that shipping a webfont for chrome is weight for nothing.
+Both were true and the brand won anyway, because a product whose editor is set
+in Segoe and whose wordmark is drawn in Jost is a product with two typefaces -
+the wrong two. The cost is 112 KB of `.woff` in the installer and the only
+third-party licences in the product that are not MIT (SIL OFL 1.1 for each;
+`licenses/THIRD-PARTY-NOTICES.md` works through the two clauses that matter to
+a paid product).
+
+**Which face does which job is not decided here either.** Jost is a geometric
+display face: it draws the name beautifully and sets a paragraph badly, which
+is exactly the mistake an application makes when it has one brand font and
+reaches for it everywhere. The brand definition records the split, so this
+project spends it rather than deciding it:
+
+| Token            | Face             | Where                                            |
+| ---------------- | ---------------- | ------------------------------------------------ |
+| `--font-display` | Jost             | the panel's section headings, the reader's title |
+| `--font`         | Public Sans      | body, labels, values, hints - everything read    |
+| `--font-mono`    | the system stack | `var(--mono)`, aliased; no file ships for it     |
+
+The wordmark is not in that table: it is a drawn SVG, not type.
+
+**No family and no file is named in this project's CSS.** `app/styles.css`
+imports the kit's own two sheets - `brand/template/fonts.css`, which declares
+both faces and points at the files in `brand/font/`, and
+`brand/template/tokens.css`, which carries `--font` and `--font-display`.
+Writing either in `app/tokens.css` as well would be a second place that
+decision lives, and the place it would be wrong. `app/brand/BRAND.md` asks for
+exactly this.
 
 The kit's token sheet carries more than type, so it is imported into a CSS
 layer _underneath_ this project's own tokens: every value measured here - the
@@ -147,14 +166,10 @@ radii, the spacing step, the shadows - wins whatever the selector weight.
 Without the layer the kit's `:root:not([data-theme="light"])` dark block would
 outweigh our plain `:root` and silently replace the shadows.
 
-```
---font      from brand/template/tokens.css: "Jost", system-ui, -apple-system, ...
---font-mono: var(--mono);   the brand's monospace stack, aliased
-```
-
-The monospace side is still whatever Windows already has: the brand names the
-stack and ships no file for it, so `app/tokens.css` only keeps this
-application's name for it.
+A browser test pins the mapping, not just the tokens: a heading computes to
+Jost, a label computes to Public Sans, and both `.woff` files reach
+`document.fonts`. Swapping the two would satisfy any check that only looked at
+the tokens, and would put a logo face in every sentence.
 
 | Token         | Size / line | Used for                                    |
 | ------------- | ----------- | ------------------------------------------- |
