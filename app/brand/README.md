@@ -2,16 +2,19 @@
 
 **Generated. Do not edit anything in this folder, and do not add to it.**
 
-This is a `brandkit bundle` of the `daynnight` brand, written whole by the kit
-at `C:\Users\Kpier\Documents\Brand Logos` from `brands/daynnight/brand.toml`.
-Everything here except this file came out of **brandkit 1.49.0**, and
-`BUNDLE.json` beside it lists every file with its hash.
+This is a `brandkit bundle` of the `daynnight` brand, written whole by the
+brand kit from `brands/daynnight/brand.toml`. The kit is a separate, private
+repository - it is the source of truth for these files and is not needed to
+build or run this application. Everything here except this file came out of
+**brandkit 1.49.0**, and `BUNDLE.json` beside it lists every file with its
+hash.
 
-Two commands, run from the kit:
+Two commands, run from a checkout of the kit, with `$DAYANDNIGHT` set to a
+checkout of this repository:
 
 ```
-PYTHONPATH=src python -m brandkit bundle daynnight C:/Users/Kpier/Documents/DayandNight_BCS/app/brand
-PYTHONPATH=src python -m brandkit check  daynnight C:/Users/Kpier/Documents/DayandNight_BCS/app/brand
+PYTHONPATH=src python -m brandkit bundle daynnight "$DAYANDNIGHT/app/brand"
+PYTHONPATH=src python -m brandkit check  daynnight "$DAYANDNIGHT/app/brand"
 ```
 
 `check` is the one that matters: it says what is missing, what somebody edited

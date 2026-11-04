@@ -44,9 +44,10 @@ and `system` follows the Windows theme (see OQ-3 in `PRD.md`).
 ### Brand slot
 
 The top-left of the sidebar holds the brand lockup: the mark, then the
-wordmark. **Filled on 2026-10-22** from the brand kit at
-`C:\Users\Kpier\Documents\brand logos`, brand `daynnight`, built by brandkit
-1.41.0. The slot had reserved its space, so nothing moved when they arrived.
+wordmark. **Filled on 2026-10-22** from the brand kit, brand `daynnight`,
+built by brandkit 1.41.0 - and **re-synced on 2026-11-01** at 1.49.0, which is
+when it became a `brandkit bundle` rather than four files copied in by hand.
+The slot had reserved its space, so nothing moved when they arrived.
 
 The arrangement is the kit's own `template/header.html` rather than a guess:
 its `BRAND.md` names the file for each job and says plainly that picking one
