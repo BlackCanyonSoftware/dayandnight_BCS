@@ -31,6 +31,18 @@ export default defineConfig({
 
   use: {
     baseURL: "http://127.0.0.1:5178",
+
+    // The editor's date control means local midnight, which is right - a
+    // person setting 21 June means their 21 June. So a test that scrubs to
+    // "midnight" and expects night has fixed a zone whether it says so or
+    // not, and until now the zone it fixed was whichever one the developer's
+    // machine happened to be in. CI runs in UTC, where minute 0 of 21 June is
+    // 18:00 on the 20th in Denver and the sun is 26 degrees up; two tests
+    // failed there and passed on every machine they were written on.
+    //
+    // Denver, because that is the place these tests use and the sky in
+    // `sunrise-denver-june.png` is Denver's.
+    timezoneId: "America/Denver",
     trace: "on-first-retry",
     screenshot: "only-on-failure"
   },
