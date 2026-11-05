@@ -93,9 +93,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   looks the same on a machine that has never seen either.
 - **The wallpaper now costs almost nothing to leave running.** It redraws only
   when the picture would actually differ, which for a sky is a few thousand
-  times a day rather than nearly two million, and the result is 0.15 % of one
+  times a day rather than nearly two million, and the result is 0.44 % of one
   CPU core across two screens - against a budget of 2 %, and against 8.5 %
-  before the change. The frame rate did not have to be lowered to get there.
+  before the change. The frame rate did not have to be lowered to get there,
+  and drifting cloud adds 0.05 points to it: a sky that never repeats still
+  finds almost nothing worth redrawing.
 - **The sun is now in the right place.** The Milestone 0 approximation has been
   replaced with the standard Meeus algorithms, which agree with the published
   worked examples to better than a thousandth of a degree - against the half a
@@ -180,7 +182,7 @@ as finished.
 - **Memory is about double what was estimated** - roughly 488 MB across the
   shell and two surfaces, against the 150-250 MB ADR 0001 guessed at. It is
   not the quantity the performance budget names, and the CPU side of that
-  budget is met with room: 0.15% of one core on two screens against 2%, after
+  budget is met with room: 0.44% of one core on two screens against 2%, after
   frame-skipping removed 99.7% of the redrawing over a day. **GPU time and GPU
   memory are still unmeasured**, so those two lines of the budget are
   unverified rather than met.

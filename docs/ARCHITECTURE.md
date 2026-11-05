@@ -720,10 +720,54 @@ Over 21 June at Denver, sampled at 20 fps:
 | Reduction                | 99.7 %    |
 | Average draws per second | 0.06      |
 
+### Measurement, Milestones 3 and 4 (2026-11-04)
+
+**The budget is still met, with the clouds and the horizon in.** The
+configuration a user leaves running costs **0.44 % of one core** against a
+budget of 2 %. This is the current figure; the Milestone 1 section below is
+kept because it is what separated the two savings that got here.
+
+Same machine, two screens, WorkerW host, default preset, 20 fps.
+
+| Scenario                           | CPU (% of one core) | Spread | Working set | Processes |
+| ---------------------------------- | ------------------- | ------ | ----------- | --------- |
+| 20 fps, editor hidden, clear       | 2.41                | 1.05   | 766 MB      | 6         |
+| 20 fps, editor hidden, full cloud  | 2.46                | 1.05   | 680 MB      | 6         |
+| **Shipped: 20 fps, editor closed** | **0.44**            | 0.44   | 500 MB      | 5         |
+
+The shipped row's windows were 0.46, 0.28, 0.44, 0.21 and 0.64 - every one
+inside the budget, not just the median.
+
+**The clouds cost 0.05 % of a core**, which is the answer to the question this
+measurement existed for. The clouds are the first thing in the product that
+moves, and moving is what frame-skipping trades on; the worry was that a sky
+which never repeats would never skip. It still skips. A full overcast against a
+clear sky is 2.46 against 2.41, inside the spread of either.
+
+**ADR 0007 stands.** Occlusion detection would cost about what it could save at
+this price, which was the decision's own condition for staying shut.
+
+**The first attempt at this run was thrown away**, and the reason is worth
+keeping: `measure-cost.js` summed `Get-Process`'s per-process CPU - a total
+since each process started - and differenced the sums. A renderer exiting
+mid-window took its whole lifetime out of the total, and one window read
+**-29.88 % of a core**. It reported 8.02 % for the shipped scenario and that
+ADR 0007 reopens, both of which were artefacts. The sampler differences per
+pid now, over the processes alive at both ends of a window, and a window that
+gained or lost one is reported as churn and makes the whole run unusable.
+A negative reading was the visible half of that bug; the dangerous half was a
+process _starting_ mid-window and inflating a figure with nothing to show for
+it.
+
+GPU time and GPU memory are still not measured. NFR-1's 4 % GPU line and its
+80 MB per screen remain unverified rather than met.
+
 ### Measurement, Milestone 1 (2026-10-19)
 
 **The budget is met, with an order of magnitude to spare.** The configuration a
-user leaves running costs **0.15 % of one core** against a budget of 2 %.
+user leaves running costs **0.15 % of one core** against a budget of 2 %. (This
+was the figure until 2026-11-04; the clouds and the horizon have since taken it
+to 0.44 %, which is above.)
 
 Same machine as before: AMD Ryzen 5 3600 (6 cores, 12 threads), Windows 10, two
 screens, WorkerW host attached, default preset, 20 fps. Taken by

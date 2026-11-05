@@ -36,6 +36,15 @@ It now costs **0.15 %** (`ARCHITECTURE.md`, Measurement, Milestone 1), because
 identical frames are no longer redrawn. That changes the sum completely, and
 the sum is no longer close.
 
+> **Re-checked 2026-11-04, with the clouds and the horizon in: 0.44 % of one
+> core, and this decision stands.** The clouds were the thing that could have
+> overturned it - the first part of the product that moves, where
+> frame-skipping had the most to lose - and they cost 0.05 points. The
+> arithmetic below holds at the new figure; the polling still costs about what
+> the pausing would save. (A first attempt at that run reported 8.02 % and
+> that this ADR reopens. It was a bug in the measuring tool, not in the
+> product: see `ARCHITECTURE.md`, Measurement, Milestones 3 and 4.)
+
 **What it would save.** Pausing tears down the render loop; it does not remove
 the processes. So occlusion could only recover the _drawing_ part of 0.15 %,
 and the Milestone 1 sweep found 30, 20, 10, 5 and 1 fps indistinguishable from

@@ -27,19 +27,18 @@ turning at the sidereal rate, and a grade over the top.
   packaged build put a sky on the real desktop through the WorkerW host on two
   screens, which is the one thing only a packaged run can prove: koffi's
   native binary loading from outside the asar.
-- **NFR-1 is unmeasured since Milestone 2, and the first attempt found a bug
-  in the harness rather than a number.** The 2026-11-04 run produced a window
-  of **-29.88% of a core**, which is not noise: `measure-cost.js` summed
-  `Get-Process`'s per-process CPU - a total since each process started - and
-  differenced the sums, so a renderer exiting mid-window took its whole
-  lifetime out of the total. Fixed; it differences per pid now. **No figure
-  from that run is quoted anywhere**, including the 8.02% the shipped scenario
-  reported against a 2% budget. The run has to be repeated: sixteen minutes,
-  and it takes over the desktop.
+- **Everything is measured now.** The 2026-11-04 run is in
+  `ARCHITECTURE.md` under Measurement, Milestones 3 and 4: 0.44 % of a core
+  shipped, the clouds costing 0.05 of it, ADR 0007 standing. It took two
+  attempts - the first found a bug in the harness rather than a number, and
+  nothing from it is quoted anywhere.
 
-- **NFR-1: met.** 0.15 % of one core against a 2 % budget, on two screens with
-  the editor closed. See `ARCHITECTURE.md` under Measurement, Milestone 1. GPU
-  time and GPU memory are still unmeasured.
+- **NFR-1: met, with the clouds and the horizon in.** **0.44 % of one core**
+  against a 2 % budget, two screens, editor closed, measured 2026-11-04. The
+  clouds themselves cost 0.05 points, so frame-skipping survived the first
+  thing in the product that moves. ADR 0007 stands. See `ARCHITECTURE.md`
+  under Measurement, Milestones 3 and 4. GPU time and GPU memory are still
+  unmeasured.
 - **Licensing and packaging: decided and built** (OQ-4, ADR 0006). Proprietary,
   the same seven-document shape as Pixel Galaxy Studio, adapted; a Windows NSIS
   installer from `npm run build`. The installer builds green and bundles its
@@ -71,26 +70,17 @@ Two things to know before changing any of it:
 
 ## Next steps
 
-1. **Re-run the cost measurement.** `node tools/measure-cost.js --shipped`,
-   sixteen minutes, takes over the desktop. It ran on 2026-11-04 and was
-   thrown away: the sampler could not difference a changing set of processes,
-   which is fixed, but the fix has never produced a figure. Nothing is known
-   about NFR-1 with the clouds in. Arithmetic says they cost about 0.4 % of a
-   core against a budget of 2; the one run that existed disagreed loudly and
-   could not be believed, which is the whole reason to do this properly. It is
-   the only check in the project that has not been run - the desktop tests, the
-   build and `verify-package.js` all passed on 2026-11-04.
-2. **The GPU, which has never been measured at all.** NFR-1 budgets 4 % and
+1. **The GPU, which has never been measured at all.** NFR-1 budgets 4 % and
    there is no way to check it. The cloud pass is a few hundred hashes a pixel
    where the sky used to be a table lookup, so this is the first time the
    question has had teeth.
-3. **Verify by hand what only a person can:** a full-screen game pausing the
+2. **Verify by hand what only a person can:** a full-screen game pausing the
    wallpaper, and a system time-zone change with the application running. Lock,
    unlock, suspend and resume no longer need a person - the desktop tests
    deliver the real events and count the surface's render-loop ticks.
-4. **The three-monitor criteria**, which need a third monitor: one continuous
+3. **The three-monitor criteria**, which need a third monitor: one continuous
    sky with no seam by screenshot, and NFR-1 re-measured with three active.
-5. Then what is left of Milestone 4 - the user's own PNG as a horizon, which
+4. Then what is left of Milestone 4 - the user's own PNG as a horizon, which
    is the half of US-032 the computed library does not cover - and Milestone 5.
    The old note about Milestone 3, the clouds - which is also the event that reopens
    ADR 0007, because clouds need real frames and the sum that killed occlusion
@@ -163,6 +153,28 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-11-04 - NFR-1 met with the clouds in, on the second attempt
+
+- **0.44 % of one core** shipped - editor closed, two screens, 20 fps -
+  against a 2 % budget. Windows 0.46, 0.28, 0.44, 0.21, 0.64: the whole band
+  is inside the budget, not just the median. Verdict `usable`, no churn, no
+  noise. `ARCHITECTURE.md`, Measurement, Milestones 3 and 4.
+- **The clouds cost 0.05 points**, which is the whole reason this run
+  mattered. They are the first thing in the product that moves, and
+  frame-skipping is a bet that successive frames are identical; a sky that
+  never repeats was the case that could have broken it. A full overcast
+  against a clear sky is 2.46 against 2.41, inside the spread of either.
+- **ADR 0007 stands**, and now says so with a dated re-check. The tool prints
+  the verdict itself, which is why it was worth teaching it the question.
+- 500 MB across 5 processes, roughly where it was. GPU time and GPU memory
+  are still not measured at all; NFR-1's other two lines remain unverified
+  rather than met, and that is now the only unmeasured thing left.
+- **The figure replaced 0.15 % everywhere it was a current claim** - the
+  README, the handoff, the changelog's user-facing entry, ADR 0007's
+  arithmetic. The Milestone 1 sections keep theirs: they are what that
+  measurement said at the time, and they are what separated the two savings
+  that got here.
 
 ### 2026-11-04 - the measurement that measured the measurer
 
