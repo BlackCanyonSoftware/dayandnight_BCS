@@ -27,11 +27,15 @@ turning at the sidereal rate, and a grade over the top.
   packaged build put a sky on the real desktop through the WorkerW host on two
   screens, which is the one thing only a packaged run can prove: koffi's
   native binary loading from outside the asar.
-- **Nothing since Milestone 2 has been measured.** The clouds are the first
-  thing in the product that moves, which is the one change that could undo
-  frame-skipping, and `tools/measure-cost.js` now has a scenario for them that
-  has never been run. The owner asked to hold the measurement until more was
-  built; more is built.
+- **NFR-1 is unmeasured since Milestone 2, and the first attempt found a bug
+  in the harness rather than a number.** The 2026-11-04 run produced a window
+  of **-29.88% of a core**, which is not noise: `measure-cost.js` summed
+  `Get-Process`'s per-process CPU - a total since each process started - and
+  differenced the sums, so a renderer exiting mid-window took its whole
+  lifetime out of the total. Fixed; it differences per pid now. **No figure
+  from that run is quoted anywhere**, including the 8.02% the shipped scenario
+  reported against a 2% budget. The run has to be repeated: sixteen minutes,
+  and it takes over the desktop.
 
 - **NFR-1: met.** 0.15 % of one core against a 2 % budget, on two screens with
   the editor closed. See `ARCHITECTURE.md` under Measurement, Milestone 1. GPU
@@ -67,11 +71,14 @@ Two things to know before changing any of it:
 
 ## Next steps
 
-1. **Run the cost measurement**, which is now the most overdue thing in the
-   project. `node tools/measure-cost.js --shipped` has three scenarios and
-   prints whether ADR 0007 reopens. Arithmetic says the clouds cost about
-   0.4 % of a core against a budget of 2, but that is arithmetic. It is now
-   the only check in the project that has not been run; the desktop tests, the
+1. **Re-run the cost measurement.** `node tools/measure-cost.js --shipped`,
+   sixteen minutes, takes over the desktop. It ran on 2026-11-04 and was
+   thrown away: the sampler could not difference a changing set of processes,
+   which is fixed, but the fix has never produced a figure. Nothing is known
+   about NFR-1 with the clouds in. Arithmetic says they cost about 0.4 % of a
+   core against a budget of 2; the one run that existed disagreed loudly and
+   could not be believed, which is the whole reason to do this properly. It is
+   the only check in the project that has not been run - the desktop tests, the
    build and `verify-package.js` all passed on 2026-11-04.
 2. **The GPU, which has never been measured at all.** NFR-1 budgets 4 % and
    there is no way to check it. The cloud pass is a few hundred hashes a pixel
@@ -156,6 +163,35 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-11-04 - the measurement that measured the measurer
+
+- **The deferred NFR-1 run happened, and is thrown away.** One window read
+  **-29.88% of a core**. `measure-cost.js` summed `Get-Process`'s `CPU` - a
+  per-process total since that process started - across every `electron`
+  process and differenced the sums. A sum over a changing set cannot be
+  differenced: a renderer exiting mid-window removed its entire lifetime from
+  the total. 29.88% of 60 seconds is 17.9 processor-seconds, about what a
+  renderer accrues in a few minutes, and the shipped row's process count fell
+  from 6 to 5.
+- **The silent half of the same bug is the dangerous one.** A process
+  _starting_ mid-window adds its whole lifetime and the window reads far too
+  high, with nothing to give it away. Any figure this tool has ever produced
+  during a period of renderer churn was wrong in that direction and looked
+  fine.
+- Fixed by differencing **per pid** over the processes alive at both ends of a
+  window, clamped at zero because Windows reuses pids. A window that gained or
+  lost one is a lower bound, not a reading, so it is counted as `churn`,
+  printed, and enough on its own to make the verdict UNRELIABLE - a different
+  complaint from noise, and not answered by "close other applications".
+- **No number from that run is recorded**, here or anywhere. The shipped
+  scenario said 8.02% against a 2% budget and that ADR 0007 reopens; its
+  process set changed mid-run, so it measured something other than a rate.
+  The clear-versus-cloudy pair came through without churn and still cannot
+  answer NFR-1: both keep the editor loaded.
+- The sampler's PowerShell, its parsing and the difference were checked
+  directly - a process removed and a process added each give 0 seconds and 1
+  churn, never a negative.
 
 ### 2026-11-04 - two faces: named in Jost, read in Public Sans
 

@@ -20,10 +20,18 @@
  *   and is not part of what a user leaves running.
  * - A settling period is discarded before each scenario: start-up and shader
  *   compilation are real costs but they are not the steady state.
- * - CPU is the sum of processor-seconds across every process of the
- *   application, read from the OS, expressed as a percentage of ONE core.
- *   That is the honest unit for a background task; "0.95% of the machine"
- *   on a 12-thread CPU flatters it by a factor of twelve.
+ * - CPU is processor-seconds across the application's processes, read from
+ *   the OS, expressed as a percentage of ONE core. That is the honest unit
+ *   for a background task; "0.95% of the machine" on a 12-thread CPU flatters
+ *   it by a factor of twelve.
+ * - It is summed PER PROCESS and only over processes present at both ends of
+ *   a window. `Get-Process` reports each process's CPU as a total since it
+ *   started, so a sum over "whatever is running now" is not a quantity that
+ *   can be differenced: a renderer exiting mid-window takes its entire
+ *   lifetime out of the total and the window reads NEGATIVE, and one starting
+ *   mid-window adds its whole lifetime and the window reads far too high.
+ *   The 2026-11-04 run produced -29.88% of a core that way and declared
+ *   itself untrustworthy, which was the only good thing about it.
  * - Memory is the sum of working sets.
  *
  * Two modes, because the question changed once the renderer learned to skip
@@ -84,34 +92,88 @@ const SETTLE_SECONDS = 12;
 const REPEATS = 5;
 
 /**
- * Total processor-seconds and working set across the application's processes.
+ * Processor-seconds PER PROCESS, and the working set across all of them.
+ *
+ * One line per process rather than a sum, because the sum cannot be
+ * differenced across a window in which the process set changed - see the
+ * header. The caller takes the difference per pid and ignores any pid that is
+ * not at both ends.
  *
  * Inline PowerShell rather than a .ps1 file, because a default Windows
  * execution policy refuses scripts but allows commands.
  *
- * @returns {{ cpuSeconds: number, workingSetMb: number, processes: number }}
+ * @returns {{ byPid: Map<number, number>, workingSetMb: number, processes: number }}
  */
 function sample() {
+  // `Id` always reads. `CPU` is null for a process this user may not open,
+  // which is why it is coalesced here rather than trusted: a blank field would
+  // shift every column after it.
   const script = [
-    "$p = Get-Process -Name electron -ErrorAction SilentlyContinue",
-    "if (-not $p) { '0 0 0' } else {",
-    "  $cpu = ($p | Measure-Object -Property CPU -Sum).Sum",
-    "  $ws  = ($p | Measure-Object -Property WorkingSet64 -Sum).Sum",
-    '  "$cpu $ws $($p.Count)"',
+    "Get-Process -Name electron -ErrorAction SilentlyContinue |",
+    "ForEach-Object {",
+    "  $c = if ($null -eq $_.CPU) { -1 } else { $_.CPU }",
+    '  "$($_.Id) $c $($_.WorkingSet64)"',
     "}"
-  ].join("; ");
+  ].join(" ");
 
   const out = execFileSync("powershell", ["-NoProfile", "-NonInteractive", "-Command", script], {
     encoding: "utf8",
     windowsHide: true
   }).trim();
 
-  const [cpu, ws, count] = out.split(/\s+/).map(Number);
+  /** @type {Map<number, number>} */
+  const byPid = new Map();
+  let workingSet = 0;
+
+  for (const line of out.split(/\r?\n/)) {
+    if (line.trim() === "") continue;
+    const [pid, cpu, ws] = line.trim().split(/\s+/).map(Number);
+    if (!Number.isFinite(pid) || !Number.isFinite(cpu) || cpu < 0) continue;
+    byPid.set(pid, cpu);
+    if (Number.isFinite(ws)) workingSet += ws;
+  }
+
   return {
-    cpuSeconds: Number.isFinite(cpu) ? cpu : 0,
-    workingSetMb: Number.isFinite(ws) ? ws / (1024 * 1024) : 0,
-    processes: Number.isFinite(count) ? count : 0
+    byPid,
+    workingSetMb: workingSet / (1024 * 1024),
+    processes: byPid.size
   };
+}
+
+/**
+ * Processor-seconds spent between two samples by the processes that were
+ * alive for the whole of it.
+ *
+ * A process that appeared or vanished in between contributes nothing: its
+ * counter covers a different span than the window does, and there is no way
+ * to recover the part that belongs here. The count of those is returned so a
+ * window that lost work can be seen rather than quietly believed - a window
+ * with churn is a LOWER bound, not a measurement.
+ *
+ * @param {{ byPid: Map<number, number> }} before
+ * @param {{ byPid: Map<number, number> }} after
+ * @returns {{ cpuSeconds: number, churn: number }}
+ */
+function spent(before, after) {
+  let cpuSeconds = 0;
+  let churn = 0;
+
+  for (const [pid, cpu] of after.byPid) {
+    const was = before.byPid.get(pid);
+    if (was === undefined) {
+      churn += 1;
+      continue;
+    }
+    // Monotonic in theory; clamped because a pid can be reused after a
+    // process exits, and the replacement starts its count at zero.
+    cpuSeconds += Math.max(0, cpu - was);
+  }
+
+  for (const pid of before.byPid.keys()) {
+    if (!after.byPid.has(pid)) churn += 1;
+  }
+
+  return { cpuSeconds, churn };
 }
 
 /** @param {number} seconds */
@@ -138,6 +200,8 @@ function median(values) {
  * @property {number} perCore median across the windows
  * @property {number} spread highest window minus lowest
  * @property {number[]} windows every window's figure, so a bad one is visible
+ * @property {number} churned how many windows lost or gained a process, and
+ *   so report a lower bound rather than a rate
  * @property {number} memoryMb
  * @property {number} processes
  */
@@ -155,6 +219,8 @@ async function measure(label) {
   /** @type {number[]} */
   const windows = [];
 
+  let churned = 0;
+
   let last = sample();
   for (let i = 0; i < REPEATS; i += 1) {
     const startedAt = Date.now();
@@ -162,7 +228,10 @@ async function measure(label) {
     const now = sample();
 
     const elapsed = (Date.now() - startedAt) / 1000;
-    windows.push(((now.cpuSeconds - last.cpuSeconds) / elapsed) * 100);
+    const { cpuSeconds, churn } = spent(last, now);
+    if (churn > 0) churned += 1;
+
+    windows.push((cpuSeconds / elapsed) * 100);
     last = now;
   }
 
@@ -175,6 +244,7 @@ async function measure(label) {
     perCore,
     spread,
     windows,
+    churned,
     memoryMb: last.workingSetMb,
     processes: last.processes
   };
@@ -183,10 +253,11 @@ async function measure(label) {
   // wide spread behind it is not a measurement, and the first run of this
   // tool would have shown that rather than hiding it in a single number.
   const noisy = spread > Math.max(1, perCore * 0.5) ? "  <- noisy" : "";
+  const churn = churned > 0 ? `  <- ${churned} window(s) lost a process` : "";
   console.log(
     `  ${label.padEnd(30)} ${perCore.toFixed(2).padStart(6)} %core ` +
       `(spread ${spread.toFixed(2).padStart(5)})   ` +
-      `${row.memoryMb.toFixed(0).padStart(4)} MB   ${row.processes} proc${noisy}`
+      `${row.memoryMb.toFixed(0).padStart(4)} MB   ${row.processes} proc${noisy}${churn}`
   );
   return row;
 }
@@ -388,8 +459,9 @@ async function main() {
     }
   }
   const noisy = rows.filter((r) => r.spread > Math.max(1, r.perCore * 0.5));
+  const churned = rows.filter((r) => r.churned > 0);
 
-  if (impossible.length > 0 || noisy.length > 0) {
+  if (impossible.length > 0 || noisy.length > 0 || churned.length > 0) {
     console.log("!!! THIS RUN IS NOT TRUSTWORTHY ".padEnd(61, "!"));
     for (const line of impossible) console.log(`  impossible: ${line}`);
     for (const row of noisy) {
@@ -397,7 +469,18 @@ async function main() {
         `  noisy     : ${row.label} spread ${row.spread.toFixed(2)} across [${row.windows.map((w) => w.toFixed(1)).join(", ")}]`
       );
     }
-    console.log("  Close other applications and run it again.");
+    // Not the same complaint as noise, and not answered by the same advice:
+    // a window that lost a process under-counts by whatever that process was
+    // doing, so the figure is a floor rather than a reading.
+    for (const row of churned) {
+      console.log(
+        `  churn     : ${row.label} - ${row.churned} of ${row.windows.length} windows ` +
+          `gained or lost a process, so they under-count`
+      );
+    }
+    if (noisy.length > 0 || impossible.length > 0) {
+      console.log("  Close other applications and run it again.");
+    }
     console.log("");
   }
 
@@ -465,7 +548,9 @@ async function main() {
   console.log(`GPU                          : not measured`);
   console.log(
     `verdict                      : ${
-      impossible.length > 0 || noisy.length > 0 ? "UNRELIABLE - re-run" : "usable"
+      impossible.length > 0 || noisy.length > 0 || churned.length > 0
+        ? "UNRELIABLE - re-run"
+        : "usable"
     }`
   );
   console.log("=============================================================");
