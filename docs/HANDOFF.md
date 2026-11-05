@@ -21,9 +21,12 @@ turning at the sidereal rate, and a grade over the top.
   date including `check-bundle.js` with its eight legal documents. `npm audit
 --audit-level=high` is clean too, which it was not before Electron 44.10.2.
   **CI itself is still red on GitHub** until these commits are pushed.
-- **Not run since the clouds and the horizon went in:** the 12 desktop tests
-  and `node tools/verify-package.js`. Both open windows, and the owner asked
-  for those to wait. They last passed on 2026-10-24.
+- **The 12 desktop tests and `node tools/verify-package.js` pass**, run on
+  2026-11-04 - the first time since 2026-10-24, and so the first time against
+  the clouds, the horizon, Electron 44.10.2 and the two typefaces. The
+  packaged build put a sky on the real desktop through the WorkerW host on two
+  screens, which is the one thing only a packaged run can prove: koffi's
+  native binary loading from outside the asar.
 - **Nothing since Milestone 2 has been measured.** The clouds are the first
   thing in the product that moves, which is the one change that could undo
   frame-skipping, and `tools/measure-cost.js` now has a scenario for them that
@@ -67,9 +70,9 @@ Two things to know before changing any of it:
 1. **Run the cost measurement**, which is now the most overdue thing in the
    project. `node tools/measure-cost.js --shipped` has three scenarios and
    prints whether ADR 0007 reopens. Arithmetic says the clouds cost about
-   0.4 % of a core against a budget of 2, but that is arithmetic. Then the
-   desktop tests, the build and `verify-package.js`, which have not run since
-   two milestones went in.
+   0.4 % of a core against a budget of 2, but that is arithmetic. It is now
+   the only check in the project that has not been run; the desktop tests, the
+   build and `verify-package.js` all passed on 2026-11-04.
 2. **The GPU, which has never been measured at all.** NFR-1 budgets 4 % and
    there is no way to check it. The cloud pass is a few hundred hashes a pixel
    where the sky used to be a table lookup, so this is the first time the
@@ -179,6 +182,11 @@ its browser tests are headless.
   that drops either fails. Both Jost and Public Sans licence texts were re-taken
   from the new bundle rather than assumed unchanged. Nine legal documents now.
 - 112 KB of `.woff` in the installer, up from 61.
+- **Checked on the real desktop afterwards.** The 12 desktop tests and
+  `verify-package.js` both pass: the packaged application, carrying the new
+  runtime and both faces, puts a sky behind the desktop icons on two screens.
+  Nothing about the type reaches the wallpaper surface - it draws a canvas and
+  no text - so this was about the runtime bump, and the runtime is fine.
 
 ### 2026-11-03 - CI's first real run, and the repository in public
 
@@ -200,8 +208,8 @@ its browser tests are headless.
 - **A second CI failure was queued behind the first.** `npm audit
 --audit-level=high` never ran, and would have failed: Electron 44.9.0 carries
   GHSA-jr5w-w6x2-84p9. Bumped to 44.10.2 within the existing `^44.9.0` range.
-  The build is green on it; **the desktop tests have not been run against the
-  new runtime.**
+  The build is green on it, and the desktop tests passed against the new
+  runtime the next day.
 - **The repository is public and pinned now.** Four lines named a local
   filesystem with a Windows account in it, three of them written in the brand
   re-sync two days earlier. Gone from the working tree. They remain in two
