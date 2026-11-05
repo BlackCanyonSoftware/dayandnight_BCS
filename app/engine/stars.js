@@ -18,9 +18,13 @@
  * The **catalogue is not real**. The positions are generated from a seeded
  * hash, with a realistic distribution of brightness and colour but no actual
  * stars in it: there is no Orion, no Plough, no Southern Cross. Shipping a
- * real catalogue is a data problem rather than a rendering one and is on the
- * roadmap. Until then this file does not pretend otherwise, and neither does
- * the documentation.
+ * real catalogue is a data problem rather than a rendering one - the four
+ * floats below are already right ascension, declination and brightness, and
+ * the shader already places them for real - so what it waits on is a licence
+ * rather than an algorithm. `docs/ROADMAP.md` says so under Beyond, with the
+ * reason the constellation *lines* are a different and harder question.
+ * Until then this file does not pretend otherwise, and neither does the
+ * documentation.
  *
  * ## Brightness
  *

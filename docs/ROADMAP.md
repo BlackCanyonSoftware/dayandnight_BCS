@@ -319,6 +319,42 @@ rather than engineering, which is the only reason they are last.
 
 ### Beyond
 
+- **A real star catalogue** - the one cheap piece of realism still missing.
+  `engine/stars.js` already stores four floats per star (right ascension and
+  declination in degrees, radiance, a hash) and the shader already turns
+  RA/Dec into altitude and azimuth with real sidereal time, so this is a data
+  swap and not a rendering change: magnitude goes through the existing
+  `MAGNITUDE_ZERO_RADIANCE * 10^(-0.4m)` line, and the hash that currently
+  fakes a colour is replaced by a real B-V index. The hash is doing two jobs -
+  colour and twinkle - so the fourth slot splits in two, and that is the whole
+  code change. ~9,000 stars to magnitude 6.5 is around 100 KB packed. Nothing
+  about invariant 1 is at risk: a static catalogue is more deterministic than
+  a seeded generator, not less.
+
+  **The licence is the decision, not the work.** Star positions are
+  measurements, and the arrangement of "every star brighter than 6.5, by right
+  ascension" is not an original selection, so there is very little for
+  copyright to attach to - but the EU's sui generis database right protects
+  the investment rather than the originality, and every published compilation
+  carries terms regardless. HYG is CC BY-SA 4.0, which `licenses/README.md`
+  already names as copyleft needing the owner's decision. Pick a source whose
+  terms are comfortable rather than arguing that facts are free.
+
+- **Constellation lines** - a separate feature that only looks like part of
+  the one above, and the harder half. The IAU defines constellation
+  _boundaries_ and names; it does not define the lines. Which stars to join,
+  and how, is an artist's choice - which is why Orion is drawn differently by
+  different publishers, and why this dataset is the part somebody really can
+  own. The boundary data in common use comes from the Royal Observatory
+  Edinburgh catalogue "used with permission", the figures most people picture
+  are Sky & Telescope's, and Stellarium carries a licence per sky culture.
+  Read each file's own terms; do not reason from the stars' licence.
+
+  The rendering is new rather than swapped: lines rather than points, a
+  visibility policy (always, or fading in as the sky darkens), and therefore a
+  setting - which by invariant 6 means a default in `engine/defaults.js`, a
+  schema row and a hint.
+
 - **US-031 weather** - haze, fog, rain, snow; optionally the real forecast,
   with consent. A large surface; it needs clouds first.
 - **US-034 HDR** - scRGB output on Windows 11 HDR displays. The engine already
@@ -338,6 +374,7 @@ Every TODO in the code has an entry here.
 | **No comparison against an external ephemeris table.** Accuracy is checked against the algorithms' own published worked examples instead                                                                                 | A bundled reference table is licensed data and a decision of its own. The margin is four to five orders of magnitude inside the requirement, so this buys confidence, not accuracy                                                                                                                    | `tests/unit/solar`, `lunar` | Low      |
 | **GPU time and GPU memory are not measured**, so NFR-1's 4 % GPU and 80 MB-per-screen lines are unverified rather than met                                                                                               | There is no dependency-free way to read either on Windows, and a figure derived from a frame counter would not be a measurement                                                                                                                                                                       | `tools/measure-cost.js`     | Medium   |
 | **Working set is about 488 MB** across the shell and two surfaces, roughly double ADR 0001's 150-250 MB estimate                                                                                                         | It is not the quantity NFR-1 budgets, and the CPU budget - the one that decides whether the product can run all day - is met with room. Worth a pass, not worth blocking on                                                                                                                           | the Electron host           | Low      |
+| **The constellations are not real.** The stars are generated from a seeded hash with a realistic brightness distribution, so the sky turns correctly and holds no Orion                                                  | The geometry was always the hard part and it is done; the catalogue is a data file with a licence attached, which is a decision rather than a task. Listed under Beyond with what it would take. `CHANGELOG.md` says so to users                                                                      | `app/engine/stars.js`       | Low      |
 | **The city list is typed by hand**, about a hundred entries at a tenth of a degree                                                                                                                                       | A real gazetteer is a licensed data file. The tests check every entry against its own time zone and against the sun's seasonal swing, so an error is caught rather than trusted                                                                                                                       | `app/ui/cities.js`          | Low      |
 | **The editor does not use the brand palette.** It keeps its own colour tokens; the typeface is the brand's as of 2026-11-01                                                                                              | Adopting the palette changes every screen, and this project's colours are measured for WCAG 2.2 AA rather than inherited, so the audit would have to be redone against the brand's - an owner decision. The typeface half of this is done: see `docs/DESIGN.md`, Type                                 | `app/tokens.css`            | Medium   |
 | **The installer is unsigned**, so Windows shows a SmartScreen warning                                                                                                                                                    | A code-signing certificate is a purchase and an owner decision. The configuration takes one from `CSC_LINK` at release time, so this is a release step and not a code change                                                                                                                          | `electron-builder.yml`      | High     |
