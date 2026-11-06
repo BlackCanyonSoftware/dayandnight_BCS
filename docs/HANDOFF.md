@@ -107,11 +107,12 @@ Two things to know before changing any of it:
   fill - publisher legal name and form, governing law and venue, support address,
   whether any mark is registered - plus a lawyer's single pass over `EULA.md` and
   `DISCLAIMER.md`. None of it blocks Milestone 2; all of it blocks a release.
-- **The brand.** Settled. `app/brand/` is a `brandkit bundle` of the
-  `daynnight` brand at **1.49.0**, verified by `brandkit check`, and the
-  sidebar carries the mark and both wordmarks. The typeface changed to Jost in
-  that rebuild and is now a shipped third-party licence (SIL OFL 1.1); see
-  `app/brand/README.md` for what to check after the next brand change.
+- **Brand last checked: 2026-11-06, kit 1.56.1.** `app/brand/` (app set) and
+  `docs/brand/` (readme set) are `brandkit bundle`s of `daynnight`, both
+  reporting `matches daynnight`. The brand's design standard is **Material
+  Design 3** and the editor is now built to it: see `docs/DESIGN.md`, Brand
+  and Tokens. Two shipped font licences (SIL OFL 1.1, Jost and Public Sans).
+  `app/brand/README.md` lists what to check after the next brand change.
 
 ## Gotchas
 
@@ -153,6 +154,51 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-11-06 - the editor built to Material Design 3
+
+- **The brand now carries a design standard**, one per brand, and
+  `daynnight`'s is Material Design 3. A standard owns shape, spacing, the type
+  scale, elevation, motion, layout and how a control behaves; the brand keeps
+  its colours, mark and display face. Kit **1.56.1** (the rollout named 1.56.0;
+  the patch between was the library's own CI reproducibility and nothing about
+  this brand's design).
+- **This project had been holding the opposite arrangement.** Its tokens were
+  imported into a CSS layer _underneath_ the kit's so that its own radii,
+  spacing and shadows won. That was right when the kit's values were a house
+  default; it is backwards once they are a published standard. The layers are
+  gone, `app/tokens.css` is colours only, and nothing in this project names a
+  radius, a step, a size, a shadow or a duration any more.
+- **What moved, visibly:** corners 4/8/12 to Material's 8/12/16 with 4 for
+  fields and 28 for dialogs; buttons from 26px rectangles to 40px pills at
+  medium weight; fields from 28px to 56px outlined, focus thickening the
+  outline rather than adding a glow; state from a background swap and a
+  brightness filter to an 8%/10% wash of the content colour; the gallery's
+  selected tile from an inset ring to a filled container; the type scale from
+  five steps of this project's own to the standard's, which collapsed the two
+  smallest; the sidebar from 360px to the standard's 280px drawer.
+- **Two pre-existing bugs fell out of it.** `.readerhead h2` asked for
+  `--text-md` and a gallery tile for `--r-1`, neither of which this project
+  has ever defined, so both declarations were invalid and had been since they
+  were written. And the colour table in `DESIGN.md` still named the
+  `--ink-faint` value that failed WCAG in October.
+- **The focus test was weaker than it read.** It compared outline width,
+  colour, shadow and border before and after focus - but an unfocused element
+  computes `outline-width` as the UA default of 3px with `outline-style: none`,
+  so Material's 3px ring looked like no ring at all and the test failed. It
+  passed before only because this project's ring happened to be 2px. It now
+  compares `outline-style` too, which is the property that says whether an
+  outline is drawn, and it is strictly harder to pass than before.
+- **Native controls needed `color-scheme`.** Once the fields stopped painting
+  their own fill, Chromium drew the date picker in its light scheme on a dark
+  panel. Set per theme in `app/tokens.css`.
+- Checked at 375, 768 and 1280 in both themes: nothing clipped, the drawer
+  overlays below 900 as before, and the sidebar footer is stacked because at
+  280px on the standard's scale the two lines no longer shared one.
+- **The suite is slower.** The preview is 21% more pixels now the sidebar gave
+  back 80, and every test renders it under a software rasteriser. One full run
+  timed out on three tests while screenshot scripts were competing for the
+  machine; a clean run passes all 44. Worth watching rather than acting on.
 
 ### 2026-11-04 - NFR-1 met with the clouds in, on the second attempt
 

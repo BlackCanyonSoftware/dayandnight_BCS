@@ -151,3 +151,85 @@ dialog.modal[open] { animation: rise var(--t-med) var(--ease); }
 .steps li.done::before, .steps li.now::before { background: var(--brand); }
 .steps li.done { color: var(--ink); } .steps li.now { color: var(--accent); }
 .stack > .steps { margin-top: var(--s-5); }
+
+/* Design standard: Material Design 3 (material). Appended after the shared
+   components, so on equal specificity it wins; it overrides and does not
+   repeat. State is a wash of the content colour over the container (8%
+   hover, 10% pressed), not a border change or a brightness filter. */
+
+body { font: 400 var(--fs-md)/var(--lh-body) var(--font); }
+body::before { display: none; }
+h1, h2, h3, h4 { font-weight: 500; letter-spacing: 0; line-height: 1.25; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font-weight: 500; letter-spacing: .5px; text-transform: none; font-size: var(--fs-xs); }
+
+/* buttons: 40 high, fully rounded, sentence case, label medium */
+.btn { --_fg: var(--accent); --_bg: transparent; --_bd: var(--line-strong);
+  min-height: var(--control-h); padding: 0 var(--s-5); border-radius: var(--r-pill);
+  font: 500 var(--fs-sm)/20px var(--font); letter-spacing: .1px; box-shadow: none; }
+.btn:hover { color: var(--_fg); border-color: var(--_bd); background: color-mix(in srgb, var(--_fg) var(--state-hover), var(--_bg)); }
+.btn:active { transform: none; background: color-mix(in srgb, var(--_fg) var(--state-press), var(--_bg)); }
+.btn.primary { --_bg: var(--brand); --_fg: var(--on-brand); --_bd: transparent; }
+.btn.primary:hover { filter: none; color: var(--_fg); border-color: transparent; }
+.btn.accent { --_bg: color-mix(in srgb, var(--brand) 16%, var(--card)); --_fg: var(--accent); --_bd: transparent; }
+.btn.accent:hover { filter: none; color: var(--_fg); }
+.btn.elevated { --_bg: var(--card); --_bd: transparent; box-shadow: var(--shadow-1); }
+.btn.ghost { padding: 0 var(--s-3); }
+.btn.ghost:hover { border-color: transparent; background: color-mix(in srgb, var(--_fg) var(--state-hover), transparent); }
+.btn.danger { --_fg: var(--bad); --_bd: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.btn.danger:hover { background: color-mix(in srgb, var(--bad) var(--state-hover), transparent); border-color: var(--_bd); }
+.btn.danger.solid { --_bg: var(--bad); --_fg: var(--on-bad); --_bd: transparent; }
+.btn.danger.solid:hover { filter: none; background: color-mix(in srgb, var(--on-bad) var(--state-hover), var(--bad)); color: var(--on-bad); }
+.btn.sm { min-height: 32px; padding: 0 var(--s-4); }
+.btn.lg { min-height: var(--target); padding: 0 var(--s-6); font-size: var(--fs-md); }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: .38; }
+.icon-btn { width: var(--target); height: var(--target); border: 0; border-radius: 50%; background: transparent; box-shadow: none; color: var(--mute); }
+.icon-btn:hover { background: var(--hover); color: var(--ink); border-color: transparent; }
+.icon-btn.plain { background: transparent; }
+.btn-group .btn:first-child { border-radius: var(--r-pill) 0 0 var(--r-pill); } .btn-group .btn:last-child { border-radius: 0 var(--r-pill) var(--r-pill) 0; }
+
+/* fields: outlined, 56 high, 4px corners; focus thickens the outline to 2px */
+.label { font-weight: 500; letter-spacing: .1px; }
+.input, .select, .textarea { min-height: var(--field-h); padding: 0 var(--s-4); border-radius: var(--r-xs); box-shadow: none; font: 400 var(--fs-md)/24px var(--font); }
+.textarea { padding: var(--s-4); min-height: 112px; }
+.input:hover, .select:hover, .textarea:hover { border-color: var(--ink); }
+.input:focus, .select:focus, .textarea:focus { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.input[disabled], .select[disabled] { opacity: .38; background: transparent; }
+.input-wrap > .icon { left: var(--s-4); } .input-wrap .input { padding-inline-start: 48px; }
+.check input { width: 18px; height: 18px; border-radius: 2px; border-width: 2px; }
+.check input[type="radio"] { border-radius: 50%; }
+.switch input { width: 52px; height: 32px; border-width: 2px; background: var(--hover); }
+.switch input::after { top: 6px; left: 6px; width: 16px; height: 16px; background: var(--mute); box-shadow: none; transition: translate var(--t-med) var(--ease), width var(--t-fast), height var(--t-fast), top var(--t-fast), left var(--t-fast); }
+.switch input:checked::after { top: 2px; left: 2px; width: 24px; height: 24px; background: var(--on-brand); translate: 20px 0; }
+.fieldset { border-radius: var(--r-xs); } .fieldset legend { font-weight: 500; }
+
+/* feedback: a snackbar is inverse-surface, 4px; an alert is a filled
+   container with no side stripe */
+.chip { min-height: 32px; border-radius: 8px; padding: 0 var(--s-3); font: 500 var(--fs-sm) var(--font); border-color: var(--line-strong); }
+.chip[aria-pressed="true"] { background: var(--selected); border-color: transparent; color: var(--ink); }
+.badge { font-weight: 500; letter-spacing: .5px; }
+.alert { border: 0; border-radius: var(--r-md); border-inline-start: 0; }
+.alert.warn { border-inline-start: 0; }
+.toast { border-radius: var(--r-xs); box-shadow: var(--shadow-3); animation-timing-function: var(--ease-emphasized); }
+.progress { height: 4px; }
+.tip::after { border-radius: var(--r-xs); font-weight: 400; }
+
+/* surfaces: a card at rest is outlined, not shadowed; it lifts on hover */
+.card { border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: none; }
+.card.interactive:hover, a.card:hover { border-color: var(--line); box-shadow: var(--shadow-1); translate: none; }
+.card-h { background: none; border-bottom: 0; }
+.card-f { background: none; border-top: 0; }
+.card.accent-top { background: var(--card); }
+.tab { min-height: var(--target); padding: 0 var(--s-4); font: 500 var(--fs-sm)/20px var(--font); letter-spacing: .1px; }
+.tab[aria-selected="true"] { border-bottom: 3px solid var(--brand); border-radius: 3px 3px 0 0; color: var(--accent); }
+.seg { padding: 0; gap: 0; border-radius: var(--r-pill); background: none; border: 1px solid var(--line-strong); overflow: hidden; }
+.seg button { min-height: 38px; padding: 0 var(--s-4); border-radius: 0; font: 500 var(--fs-sm) var(--font); }
+.seg button + button { border-inline-start: 1px solid var(--line-strong); }
+.seg button[aria-pressed="true"] { background: var(--selected); color: var(--ink); box-shadow: none; }
+.acc { border-radius: var(--r-md); } .acc summary { min-height: var(--target); font-weight: 500; }
+th { font-size: var(--fs-sm); font-weight: 500; letter-spacing: .1px; text-transform: none; color: var(--ink); }
+.menu { border: 0; border-radius: var(--r-xs); padding: var(--s-2) 0; box-shadow: var(--shadow-2); }
+.menu a, .menu button { min-height: var(--target); padding: 0 var(--s-3); border-radius: 0; }
+dialog.modal { border: 0; border-radius: var(--r-xl); box-shadow: var(--shadow-3); }
+dialog.modal[open] { animation-timing-function: var(--ease-emphasized); }
+.pager button { min-width: 40px; height: 40px; border-radius: 50%; }

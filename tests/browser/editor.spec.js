@@ -2251,13 +2251,27 @@ test("focus is visible on everything that takes it (NFR-6)", async ({ page }) =>
       const rect = node.getBoundingClientRect();
       if (rect.width < 1 || rect.height < 1) continue;
 
-      const before = getComputedStyle(node);
-      const was = `${before.outlineWidth} ${before.outlineColor} ${before.boxShadow} ${before.borderColor}`;
+      // outlineStyle is in here because it is the property that decides
+      // whether an outline is drawn at all. Without it this check had a blind
+      // spot: an unfocused element computes outline-width as the UA default
+      // of 3px with outline-style none, so a focus ring 3px wide read as no
+      // ring, and this passed only while the ring happened to be some other
+      // width. The standard's is 3px.
+      const seen = (style) =>
+        [
+          style.outlineStyle,
+          style.outlineWidth,
+          style.outlineColor,
+          style.outlineOffset,
+          style.boxShadow,
+          style.borderColor
+        ].join(" ");
+
+      const was = seen(getComputedStyle(node));
 
       node.focus();
 
-      const after = getComputedStyle(node);
-      const now = `${after.outlineWidth} ${after.outlineColor} ${after.boxShadow} ${after.borderColor}`;
+      const now = seen(getComputedStyle(node));
 
       if (was === now) {
         bad.push(node.id || `${node.tagName.toLowerCase()}.${node.className}`);

@@ -86,6 +86,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The editor is built to Material Design 3.** The brand it carries is built
+  to one published design system, and this is it: rounded buttons that are a
+  proper size to hit, taller text fields that show where you are by thickening
+  their outline, a gentler way of showing what you are hovering, and a chosen
+  look marked by filling its tile rather than ringing it. The settings panel
+  is a little narrower and the text in it a little larger, because both are
+  what the standard sets.
 - **The editor is set in the brand's own type.** It used to borrow whatever
   Windows had. The headings are now in Jost, the face the logo beside them is
   drawn in, and everything you actually read is in Public Sans - a face made

@@ -1,63 +1,42 @@
 /* ==========================================================================
-   Design tokens. The only place a colour, radius, duration or step is defined.
+   Design tokens: this product's colours, and nothing else.
 
-   A one-off value in a component is a bug: see docs/DESIGN.md. Both themes
-   define the same names, so no component knows which theme it is in.
+   Shape, spacing, the type scale, elevation, motion and the shell's sizes are
+   NOT here. They come from the brand kit's `brand/template/tokens.css`, which
+   is built to this brand's design standard - **Material Design 3**. A radius
+   or a step retyped here would be this project quietly holding a second
+   opinion about a question the standard has already answered, and it did:
+   until 2026-11-06 this file set its own 4px corners, its own five-step type
+   scale and its own shadows, and imported the kit's sheet into a CSS layer
+   underneath so that they won. That is the arrangement this rollout undoes.
 
-   The palette is the hour either side of the horizon - deep twilight blue
-   surfaces, warm amber accent - because that is what the product is about.
+   What stays is what a standard does not own: the palette, the mark and the
+   display face. The palette is the hour either side of the horizon - deep
+   twilight blue surfaces, warm amber accent - because that is what the
+   product is about, and its contrasts are measured here rather than
+   inherited (see docs/DESIGN.md, Contrast).
+
+   Both themes define the same names, so no component knows which theme it is
+   in. A one-off colour in a component is still a bug: see docs/DESIGN.md.
    ========================================================================== */
 
 :root {
   /* ------------------------------------------------------------ typography */
   /* Neither `--font` nor `--font-display` is defined here, on purpose. This
-     brand is *named* in one face and *read* in another - Jost for the
-     wordmark and the headings, Public Sans for everything that is a sentence
-     - and which face does which job is recorded in the brand definition.
-     Both reach the page through `brand/template/tokens.css`, imported by
-     styles.css. Writing either here would be a second place that decision
-     lives, and the place it would be wrong: the display face is drawn to be a
-     logo, not a paragraph.
-
-     The monospace stack is the brand's too, under the name `--mono`. This is
-     the alias, so the rest of the application keeps one vocabulary. */
+     brand is *named* in Jost and *read* in Public Sans, and which face does
+     which job is recorded in the brand definition. Both reach the page
+     through `brand/template/tokens.css`. The monospace stack is the brand's
+     too, under the name `--mono`; this is the alias, so the rest of the
+     application keeps one vocabulary. */
   --font-mono: var(--mono);
-
-  --text-xs: 11px;
-  --text-sm: 12px;
-  --text-base: 13px;
-  --text-lg: 15px;
-  --text-xl: 20px;
-
-  --leading-tight: 1.3;
-  --leading: 1.45;
-
-  /* ----------------------------------------------------------------- space */
-  --s-1: 4px;
-  --s-2: 8px;
-  --s-3: 12px;
-  --s-4: 16px;
-  --s-5: 24px;
-  --s-6: 32px;
-  --s-7: 48px;
-
-  /* ---------------------------------------------------------------- radius */
-  --r-sm: 4px;
-  --r-md: 8px;
-  --r-lg: 12px;
-  --r-full: 999px;
-
-  /* ---------------------------------------------------------------- motion */
-  --dur-fast: 120ms;
-  --dur: 180ms;
-  --dur-slow: 320ms;
-  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
-
-  /* ---------------------------------------------------------------- layout */
-  --sidebar: 360px;
 
   /* --------------------------------------------------------- colour: dark */
   /* Dark is the default: this is a tool you use in the evening. */
+  /* Native controls - the date field, the range tracks - are drawn by the
+     browser, and it needs telling which scheme it is in or it paints them
+     light on a dark panel. */
+  color-scheme: dark;
+
   --bg: #0a0d14;
   --panel: #111622;
   --panel-2: #171d2b;
@@ -82,10 +61,6 @@
   /* Text that sits on an accent fill. Amber is bright, so it takes dark ink. */
   --on-accent: #241502;
 
-  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
-  --shadow-2: 0 4px 14px rgb(0 0 0 / 0.5);
-  --shadow-3: 0 18px 48px rgb(0 0 0 / 0.6);
-
   /* The faint weave behind the stage. */
   --weave: rgb(158 200 255 / 0.1);
   --weave-soft: rgb(158 200 255 / 0.062);
@@ -96,6 +71,8 @@
    background disappears on white. They are darkened until they clear 4.5:1
    as text on --panel, which is the trap the brand kit's notes call out. */
 :root[data-theme="light"] {
+  color-scheme: light;
+
   --bg: #f4f6fa;
   --panel: #ffffff;
   --panel-2: #eef1f7;
@@ -112,10 +89,6 @@
 
   --on-accent: #ffffff;
 
-  --shadow-1: 0 1px 2px rgb(20 24 33 / 0.08);
-  --shadow-2: 0 6px 18px rgb(20 24 33 / 0.12);
-  --shadow-3: 0 20px 52px rgb(20 24 33 / 0.18);
-
   --weave: rgb(40 60 100 / 0.055);
   --weave-soft: rgb(40 60 100 / 0.035);
 }
@@ -124,6 +97,8 @@
    with data-theme="dark" or "light" set, this block does not apply. */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]):not([data-theme="light"]) {
+    color-scheme: light;
+
     --bg: #f4f6fa;
     --panel: #ffffff;
     --panel-2: #eef1f7;
@@ -140,21 +115,38 @@
 
     --on-accent: #ffffff;
 
-    --shadow-1: 0 1px 2px rgb(20 24 33 / 0.08);
-    --shadow-2: 0 6px 18px rgb(20 24 33 / 0.12);
-    --shadow-3: 0 20px 52px rgb(20 24 33 / 0.18);
-
     --weave: rgb(40 60 100 / 0.055);
     --weave-soft: rgb(40 60 100 / 0.035);
   }
 }
 
-/* NFR-6. The wallpaper's own rates are damped by a preset setting; this covers
-   the editor's chrome. */
-@media (prefers-reduced-motion: reduce) {
-  :root {
-    --dur-fast: 0ms;
-    --dur: 0ms;
-    --dur-slow: 0ms;
-  }
+/* --------------------------------------------- the shared layer's own names
+
+   The kit's `tokens.css`, `components.css` and `layout.css` are written
+   against a palette vocabulary of their own - `--page`, `--card`, `--brand`
+   and so on - and derive the Material state washes from it: `--hover` is 8%
+   of `--ink` over the container, `--selected` 12% of `--brand`. None of those
+   names is a new colour, so none is defined twice: each is this product's
+   palette under the name the shared layer calls it, and both themes get them
+   because they are expressed in tokens that already follow the theme.
+
+   Without this the kit's sheets would resolve those `var()`s to nothing and
+   every component it supplies would lose its surface. */
+:root {
+  --page: var(--bg);
+  --card: var(--panel);
+  --mute: var(--ink-dim);
+  --control: var(--line);
+
+  /* The shared layer's "brand" colour is the one a filled control is painted
+     in, which here is the amber. `--on-brand` is the ink that sits on it, and
+     is already measured for exactly that. */
+  --brand: var(--accent);
+  --on-brand: var(--on-accent);
+
+  /* Status containers, as washes of the status colours rather than new ones. */
+  --on-bad: #ffffff;
+  --bad-bg: color-mix(in srgb, var(--bad) 12%, var(--panel));
+  --ok-bg: color-mix(in srgb, var(--ok) 12%, var(--panel));
+  --warn-bg: color-mix(in srgb, var(--warn) 12%, var(--panel));
 }

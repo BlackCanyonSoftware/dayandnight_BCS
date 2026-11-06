@@ -6,7 +6,7 @@ This is a `brandkit bundle` of the `daynnight` brand, written whole by the
 brand kit from `brands/daynnight/brand.toml`. The kit is a separate, private
 repository - it is the source of truth for these files and is not needed to
 build or run this application. Everything here except this file came out of
-**brandkit 1.55.0**, and `BUNDLE.json` beside it lists every file with its
+**brandkit 1.56.1**, and `BUNDLE.json` beside it lists every file with its
 hash.
 
 Two commands, run from a checkout of the kit, with `$DAYANDNIGHT` set to a
@@ -42,7 +42,8 @@ flattened or moved.
 | `wordmark/wordmark-light.svg` | the name beside it, on a light background              |
 | `wordmark/wordmark-dark.svg`  | the name beside it, on a dark background               |
 | `template/fonts.css`          | declares both faces; imported by `app/styles.css`      |
-| `template/tokens.css`         | `--font` and `--font-display`; imported under a layer  |
+| `template/tokens.css`         | the design standard: shape, space, type scale, motion |
+| `template/components.css`     | how a button, a field and a card behave under it      |
 | `font/publicsans.woff`        | what the editor is read in, loaded by `fonts.css`      |
 | `font/jost.woff`              | what the name and the headings are drawn in            |
 | `icon/favicon.ico`            | the Windows application icon (`electron-builder.yml`)  |
@@ -52,8 +53,8 @@ family is named by the kit's own token sheet rather than by ours, so the
 application and the brand cannot drift apart. `app/styles.css` explains why the
 kit's tokens are imported into a CSS layer underneath this project's own.
 
-`template/base.css`, `components.css` and `layout.css` are a UI shell this
-application does not use - it has `app/styles.css` - and `social/`, `web/` and
+`template/base.css` and `layout.css` are a page shell this application does
+not use - it is one window, not a website - and `social/`, `web/` and
 `theme/` are for a website it does not have. They stay because the bundle is
 the unit `check` verifies; picking files out of it is how two applications
 built from one brand end up with two layouts and no way to compare them.
@@ -68,10 +69,15 @@ Re-run `bundle`, then `check`, then look at three things:
    is missing. A face added, dropped or swapped means all three change - which
    is what happened at 1.55.0, when the brand gained a second face to be read
    in and Jost moved to headings only.
-2. **The icon.** `electron-builder.yml` points `win.icon` straight at
+2. **The design standard.** `BRAND.md` has a section of that name. The kit
+   regenerates `tokens.css`, `components.css` and `layout.css` to it, so a
+   rebuild can change a radius, a control height or the type scale under this
+   application without touching a line of its own CSS. That is the intent:
+   never retype a number the standard supplies.
+3. **The icon.** `electron-builder.yml` points `win.icon` straight at
    `icon/favicon.ico` in here, so a new icon needs no copying - but a bundle
    that stops shipping that file breaks the build, which is the point.
-3. **The paths.** `app/index.html` and `app/styles.css` name files in here by
+4. **The paths.** `app/index.html` and `app/styles.css` name files in here by
    their folder. A browser test asserts the mark and both wordmarks actually
    load, and another asserts the face does, so a renamed file fails a test
    rather than silently showing nothing.

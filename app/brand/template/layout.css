@@ -169,3 +169,15 @@
 :root[data-theme="dark"] .bk-only-dark { display: inline-block; }
 :root[data-theme="light"] .bk-only-light { display: inline-block; }
 :root[data-theme="light"] .bk-only-dark { display: none; }
+
+/* Design standard: Material Design 3 (material). A top app bar is a flat 64 px
+   surface with no rule under it; a navigation drawer item is a 56 px pill with
+   its selection as a filled container, not a stripe on the edge. */
+.bk-header { background: var(--card); backdrop-filter: none; border-bottom: 0; padding: 0 var(--s-4); }
+.bk-header::after { display: none; }
+.bk-nav a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 var(--s-4); border-radius: var(--r-pill); font-weight: 500; }
+.sidebar { padding: var(--s-3); }
+.side-link { min-height: 56px; padding: 0 var(--s-4); border-radius: 28px; font: 500 var(--fs-sm) var(--font); letter-spacing: .1px; }
+.side-link[aria-current="page"] { background: var(--selected); color: var(--ink); }
+.side-link[aria-current="page"]::before { display: none; }
+.bk-footer { border-top: 0; background: var(--card); }

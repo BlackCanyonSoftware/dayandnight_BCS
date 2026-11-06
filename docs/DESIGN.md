@@ -89,29 +89,56 @@ Measured, not chosen. The other text tokens came out at ink 13.7 and 15.7, dim
 moving. A browser test walks every piece of text in both themes and applies the
 AA thresholds, so dimming a token fails the suite rather than the standard.
 
+## Brand
+
+The brand is **`daynnight`**, from the brand kit (a separate, private
+repository). The application set is bundled into `app/brand/`, the README set
+into `docs/brand/`, both by `brandkit bundle` and both verified by
+`brandkit check`. **Kit 1.56.1**, synced 2026-11-06.
+
+Its design standard is **Material Design 3**, and this product is built to that
+and to nothing else. The standard owns shape, spacing, the type scale,
+elevation, motion, layout and how a control behaves; the brand keeps its
+colours, its mark and its display face. `app/brand/BRAND.md` has the rules as
+the kit applies them, and they are not restated here - a second copy is a
+second thing to fall out of date.
+
+The kit is at 1.56.1 and the rollout named 1.56.0; the patch between them was
+reproducibility in the library's own CI (LF line endings in `dist/`, a named
+text-layout engine, a dated `BRAND.md`) and changed nothing about this brand's
+design. The version recorded is the one actually synced from.
+
+**This product's recorded departure** is the palette: the colours below are
+its own, measured for contrast here rather than inherited from the brand's.
+That is deliberate and predates the standard, which does not own colour
+anyway.
+
 ## Tokens
 
-All tokens live in `app/tokens.css` and nowhere else. A one-off colour, radius
-or duration in a component is a bug. Both themes define the same names, so no
-component knows which theme it is in.
+Colours live in `app/tokens.css` and nowhere else. Everything that is not a
+colour - radius, spacing, the type scale, elevation, motion, the shell's
+sizes - comes from the brand kit's `brand/template/tokens.css` and is the
+standard's. **Never retype a number the standard supplies.** A one-off colour,
+radius or duration in a component is a bug. Both themes define the same names,
+so no component knows which theme it is in.
 
 ### Colour
 
-| Token         | Dark (default) | Light     | Role                                |
-| ------------- | -------------- | --------- | ----------------------------------- |
-| `--bg`        | `#0a0d14`      | `#f4f6fa` | The window behind everything        |
-| `--panel`     | `#111622`      | `#ffffff` | Sidebar, dialogs                    |
-| `--panel-2`   | `#171d2b`      | `#eef1f7` | Raised rows, inputs, section bodies |
-| `--line`      | `#273044`      | `#d9dfea` | Borders                             |
-| `--line-soft` | `#1d2433`      | `#e7ebf3` | Dividers inside a section           |
-| `--ink`       | `#e4e8f2`      | `#141821` | Body text                           |
-| `--ink-dim`   | `#97a1b8`      | `#525b6d` | Labels, secondary text              |
-| `--ink-faint` | `#5f6980`      | `#79839a` | Disabled, placeholder               |
-| `--accent`    | `#ffb257`      | `#9a5a00` | Primary: sunrise amber              |
-| `--accent-2`  | `#7c6cff`      | `#51389e` | Secondary: dusk violet              |
-| `--warn`      | `#ffb454`      | `#8a5200` | Caution                             |
-| `--bad`       | `#ff6b6b`      | `#b42020` | Error                               |
-| `--ok`        | `#5fe0a8`      | `#0a6b48` | Success                             |
+| Token         | Dark (default) | Light     | Role                                 |
+| ------------- | -------------- | --------- | ------------------------------------ |
+| `--bg`        | `#0a0d14`      | `#f4f6fa` | The window behind everything         |
+| `--panel`     | `#111622`      | `#ffffff` | Sidebar, dialogs                     |
+| `--panel-2`   | `#171d2b`      | `#eef1f7` | Raised rows, inputs, section bodies  |
+| `--line`      | `#273044`      | `#d9dfea` | Borders                              |
+| `--line-soft` | `#1d2433`      | `#e7ebf3` | Dividers inside a section            |
+| `--ink`       | `#e4e8f2`      | `#141821` | Body text                            |
+| `--ink-dim`   | `#97a1b8`      | `#525b6d` | Labels, secondary text               |
+| `--ink-faint` | `#848da1`      | `#5d6778` | The faintest text that is still text |
+| `--accent`    | `#ffb257`      | `#9a5a00` | Primary: sunrise amber               |
+| `--accent-2`  | `#7c6cff`      | `#51389e` | Secondary: dusk violet               |
+| `--warn`      | `#ffb454`      | `#8a5200` | Caution                              |
+| `--bad`       | `#ff6b6b`      | `#b42020` | Error                                |
+| `--ok`        | `#5fe0a8`      | `#0a6b48` | Success                              |
 
 The light accents are the dark ones darkened until they pass 4.5:1 as text on
 `--panel`. This is the trap Pixel Galaxy Studio's brand notes already call out:
@@ -171,39 +198,61 @@ Jost, a label computes to Public Sans, and both `.woff` files reach
 `document.fonts`. Swapping the two would satisfy any check that only looked at
 the tokens, and would put a logo face in every sentence.
 
-| Token         | Size / line | Used for                                    |
-| ------------- | ----------- | ------------------------------------------- |
-| `--text-xs`   | 11px / 1.4  | Hints, metadata, the scrubber's hour labels |
-| `--text-sm`   | 12px / 1.45 | Panel labels, values                        |
-| `--text-base` | 13px / 1.45 | Body, the default                           |
-| `--text-lg`   | 15px / 1.4  | Section headings                            |
-| `--text-xl`   | 20px / 1.3  | Dialog titles                               |
+The scale is the standard's, from `brand/template/tokens.css`. This project
+used to keep five steps of its own - 11, 12, 13, 15 and 20 - which is finer at
+the small end than Material's, so the two smallest collapsed onto one when they
+were mapped across on 2026-11-06.
+
+| Token       | Size | Used for                                              |
+| ----------- | ---- | ----------------------------------------------------- |
+| `--fs-xs`   | 12px | Hints, metadata, labels, values, the scrubber's hours |
+| `--fs-sm`   | 14px | Body, the default                                     |
+| `--fs-md`   | 16px | Section headings                                      |
+| `--fs-lg`   | 22px | Dialog titles                                         |
+| `--lh-body` | 1.5  | The body line height                                  |
+
+Headings are medium weight (500), not bold: the standard asks for it, and a
+display face is already heavy enough to carry a heading at 500.
 
 Numbers that change as a slider moves - a sun altitude, a time - use
 `--font-mono` and tabular figures, so the layout does not jitter.
 
 ### Space, radius, shadow, motion
 
-Spacing is a 4px scale: `--s-1` 4, `--s-2` 8, `--s-3` 12, `--s-4` 16,
-`--s-5` 24, `--s-6` 32, `--s-7` 48.
+All of this is the standard's, and none of it is set here. The values are in
+`brand/template/tokens.css`; what follows is what this product uses them for.
 
-Radii: `--r-sm` 4 (inputs, chips), `--r-md` 8 (cards, sections),
-`--r-lg` 12 (dialogs), `--r-full` 999 (pills, the scrubber thumb).
+Spacing is a 4px scale, `--s-1` to `--s-8`. It happens to be the same scale
+this project had already chosen, so nothing moved when it stopped being ours.
 
-Shadows: `--shadow-1` for a raised row, `--shadow-2` for a popover,
-`--shadow-3` for a dialog. Dark-theme shadows are near-black and tight; light
-theme uses a softer, wider spread, because the same shadow does not read on
-both.
+Radii come from Material's corner scale and nothing else: `--r-xs` 4 (fields),
+`--r-sm` 8, `--r-md` 12 (cards, tiles, sections), `--r-lg` 16, `--r-xl` 28
+(dialogs), `--r-pill` (buttons, the scrubber thumb). They were 4, 8 and 12
+before, which is the scale shifted by one step - near enough to look like a
+mistake and far enough to be one.
 
-Motion: `--dur-fast` 120ms, `--dur` 180ms, `--dur-slow` 320ms, all on
-`--ease` `cubic-bezier(.2,.7,.3,1)`. Every transition is wrapped so that
-`prefers-reduced-motion: reduce` removes it, and the setting also damps the
-wallpaper's own animation rates (NFR-6).
+Shadows: `--shadow-1` to `--shadow-3`, two-layer and heavier on a dark
+surface. **A card at rest has none** - it is outlined and flat, and elevation
+is for things that float. That is why the look gallery's tiles lost their
+inset ring.
 
-Breakpoints: the editor is a desktop application and the sidebar is fixed at
-360px, as in Pixel Galaxy Studio. Below 900px wide the sidebar becomes a
-drawer rather than reflowing - the window can be made small, but it is not a
-phone target.
+Controls: `--control-h` 40 (a button, fully rounded), `--field-h` 56 (a field,
+outlined, focus thickening the outline rather than adding a glow), `--target`
+48 for anything pressed even where it is drawn smaller. The small buttons and
+the hint dots carry that target as their own hit area, so the rows stay dense
+without the targets shrinking.
+
+State is a wash of the content colour over the container: `--state-hover` 8%,
+`--state-press` 10%. Not a different background, and not a brightness filter,
+which is what this product's buttons used to do.
+
+Motion: `--t-fast` 100ms and `--t-med` 250ms on `--ease`
+`cubic-bezier(.2,0,0,1)`, with `--ease-emphasized` for things that enter.
+`prefers-reduced-motion: reduce` is honoured by the kit's own sheet, and the
+setting also damps the wallpaper's own animation rates (NFR-6).
+
+Layout: the sidebar is `--sidebar-w`, the standard's 280px drawer, where it was 360. Below 900px wide it becomes an overlay drawer rather than reflowing - the
+window can be made small, but it is not a phone target.
 
 ## Components
 

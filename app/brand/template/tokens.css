@@ -2,10 +2,11 @@
  * colour. Shape, space, elevation, type scale, motion, and the few sizes the
  * shell is laid out from.
  *
- * It has no brand in it and does not vary between products. A product that
- * could choose its own corner radius is a family that does not look like one,
- * and nothing here has asked to differ; the day something does, this becomes a
- * [ui] block in its brand.toml and gets measured like everything else.
+ * It has no brand in it. What it does have is a design standard: the values
+ * below are the shared defaults, and a brand's [ui] standard (Material, Ant,
+ * Carbon or the Human Interface Guidelines) replaces the ones it has an
+ * opinion about, in place, and names itself at the foot of the file. One
+ * standard per brand, never a blend - see src/brandkit/standards/.
  *
  * The colours that *are* measured live in theme.css - ink, accent, on-brand,
  * control, the status pair. What is here is derived from those, which is why
@@ -20,13 +21,13 @@
   --line-strong: color-mix(in srgb, var(--brand) 38%, var(--line));
   --edge: inset 0 1px 0 color-mix(in srgb, #fff 60%, transparent);
   --glow: 0 0 0 4px color-mix(in srgb, var(--brand) 16%, transparent);
-  --hover: color-mix(in srgb, var(--ink) 6%, transparent);
+  --hover: color-mix(in srgb, var(--ink) 8%, transparent);
   --selected: color-mix(in srgb, var(--brand) 12%, transparent);
   --scrim: rgb(0 0 0 / .55);
-  --focus: 0 0 0 2px var(--page), 0 0 0 4px var(--accent);
+  --focus: 0 0 0 2px var(--page), 0 0 0 5px var(--accent);
 
   /* shape */
-  --r-sm: 6px; --r-md: 10px; --r-lg: 16px; --r-pill: 999px;
+  --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-pill: 999px;
 
   /* space, on a 4px base */
   --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px;
@@ -34,9 +35,9 @@
 
   /* elevation. Soft shadows are for things that float - a menu, a toast, a
      dialog - and for nothing that sits on the page. */
-  --shadow-1: 0 1px 2px rgb(0 0 0 / .06), 0 1px 1px rgb(0 0 0 / .04);
-  --shadow-2: 0 4px 14px rgb(0 0 0 / .10), 0 1px 3px rgb(0 0 0 / .06);
-  --shadow-3: 0 18px 48px rgb(0 0 0 / .22), 0 4px 12px rgb(0 0 0 / .10);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / .30), 0 1px 3px 1px rgb(0 0 0 / .15);
+  --shadow-2: 0 1px 2px rgb(0 0 0 / .30), 0 2px 6px 2px rgb(0 0 0 / .15);
+  --shadow-3: 0 1px 3px rgb(0 0 0 / .30), 0 4px 8px 3px rgb(0 0 0 / .15);
 
   /* type */
   /* Two faces, two jobs. --font is what the page is read in; --font-display
@@ -48,8 +49,8 @@
   --font-display: "Jost", system-ui, sans-serif;
   --font-initials: "Jost", "Arial Rounded MT Bold", system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --fs-xs: 12px; --fs-sm: 13px; --fs-md: 15px; --fs-lg: 18px;
-  --fs-xl: 22px; --fs-2xl: 30px; --fs-3xl: 40px;
+  --fs-xs: 12px; --fs-sm: 14px; --fs-md: 16px; --fs-lg: 22px;
+  --fs-xl: 24px; --fs-2xl: 32px; --fs-3xl: 45px;
 
   /* The pattern this brand's panels carry, or none. The one token here that
      differs between products: a corner radius that varied per application
@@ -61,12 +62,12 @@
   --texture: none;
 
   /* motion */
-  --ease: cubic-bezier(.2, .7, .2, 1); --t-fast: 120ms; --t-med: 220ms;
+  --ease: cubic-bezier(.2, 0, 0, 1); --t-fast: 100ms; --t-med: 250ms;
 
   /* layout */
   --header-h: 64px;
-  --sidebar-w: 248px; --sidebar-w-collapsed: 68px;
-  --right-w: 320px; --content-max: 1200px;
+  --sidebar-w: 280px; --sidebar-w-collapsed: 80px;
+  --right-w: 320px; --content-max: 1240px;
 }
 
 /* A dark page needs heavier shadows to read as depth at all, and a highlight
@@ -75,17 +76,17 @@
   :root:not([data-theme="light"]) {
     --scrim: rgb(0 0 0 / .65);
     --edge: inset 0 1px 0 rgb(255 255 255 / .05);
-    --shadow-1: 0 1px 2px rgb(0 0 0 / .5);
-    --shadow-2: 0 4px 14px rgb(0 0 0 / .5);
-    --shadow-3: 0 18px 48px rgb(0 0 0 / .7);
+    --shadow-1: 0 1px 2px rgb(0 0 0 / .55), 0 1px 3px 1px rgb(0 0 0 / .35);
+    --shadow-2: 0 1px 2px rgb(0 0 0 / .55), 0 2px 6px 2px rgb(0 0 0 / .35);
+    --shadow-3: 0 1px 3px rgb(0 0 0 / .55), 0 4px 8px 3px rgb(0 0 0 / .35);
   }
 }
 :root[data-theme="dark"] {
   --scrim: rgb(0 0 0 / .65);
   --edge: inset 0 1px 0 rgb(255 255 255 / .05);
-  --shadow-1: 0 1px 2px rgb(0 0 0 / .5);
-  --shadow-2: 0 4px 14px rgb(0 0 0 / .5);
-  --shadow-3: 0 18px 48px rgb(0 0 0 / .7);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / .55), 0 1px 3px 1px rgb(0 0 0 / .35);
+  --shadow-2: 0 1px 2px rgb(0 0 0 / .55), 0 2px 6px 2px rgb(0 0 0 / .35);
+  --shadow-3: 0 1px 3px rgb(0 0 0 / .55), 0 4px 8px 3px rgb(0 0 0 / .35);
 }
 
 /* Nothing moves for a reader who has asked for that. Durations rather than
@@ -100,3 +101,17 @@
   }
 }
 
+
+/* Design standard: Material Design 3 (material) */
+:root {
+  --r-xs: 4px;
+  --r-xl: 28px;
+  --control-h: 40px;
+  --field-h: 56px;
+  --target: 48px;
+  --lh-body: 1.5;
+  --ease-emphasized: cubic-bezier(.05, .7, .1, 1);
+  --state-hover: 8%;
+  --state-focus: 10%;
+  --state-press: 10%;
+}

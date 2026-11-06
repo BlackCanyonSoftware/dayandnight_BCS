@@ -17,12 +17,13 @@
 # Generated; keep it out of diffs but in the repository.
 package-lock.json -diff linguist-generated
 
-# brandkit bundles, verified by a hash of every file. `eol=lf` above would
-# rewrite the ones the kit happens to write with CRLF, and `brandkit check`
-# compares bytes - so a fresh clone would report a brand that had quietly
-# forked, in a repository nobody had touched. Stored exactly as the kit wrote
-# them. Still diffed: a brand rebuild that changes the typeface shows up as a
-# line in template/tokens.css, which is how it gets noticed.
+# brandkit bundles, verified by a hash of every file: stored exactly as the
+# kit wrote them, because `brandkit check` compares bytes and `eol=lf` above
+# would rewrite any the kit happened to write with CRLF. Two of them did until
+# kit 1.56.1, which now writes LF everywhere - this rule is what made a fresh
+# clone verify before that, and what will hold if it ever changes again.
+# Still diffed: a rebuild that changes the typeface or a corner radius shows
+# up as a line in template/tokens.css, which is how it gets noticed.
 app/brand/** -text
 docs/brand/** -text
 
