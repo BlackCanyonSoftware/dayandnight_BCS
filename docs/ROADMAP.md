@@ -158,9 +158,7 @@ a single patch of sky does not darken monotonically through sunset, that the
 synodic month cannot be averaged over one year, and that banding is a step
 larger than the gradient warrants rather than merely a step.
 
-## Now
-
-### Milestone 2 - every screen, all day `planned` (M)
+### Milestone 2 - every screen, all day `done, with by-hand checks outstanding` (M)
 
 Makes it something a person can actually leave running.
 
@@ -237,9 +235,7 @@ paperwork.
   did so on 2026-10-19 on the development machine. What is left is a clean
   machine, and the installer rather than the unpacked build.
 
-## Later
-
-### Milestone 3 - clouds `in progress` (L)
+### Milestone 3 - clouds `done, GPU unmeasured` (L)
 
 US-030. Domain-warped fBm in three parallax layers, shaded by the real sun
 direction so they rim-light at sunrise and flatten at midday. This is the layer
@@ -254,20 +250,28 @@ composited by blending rather than through a second render target. Coverage,
 wind, feature size and edge softness are preset settings, and zero coverage
 skips the pass entirely.
 
-**Still to do.**
+**Measured, 2026-11-04: 0.44 % of one core** against a budget of 2, with the
+clouds costing 0.05 points of it. The worry was that the first thing in the
+product that moves would end frame-skipping; a full overcast against a clear
+sky is 2.46 against 2.41, inside the spread of either. The estimate above of
+about 0.4 % was arithmetic and the measurement agrees with it - after a first
+attempt that was thrown away because the harness could not difference a
+changing set of processes (`ARCHITECTURE.md`, Measurement, Milestones 3 and 4).
 
-- **Measure it.** The redraw rate is four a second by construction against one
-  every sixteen seconds for a clear sky, which should be about 0.4 % of a core
-  against a budget of 2 - but that is arithmetic, not a measurement, and
-  `tools/measure-cost.js` has never been run with clouds on.
-- **The GPU, which has never been measured at all.** This pass is far heavier
-  per pixel than anything before it: a few hundred hashes a pixel against a
-  table lookup and two phase functions. NFR-1 budgets 4 % of the GPU and the
-  project has no way to check it.
-- **ADR 0007 reopens on the answer.** It dropped occlusion detection on the
-  grounds that the drawing component was below measurement; clouds are exactly
-  the change it named as the condition for reconsidering.
-- Cloud settings in the editor, and looks that use them.
+**ADR 0007 stands.** The clouds were exactly the change it named as the
+condition for reconsidering, and re-checking it gave the same answer.
+
+**Cloud settings in the editor, and looks that use them: done.** Coverage,
+wind, feature size and edge softness are in the panel, and four of the eight
+looks in the gallery are cloudy ones.
+
+**Still open: the GPU**, which has never been measured at all. This pass is far
+heavier per pixel than anything before it - a few hundred hashes a pixel
+against a table lookup and two phase functions - and NFR-1 budgets 4 % of the
+GPU for a project with no way to check it. It is the only thing between this
+milestone and a plain `done`.
+
+## Now
 
 ### Milestone 4 - the horizon `in progress` (M)
 
@@ -285,10 +289,13 @@ The silhouette is lit by the sky above it rather than drawn black, the far
 mountain range takes the colour of the horizon behind it, and a city's windows
 come on through dusk a few at a time.
 
-**Still to do.** The user's own PNG, which is the half of US-032 this does not
-cover and is a genuinely different feature. Looks that use a horizon.
+**Looks that use a horizon: done** - mountains, an edge of town and a treeline
+are in the gallery.
 
-### Milestone 5 - presets, sharing and polish `planned` (M)
+**Still to do.** The user's own PNG, which is the half of US-032 this does not
+cover and is a genuinely different feature.
+
+### Milestone 5 - presets, sharing and polish `in progress` (M)
 
 US-022 completed, US-023, US-024, US-033. The preset library with thumbnails,
 share codes, the guide and FAQ, the first-run welcome, light and dark editor
@@ -316,6 +323,8 @@ WCAG 2.2 AA.
 
 **Still to do:** the guide and FAQ, and the first-run welcome. Both are writing
 rather than engineering, which is the only reason they are last.
+
+## Later
 
 ### Beyond
 
@@ -369,20 +378,21 @@ rather than engineering, which is the only reason they are last.
 
 Every TODO in the code has an entry here.
 
-| Item                                                                                                                                                                                                                     | Why it was accepted                                                                                                                                                                                                                                                                                   | Where                       | Severity |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------- |
-| **No comparison against an external ephemeris table.** Accuracy is checked against the algorithms' own published worked examples instead                                                                                 | A bundled reference table is licensed data and a decision of its own. The margin is four to five orders of magnitude inside the requirement, so this buys confidence, not accuracy                                                                                                                    | `tests/unit/solar`, `lunar` | Low      |
-| **GPU time and GPU memory are not measured**, so NFR-1's 4 % GPU and 80 MB-per-screen lines are unverified rather than met                                                                                               | There is no dependency-free way to read either on Windows, and a figure derived from a frame counter would not be a measurement                                                                                                                                                                       | `tools/measure-cost.js`     | Medium   |
-| **Working set is about 488 MB** across the shell and two surfaces, roughly double ADR 0001's 150-250 MB estimate                                                                                                         | It is not the quantity NFR-1 budgets, and the CPU budget - the one that decides whether the product can run all day - is met with room. Worth a pass, not worth blocking on                                                                                                                           | the Electron host           | Low      |
-| **The constellations are not real.** The stars are generated from a seeded hash with a realistic brightness distribution, so the sky turns correctly and holds no Orion                                                  | The geometry was always the hard part and it is done; the catalogue is a data file with a licence attached, which is a decision rather than a task. Listed under Beyond with what it would take. `CHANGELOG.md` says so to users                                                                      | `app/engine/stars.js`       | Low      |
-| **The city list is typed by hand**, about a hundred entries at a tenth of a degree                                                                                                                                       | A real gazetteer is a licensed data file. The tests check every entry against its own time zone and against the sun's seasonal swing, so an error is caught rather than trusted                                                                                                                       | `app/ui/cities.js`          | Low      |
-| **The editor does not use the brand palette.** It keeps its own colour tokens; the typeface is the brand's as of 2026-11-01                                                                                              | Adopting the palette changes every screen, and this project's colours are measured for WCAG 2.2 AA rather than inherited, so the audit would have to be redone against the brand's - an owner decision. The typeface half of this is done: see `docs/DESIGN.md`, Type                                 | `app/tokens.css`            | Medium   |
-| **The installer is unsigned**, so Windows shows a SmartScreen warning                                                                                                                                                    | A code-signing certificate is a purchase and an owner decision. The configuration takes one from `CSC_LINK` at release time, so this is a release step and not a code change                                                                                                                          | `electron-builder.yml`      | High     |
-| **Four `[[ ]]` placeholders in `licenses/`**: publisher legal name and form, governing law and venue, support address, registered marks                                                                                  | Only the owner can supply them, and a lawyer reads `EULA.md` and `DISCLAIMER.md` once before release. They block a release and nothing before it                                                                                                                                                      | `licenses/`                 | High     |
-| **No auto-update.** A user who installs v1 stays on v1 until they download the next one                                                                                                                                  | There is no update server, and a wallpaper that replaces itself while running is a problem to solve deliberately. Revisit when there is a second version to ship                                                                                                                                      | `electron-builder.yml`      | Medium   |
-| **The Microsoft Store route is unproven.** A packaged app's restrictions may forbid `SetParent` into Explorer's window tree                                                                                              | ADR 0006 rejected MSIX for v1 on this risk rather than measuring it. Worth an afternoon before any plan depends on the Store                                                                                                                                                                          | `desktop/host-win32.js`     | Low      |
-| **A tall span is squashed rather than square.** Capping the vertical field is what keeps a stacked or portrait arrangement inside the sky, and the cost is that a degree across such a frame is no longer a degree up it | The alternative was worse: without the cap the top of the frame asks for sky above the zenith, where the scattering lookup saturates and the gradient collapses to a third of itself. Narrowing the horizontal field instead would have moved the sun off its true azimuth, which invariant 5 forbids | `app/engine/view.js`        | Low      |
-| **The moon is drawn about 30x dimmer than life**                                                                                                                                                                         | At its true radiance it blows out the tone map and washes the stars out of a night sky, which is the opposite of what people recognise. Documented at the constant                                                                                                                                    | `app/engine/bodies.js`      | Low      |
+| Item                                                                                                                                                                                                                     | Why it was accepted                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Where                       | Severity |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------- |
+| **No comparison against an external ephemeris table.** Accuracy is checked against the algorithms' own published worked examples instead                                                                                 | A bundled reference table is licensed data and a decision of its own. The margin is four to five orders of magnitude inside the requirement, so this buys confidence, not accuracy                                                                                                                                                                                                                                                                                        | `tests/unit/solar`, `lunar` | Low      |
+| **GPU time and GPU memory are not measured**, so NFR-1's 4 % GPU and 80 MB-per-screen lines are unverified rather than met                                                                                               | There is no dependency-free way to read either on Windows, and a figure derived from a frame counter would not be a measurement                                                                                                                                                                                                                                                                                                                                           | `tools/measure-cost.js`     | Medium   |
+| **Working set is about 488 MB** across the shell and two surfaces, roughly double ADR 0001's 150-250 MB estimate                                                                                                         | It is not the quantity NFR-1 budgets, and the CPU budget - the one that decides whether the product can run all day - is met with room. Worth a pass, not worth blocking on                                                                                                                                                                                                                                                                                               | the Electron host           | Low      |
+| **The constellations are not real.** The stars are generated from a seeded hash with a realistic brightness distribution, so the sky turns correctly and holds no Orion                                                  | The geometry was always the hard part and it is done; the catalogue is a data file with a licence attached, which is a decision rather than a task. Listed under Beyond with what it would take. `CHANGELOG.md` says so to users                                                                                                                                                                                                                                          | `app/engine/stars.js`       | Low      |
+| **The city list is typed by hand**, about a hundred entries at a tenth of a degree                                                                                                                                       | A real gazetteer is a licensed data file. The tests check every entry against its own time zone and against the sun's seasonal swing, so an error is caught rather than trusted                                                                                                                                                                                                                                                                                           | `app/ui/cities.js`          | Low      |
+| **The editor does not use the brand palette.** It keeps its own colour tokens; the typeface is the brand's as of 2026-11-01                                                                                              | Adopting the palette changes every screen, and this project's colours are measured for WCAG 2.2 AA rather than inherited, so the audit would have to be redone against the brand's - an owner decision. The typeface half of this is done: see `docs/DESIGN.md`, Type                                                                                                                                                                                                     | `app/tokens.css`            | Medium   |
+| **Windows 11 24H2 and later is unverified.** The host has only ever run on Windows 10                                                                                                                                    | The desktop is found with the undocumented `0x052C` message and a `WorkerW` with no `SHELLDLL_DefView` child. Whether that still works on 24H2 is not known to be broken and not known to work: a forum post reports the message doing nothing, Microsoft listed wallpaper apps in a 24H2 compatibility hold, and nothing found confirms the current layout. `node tools/probe-host.js` opens nothing and answers it on any 11 machine. Held until the owner can boot one | `desktop/host-win32.js`     | High     |
+| **The installer is unsigned**, so Windows shows a SmartScreen warning                                                                                                                                                    | A code-signing certificate is a purchase and an owner decision. The configuration takes one from `CSC_LINK` at release time, so this is a release step and not a code change                                                                                                                                                                                                                                                                                              | `electron-builder.yml`      | High     |
+| **Four `[[ ]]` placeholders in `licenses/`**: publisher legal name and form, governing law and venue, support address, registered marks                                                                                  | Only the owner can supply them, and a lawyer reads `EULA.md` and `DISCLAIMER.md` once before release. They block a release and nothing before it                                                                                                                                                                                                                                                                                                                          | `licenses/`                 | High     |
+| **No auto-update.** A user who installs v1 stays on v1 until they download the next one                                                                                                                                  | There is no update server, and a wallpaper that replaces itself while running is a problem to solve deliberately. Revisit when there is a second version to ship                                                                                                                                                                                                                                                                                                          | `electron-builder.yml`      | Medium   |
+| **The Microsoft Store route is unproven.** A packaged app's restrictions may forbid `SetParent` into Explorer's window tree                                                                                              | ADR 0006 rejected MSIX for v1 on this risk rather than measuring it. Worth an afternoon before any plan depends on the Store                                                                                                                                                                                                                                                                                                                                              | `desktop/host-win32.js`     | Low      |
+| **A tall span is squashed rather than square.** Capping the vertical field is what keeps a stacked or portrait arrangement inside the sky, and the cost is that a degree across such a frame is no longer a degree up it | The alternative was worse: without the cap the top of the frame asks for sky above the zenith, where the scattering lookup saturates and the gradient collapses to a third of itself. Narrowing the horizontal field instead would have moved the sun off its true azimuth, which invariant 5 forbids                                                                                                                                                                     | `app/engine/view.js`        | Low      |
+| **The moon is drawn about 30x dimmer than life**                                                                                                                                                                         | At its true radiance it blows out the tone map and washes the stars out of a night sky, which is the opposite of what people recognise. Documented at the constant                                                                                                                                                                                                                                                                                                        | `app/engine/bodies.js`      | Low      |
 
 ## Deliberately not doing
 

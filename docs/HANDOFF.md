@@ -70,21 +70,42 @@ Two things to know before changing any of it:
 
 ## Next steps
 
-1. **The GPU, which has never been measured at all.** NFR-1 budgets 4 % and
+1. **Windows 11, 24H2 and later - PENDING, held by the owner.** This project has
+   only ever run on Windows 10 (build 19045), which left mainstream support in
+   October 2025, so most people who find it will be on 11. The host finds the
+   desktop by sending Explorer the undocumented `0x052C` and looking for a
+   top-level `WorkerW` with no `SHELLDLL_DefView` child - the classic recipe -
+   and whether that still works on 24H2 is **unverified, not known to be
+   broken**: a forum post reports the message doing nothing under Spy++, and
+   Microsoft has listed wallpaper applications in a 24H2 compatibility hold, but
+   nothing found confirms what the shell looks like now. The owner has a machine
+   that can boot Windows 11 and will switch to it when ready.
+
+   **When it is available, in this order:** `node tools/probe-host.js` first,
+   which opens nothing and says whether the `WorkerW` is found. If it is, run
+   `npm run test:desktop` and `node tools/verify-package.js`, which open windows
+   and need asking first as always. If it is not, the lookup in
+   `desktop/host-win32.js` - the only file allowed to call Win32 - needs a
+   second path, written from what Spy++ shows rather than from memory. Until
+   then the application falls back to drawing in front of the desktop rather
+   than behind it, which is visibly worse and is announced in the editor. Also
+   update the README's Requirements line, which says only that Windows 10 1903
+   or later is needed.
+
+2. **The GPU, which has never been measured at all.** NFR-1 budgets 4 % and
    there is no way to check it. The cloud pass is a few hundred hashes a pixel
    where the sky used to be a table lookup, so this is the first time the
    question has had teeth.
-2. **Verify by hand what only a person can:** a full-screen game pausing the
+3. **Verify by hand what only a person can:** a full-screen game pausing the
    wallpaper, and a system time-zone change with the application running. Lock,
    unlock, suspend and resume no longer need a person - the desktop tests
    deliver the real events and count the surface's render-loop ticks.
-3. **The three-monitor criteria**, which need a third monitor: one continuous
+4. **The three-monitor criteria**, which need a third monitor: one continuous
    sky with no seam by screenshot, and NFR-1 re-measured with three active.
-4. Then what is left of Milestone 4 - the user's own PNG as a horizon, which
-   is the half of US-032 the computed library does not cover - and Milestone 5.
-   The old note about Milestone 3, the clouds - which is also the event that reopens
-   ADR 0007, because clouds need real frames and the sum that killed occlusion
-   was done at the cost of a sky that barely redraws.
+5. Then what is left of Milestone 4 - the user's own PNG as a horizon, which
+   is the half of US-032 the computed library does not cover - and Milestone 5,
+   which wants the guide, the FAQ and the first-run welcome. All three are
+   writing rather than engineering.
 
 ### Older, still open
 

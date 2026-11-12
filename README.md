@@ -160,6 +160,12 @@ on the desktop.
 
 Windows 10 1903 or later, and a GPU with working WebGL2.
 
+Windows 11 is intended and **not yet verified**. This has only ever run on
+Windows 10. The way it gets behind the desktop icons is undocumented Explorer
+behaviour, and whether it still works on Windows 11 24H2 and later has not been
+checked. If it does not, the application says so and falls back to drawing in
+front of the desktop. Verifying it is the next thing on the list.
+
 ## Licence
 
 Proprietary. All rights reserved. This repository being visible grants no
