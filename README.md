@@ -33,6 +33,30 @@ you can keep, change and send to someone.
 
 By [Black Canyon Software](https://github.com/BlackCanyonSoftware).
 
+<p align="center">
+  <img
+    src="docs/screenshots/a-day.jpg"
+    alt="Four skies from one day: a dawn of orange cloud over mountains, a bright overcast noon, a dusk of rose cloud over a city skyline, and a starry night with the moon low on the right"
+    width="860"
+  />
+</p>
+<p align="center">
+  <sub>One day in Denver, 21 June, at 05:52, 12:30, 20:25 and 23:30, in four of the
+  editor's looks. Computed from the clock and the coordinates, not played back.</sub>
+</p>
+
+<p align="center">
+  <img
+    src="docs/screenshots/editor.jpg"
+    alt="The editor: a sidebar with a gallery of eight looks, a day-shaped time scrubber along the top, and a large preview of a rose-coloured cloudy dusk over a city"
+    width="860"
+  />
+</p>
+<p align="center">
+  <sub>The editor. The wallpaper itself has no window: this is how you choose its look.
+  Both pictures were rendered by the editor's own preview in a headless browser.</sub>
+</p>
+
 ---
 
 ## Status
