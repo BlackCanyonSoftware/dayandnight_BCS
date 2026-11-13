@@ -6,7 +6,7 @@ import { defaultPreset } from "../../app/engine/defaults.js";
 
 const NOW = Date.UTC(2026, 9, 18, 12, 0, 0);
 
-/** @returns {{ preset: import("../../app/engine/types.js").Preset, place: { lat: number, lon: number }, fps: number, awaySeconds: number, wallpaperOn: boolean, theme: "dark" }} */
+/** @returns {{ preset: import("../../app/engine/types.js").Preset, place: { lat: number, lon: number }, fps: number, awaySeconds: number, wallpaperOn: boolean, realWind: boolean, theme: "dark" }} */
 function state() {
   return {
     // Built from the defaults rather than written out, so a new preset key
@@ -16,6 +16,7 @@ function state() {
     fps: 20,
     awaySeconds: 600,
     wallpaperOn: true,
+    realWind: true,
     theme: "dark"
   };
 }
@@ -31,7 +32,7 @@ test("a written document round-trips through the reader unchanged", () => {
   assert.deepEqual(doc.cfg, state_cfg());
 });
 
-/** @returns {{ preset: import("../../app/engine/types.js").Preset, place: { lat: number, lon: number }, fps: number, awaySeconds: number, wallpaperOn: boolean }} */
+/** @returns {{ preset: import("../../app/engine/types.js").Preset, place: { lat: number, lon: number }, fps: number, awaySeconds: number, wallpaperOn: boolean, realWind: boolean }} */
 function state_cfg() {
   const s = state();
   return {
@@ -39,7 +40,8 @@ function state_cfg() {
     place: s.place,
     fps: s.fps,
     awaySeconds: s.awaySeconds,
-    wallpaperOn: s.wallpaperOn
+    wallpaperOn: s.wallpaperOn,
+    realWind: s.realWind
   };
 }
 
@@ -144,4 +146,31 @@ test("the three valid themes survive a round trip", () => {
     assert.ok(doc);
     assert.equal(doc.ui.theme, theme);
   }
+});
+
+test("consent to fetch the real wind is only ever a true boolean, and absent means no", () => {
+  // The setting that decides whether anything leaves the computer. A file from
+  // before it existed, or hand-edited, or from somebody else, must not turn it
+  // on by saying something that merely looks like yes.
+  const base = writeDocument(state(), NOW);
+
+  /** @param {unknown} value */
+  const read = (value) => {
+    const raw = JSON.parse(JSON.stringify(base));
+    raw.cfg.realWind = value;
+    return readDocument(raw).doc?.cfg.realWind;
+  };
+
+  assert.equal(read(true), true);
+  for (const notYes of [false, 1, "true", "yes", {}, [], null, undefined, "on"]) {
+    assert.equal(read(notYes), false, `${JSON.stringify(notYes)} is not consent`);
+  }
+
+  const old = JSON.parse(JSON.stringify(base));
+  delete old.cfg.realWind;
+  assert.equal(readDocument(old).doc?.cfg.realWind, false, "a document without it is a no");
+
+  // And writing without saying anything writes a no.
+  const { realWind: _unused, ...without } = state();
+  assert.equal(writeDocument(without, NOW).cfg.realWind, false);
 });

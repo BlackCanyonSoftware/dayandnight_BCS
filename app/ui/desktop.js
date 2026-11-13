@@ -35,6 +35,17 @@
  * @property {(config: RuntimeConfig) => void} pushConfig
  * @property {() => Promise<unknown>} loadSettings
  * @property {(doc: unknown) => void} saveSettings
+ * @property {() => Promise<WindUpdate>} getWind
+ * @property {(cb: (update: WindUpdate) => void) => void} onWind
+ */
+
+/**
+ * The real wind as the shell holds it: samples and the origin to measure them
+ * from, or null for none, with what it is doing about getting them.
+ *
+ * @typedef {object} WindUpdate
+ * @property {{ samples: { t: number, east: number, north: number }[], origin: { east: number, north: number } } | null} wind
+ * @property {{ state: "off" | "waiting" | "live" | "offline", fetchedAt: number | null }} status
  */
 
 /**
@@ -55,6 +66,7 @@
  * @property {import("../engine/types.js").Place} place
  * @property {number} fps
  * @property {number} awaySeconds seconds of no input before drawing stops
+ * @property {boolean} realWind whether the user has agreed to fetch the real wind
  */
 
 /** @returns {ShellApi | null} */
@@ -181,6 +193,23 @@ export async function getVersion() {
  */
 export function pushConfig(config) {
   shell()?.pushConfig(config);
+}
+
+/**
+ * The real wind and the state of fetching it. Nothing, and "off", in a browser,
+ * which has no shell to fetch it and does not try.
+ *
+ * @returns {Promise<WindUpdate>}
+ */
+export async function getWind() {
+  const api = shell();
+  if (!api) return { wind: null, status: { state: "off", fetchedAt: null } };
+  return api.getWind();
+}
+
+/** @param {(update: WindUpdate) => void} cb */
+export function onWind(cb) {
+  shell()?.onWind(cb);
 }
 
 /**

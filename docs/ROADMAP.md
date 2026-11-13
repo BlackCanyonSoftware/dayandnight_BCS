@@ -301,47 +301,52 @@ the first:
   wind that changes is still a pure function of the clock. A test differentiates
   it and compares.
 
-**Real wind for where the user is: the groundwork is built, the switch is not.**
-It is a _source_ for the same interface, and the parts that need no decision are
-done and tested:
+**Real wind for where the user is: built, opt-in, off by default** (ADR 0008).
+It is a _source_ for the same interface, and it is a tick box, "Use the real
+wind", in the Clouds panel.
 
 - **The engine takes a series.** `makeWindSeries` turns samples of the wind (a
   time and an east and north velocity) into a table; `FrameRequest.wind` hands it
   in. Piecewise-linear velocity gives a piecewise-quadratic position, exact from
-  prefix sums, still a pure function of the clock, and every surface gets the
-  same table from the host (a distribution of data, not the surfaces talking).
-  Outside the data the simulation's increments carry on from where the data
-  ended, so the position is continuous at both ends and a stale table degrades
-  to the weather rather than freezing the clouds. With a series, `cloudDrift` is
-  a scale relative to its default; a fixed `cloudWindFrom` still ignores it,
-  because the owner said where it blows from.
-- **`desktop/wind-source.js` is the provider adapter, with no network in it and
-  nothing calling it.** It builds the request, reads the response into samples
-  and says when to ask again.
+  prefix sums, still a pure function of the clock. Outside the data the
+  simulation's increments carry on, so a stale table degrades to the weather. A
+  new forecast is positioned with `continueSeries` so that the clouds do not
+  jump when it replaces the last. With a series, `cloudDrift` is a scale
+  relative to its default; a fixed `cloudWindFrom` still wins, because the owner
+  said where it blows from.
+- **The adapter** (`desktop/wind-source.js`) builds the request and reads the
+  response, and **the feed** (`desktop/wind-feed.js`) owns the schedule: not
+  before `Expires`, one request at a time and a minute apart at most, backoff on
+  failure, an hour after a 403 or 429, `If-Modified-Since`, and a place that is
+  being dragged is asked about once it settles. It runs only while the editor is
+  open or the wallpaper is on.
+- **Consent is its own thing.** Saved in the settings file and nowhere else:
+  not in a share code, not in undo, not applied from a settings file that is
+  merely opened, and the main process accepts only the boolean `true`.
+- **The privacy notice, EULA, PRD, third-party notices and the hint all say
+  so**, and the licence's credit is in the panel whenever the data is in use.
 
-**Provider, checked on 2026-11-13 against the providers' own pages.** MET Norway's
-Locationforecast 2.0: free including for commercial and paid-for apps under
-CC BY 4.0 (attribution required), global, hourly wind speed and direction to ten
-days. Its rules are built into the adapter: an identifying User-Agent with a
-contact, coordinates truncated (here to 0.1 degree, about 11 km), never ask before
-`Expires`, a 30-minute floor, random spread. Its limits: only the **ten-metre**
-wind exists, so the cloud level's wind is estimated with
-`SURFACE_TO_CLOUD_LEVEL = 2.5`, **a judgement and not a measurement**, which sets
-how fast real clouds move. [Open-Meteo's free tier is non-commercial](https://open-meteo.com/en/terms);
-commercial use needs a paid plan, whose price and pressure-level coverage were
-not verified.
+Provider, checked on 2026-11-13 against its own pages: MET Norway
+Locationforecast 2.0, free including for commercial use under CC BY 4.0, global,
+hourly then six-hourly to ten days. Only the **ten-metre** wind exists, so the
+cloud level's wind is estimated with `SURFACE_TO_CLOUD_LEVEL = 2.5`, **a
+judgement and not a measurement**, which sets how fast real clouds move.
+[Open-Meteo's free tier is non-commercial](https://open-meteo.com/en/terms).
 
-**What turning it on needs from the owner**, because it ends the sentence "nothing
-leaves your computer":
+**What is verified and what is not.** Verified: the whole path in unit tests
+with a fake network and clock; the adapter against one real MET Norway response
+(91 steps over 225 hours, the direction and the speed converted correctly);
+`net.fetch` sending our User-Agent and truncated coordinates, and the engine's
+wind module loading from the main process both from disk and from inside an
+asar, in a windowless Electron run; and the editor's side in the browser tests
+with a stand-in shell. **Not verified:** the real thing end to end in the running
+application, since that opens windows and the owner has not asked for a run; and
+the cloud speed factor against real clouds.
 
-- Consent: an opt-in setting, off by default, with a hint that says what is sent.
-- The privacy notice, EULA and settings hint changed to match, and an ADR.
-  MET Norway sees the IP address and the truncated coordinates, which their FAQ
-  calls personal data; only a proxy of our own would hide the IP, and running one
-  is a decision and a bill.
-- Then the work: the Electron main process fetches on consent and on schedule,
-  sends the sample table to the surfaces over IPC, falls back to the simulation
-  offline, and the About panel carries `ATTRIBUTION`.
+**Still open.** Whether to run a proxy so that MET Norway never sees the user's
+IP address (their FAQ recommends one); it is stated plainly in the privacy
+notice instead, and is the decision to revisit with usage. The speed factor. A
+persisted position, so that a restart does not move the clouds.
 
 ## Now
 

@@ -54,6 +54,11 @@ if (role === "wallpaper") {
     /** @param {(paused: boolean) => void} cb */
     onPause: (cb) => {
       ipcRenderer.on("wallpaper:pause", (_event, paused) => cb(Boolean(paused)));
+    },
+
+    /** @param {(wind: unknown) => void} cb */
+    onWind: (cb) => {
+      ipcRenderer.on("wallpaper:wind", (_event, wind) => cb(wind));
     }
   });
 } else {
@@ -88,6 +93,13 @@ if (role === "wallpaper") {
 
     /** @param {unknown} config */
     pushConfig: (config) => ipcRenderer.send("config:push", config),
+
+    getWind: () => ipcRenderer.invoke("wind:get"),
+
+    /** @param {(update: unknown) => void} cb */
+    onWind: (cb) => {
+      ipcRenderer.on("wind:changed", (_event, update) => cb(update));
+    },
 
     loadSettings: () => ipcRenderer.invoke("settings:load"),
 

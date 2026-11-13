@@ -85,6 +85,25 @@ export let awaySeconds = 600;
  */
 export let wallpaperOn = false;
 
+/**
+ * Whether the user has agreed to fetch the real wind. Off until they do.
+ *
+ * The only setting that decides whether anything leaves the computer, which is
+ * why it is kept out of the preset (a share code must never carry somebody's
+ * consent), out of the undo history, and out of a settings file that is merely
+ * opened: it is read from the user's own file at start-up and from a click, and
+ * from nowhere else.
+ */
+export let realWind = false;
+
+/**
+ * The real wind the shell has fetched, prepared for the engine, or null for the
+ * simulated weather. The shell's fact, mirrored here for the preview.
+ *
+ * @type {import("../engine/sky/wind.js").WindSeries | null}
+ */
+export let wind = null;
+
 /** @type {Monitor[]} */
 export let monitors = [];
 
@@ -123,6 +142,16 @@ export function setAwaySeconds(next) {
 /** @param {boolean} next */
 export function setWallpaperOn(next) {
   wallpaperOn = next;
+}
+
+/** @param {boolean} next */
+export function setRealWind(next) {
+  realWind = next;
+}
+
+/** @param {import("../engine/sky/wind.js").WindSeries | null} next */
+export function setWind(next) {
+  wind = next;
 }
 
 /** @param {Monitor[]} next */

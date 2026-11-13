@@ -523,8 +523,11 @@ samples in the frame request, whose position is the exact piecewise-quadratic
 integral of the linear interpolation between them. Outside the data the
 simulation's increments continue from the series' ends, so the position is
 continuous and a stale table falls back to the weather. The engine only receives
-the table; fetching it is the host's job (`desktop/wind-source.js`, not yet
-wired), and the roadmap records what turning that on needs.
+the table; fetching it is the host's job: `desktop/wind-feed.js` in the main
+process asks MET Norway, on the user's consent only (ADR 0008), and hands the
+same table to every surface and the editor over IPC. A forecast starts at the
+current hour, so each new one is positioned with `continueSeries` to agree with
+the last at the moment it arrives; without that the clouds would jump hourly.
 
 **The lighting is not a rule about sunrises.** The clouds are lit by the sun's
 own transmittance - the same value the sun and moon discs are drawn with -

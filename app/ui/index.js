@@ -17,6 +17,7 @@ import { drawBands } from "./scrubber.js";
 import { guessPlace, labelFor, nearestCity, resolveCity, suggest } from "./place.js";
 import { LOOKS, lookIdFor, presetFor } from "./presets.js";
 import { STYLES as SKYLINE_STYLES } from "../engine/sky/skyline.js";
+import { makeWindSeries } from "../engine/sky/wind.js";
 import { readDocument, writeDocument } from "./settings.js";
 import { decodeLook, encodeLook } from "./share-code.js";
 import * as history from "./history.js";
@@ -30,13 +31,16 @@ import {
   monitors,
   place,
   preset,
+  realWind,
   replacePreset,
   setAwaySeconds,
   setFps,
   setMonitors,
   setPlace,
   setPreset,
+  setRealWind,
   setWallpaperOn,
+  setWind,
   span,
   wallpaperOn
 } from "./state.js";
@@ -116,6 +120,18 @@ async function boot() {
 
   shell.onWallpaperState(paintWallpaperState);
 
+  // The real wind, as the shell has it. The preview draws it the way the
+  // wallpaper does; a change to it changes the frame's signature, so nothing
+  // needs forcing here.
+  /** @param {import("./desktop.js").WindUpdate} update */
+  const takeWind = (update) => {
+    setWind(update.wind ? makeWindSeries(update.wind.samples, update.wind.origin) : null);
+    windStatus = update.status;
+    paintWindNote();
+  };
+  shell.onWind(takeWind);
+  takeWind(await shell.getWind());
+
   // Invariant 7: a preview nobody can see is torn down, not left spinning.
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) preview?.stop();
@@ -150,6 +166,9 @@ async function loadSaved() {
   setPlace(doc.cfg.place);
   setFps(doc.cfg.fps);
   setAwaySeconds(doc.cfg.awaySeconds);
+  // Only here, from the user's own file at start-up. Applying a document that
+  // was merely opened, or undoing, must never be a way to switch the network on.
+  setRealWind(doc.cfg.realWind);
   setTheme(doc.ui.theme);
 }
 
@@ -280,6 +299,16 @@ function wireControls() {
   startup.addEventListener("change", () => shell.setStartWithWindows(startup.checked));
   void shell.getStartWithWindows().then((on) => {
     startup.checked = on;
+  });
+
+  // The one setting that sends anything anywhere. Off until clicked, and a
+  // browser has nothing to send it with, so it is dead there.
+  const real = /** @type {HTMLInputElement} */ ($("#realWind"));
+  real.disabled = !shell.hasShell();
+  real.addEventListener("change", () => {
+    setRealWind(real.checked);
+    paintFromState();
+    save();
   });
 
   // Shown and set in minutes, kept in seconds: a slider with 3,600 positions
@@ -583,7 +612,7 @@ function resetAll() {
  */
 function downloadSettings() {
   const doc = writeDocument(
-    { preset, place, fps, awaySeconds, wallpaperOn, theme: theme() },
+    { preset, place, fps, awaySeconds, wallpaperOn, realWind, theme: theme() },
     Date.now()
   );
   const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
@@ -630,6 +659,8 @@ function paintFromState() {
   input("airglow").value = String(preset.airglow * 1e6);
   input("fps").value = String(fps);
   input("away").value = String(Math.round(awaySeconds / 60));
+  input("realWind").checked = realWind;
+  paintWindNote();
 
   $("#latVal").textContent = fmtDegrees(place.lat);
   $("#lonVal").textContent = fmtDegrees(place.lon);
@@ -810,7 +841,10 @@ function paintArrangement(s) {
 function wireHistory() {
   history.connect({
     read: () =>
-      writeDocument({ preset, place, fps, awaySeconds, wallpaperOn, theme: theme() }, Date.now()),
+      writeDocument(
+        { preset, place, fps, awaySeconds, wallpaperOn, realWind, theme: theme() },
+        Date.now()
+      ),
 
     apply: (doc) => {
       replacePreset(doc.cfg.preset);
@@ -1082,7 +1116,43 @@ function redrawBands() {
 
 /** Hand the wallpaper windows what they need in order to draw. */
 function pushRuntime() {
-  shell.pushConfig({ preset, place, fps, awaySeconds });
+  shell.pushConfig({ preset, place, fps, awaySeconds, realWind });
+}
+
+/**
+ * What the real wind is doing, said in the row it belongs to.
+ *
+ * Kept in the page rather than the shell so that "off" can say so without
+ * asking anyone, and so that the credit the data's licence requires is on
+ * screen whenever the data is in use.
+ *
+ * @type {import("./desktop.js").WindUpdate["status"]}
+ */
+let windStatus = { state: "off", fetchedAt: null };
+
+function paintWindNote() {
+  const note = $("#realWindNote");
+
+  if (!shell.hasShell()) {
+    note.textContent = "Only in the application.";
+    return;
+  }
+
+  if (!realWind) {
+    note.textContent = "Off. Nothing leaves your computer.";
+    return;
+  }
+
+  switch (windStatus.state) {
+    case "live":
+      note.textContent = `Wind data from MET Norway (CC BY 4.0), updated ${fmtTime(windStatus.fetchedAt ?? Date.now())}.`;
+      break;
+    case "offline":
+      note.textContent = "Could not reach MET Norway. The simulated weather carries on.";
+      break;
+    default:
+      note.textContent = "Asking MET Norway for the wind\u2026";
+  }
 }
 
 /**
@@ -1113,7 +1183,10 @@ function save() {
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     shell.saveSettings(
-      writeDocument({ preset, place, fps, awaySeconds, wallpaperOn, theme: theme() }, Date.now())
+      writeDocument(
+        { preset, place, fps, awaySeconds, wallpaperOn, realWind, theme: theme() },
+        Date.now()
+      )
     );
   }, 400);
 }
@@ -1131,7 +1204,10 @@ Object.defineProperty(window, "DayAndNight", {
 
     /** @returns {import("./settings.js").SettingsDoc} */
     document: () =>
-      writeDocument({ preset, place, fps, awaySeconds, wallpaperOn, theme: theme() }, Date.now()),
+      writeDocument(
+        { preset, place, fps, awaySeconds, wallpaperOn, realWind, theme: theme() },
+        Date.now()
+      ),
 
     /**
      * @param {unknown} raw

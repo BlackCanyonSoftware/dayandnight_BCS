@@ -23,6 +23,7 @@ const store = require("./store.js");
 const { PauseWatcher } = require("./pause.js");
 const tray = require("./tray.js");
 const legal = require("./legal.js");
+const { WindFeed } = require("./wind-feed.js");
 
 const APP_DIR = path.join(__dirname, "..", "app");
 const SCHEME = "dayandnight";
@@ -97,15 +98,26 @@ let hostReason = null;
  *   preset: { exposure: number },
  *   place: { lat: number, lon: number },
  *   fps: number,
- *   awaySeconds: number
+ *   awaySeconds: number,
+ *   realWind: boolean
  * }}
  */
 let runtime = {
   preset: { exposure: 0 },
   place: { lat: 39.7, lon: -105 },
   fps: 20,
-  awaySeconds: 600
+  awaySeconds: 600,
+  realWind: false
 };
+
+/**
+ * Fetches the real wind, if and only if the user has agreed. The one thing in
+ * this process that goes to the network, and it is created here but does nothing
+ * until `applyWindConsent` says the setting is on.
+ *
+ * @type {InstanceType<typeof WindFeed> | null}
+ */
+let windFeed = null;
 
 /* ------------------------------------------------------------------ serving */
 
@@ -163,6 +175,7 @@ function createEditor() {
 
   editor.on("closed", () => {
     editor = null;
+    applyWindConsent();
   });
 }
 
@@ -320,6 +333,9 @@ function toEditor(channel, payload) {
 function sendWallpaperState() {
   toEditor("wallpaper:stateChanged", wallpaperState());
 
+  // Surfaces came or went, which is when "is anything showing the wind" changes.
+  applyWindConsent();
+
   // The tray shows the same three facts the editor does, and is often the only
   // thing on screen showing them.
   tray.refresh();
@@ -370,6 +386,64 @@ function broadcastConfig() {
   }
 }
 
+/* --------------------------------------------------------------------- wind */
+
+/**
+ * The wind module of the engine, loaded once.
+ *
+ * It is an ES module and this is CommonJS, hence the dynamic import. It is used
+ * for one thing only: positioning a new forecast so that the clouds do not jump
+ * when it replaces the last (`continueSeries`).
+ *
+ * @type {Promise<typeof import("../app/engine/sky/wind.js")> | null}
+ */
+let engineWind = null;
+
+function loadEngineWind() {
+  engineWind ??= import(pathToFileURL(path.join(APP_DIR, "engine", "sky", "wind.js")).toString());
+  return engineWind;
+}
+
+/**
+ * Create the feed, with Electron's own network stack so that the user's proxy
+ * settings apply. Cheap, and idle until the setting is on.
+ */
+async function createWindFeed() {
+  const wind = await loadEngineWind();
+
+  windFeed = new WindFeed({
+    fetch: (url, init) => net.fetch(url, init),
+    version: app.getVersion(),
+    anchor: (previous, samples, now, place) => {
+      const before = previous ? wind.makeWindSeries(previous.samples, previous.origin) : null;
+      const series = wind.continueSeries(before, samples, now, place);
+      if (!series) return null;
+      return { samples, origin: { east: series.cumEast[0], north: series.cumNorth[0] } };
+    },
+    onChange: (payload, status) => {
+      for (const window of surfaces.values()) {
+        if (!window.isDestroyed()) window.webContents.send("wallpaper:wind", payload);
+      }
+      toEditor("wind:changed", { wind: payload, status });
+    }
+  });
+
+  applyWindConsent();
+}
+
+/**
+ * Tell the feed what the user has agreed to and where they are. Called whenever
+ * either may have changed, which is every config push, so it is cheap and does
+ * nothing when nothing changed.
+ */
+function applyWindConsent() {
+  // Consent is necessary and not sufficient: with no editor and no wallpaper
+  // there is nothing to move, and an application that is only sitting in the
+  // tray has no business asking for a wind.
+  const showing = surfaces.size > 0 || (editor !== null && !editor.isDestroyed());
+  windFeed?.configure({ enabled: runtime.realWind && showing, place: runtime.place });
+}
+
 /* --------------------------------------------------------------- validation */
 
 /**
@@ -395,7 +469,12 @@ function validateConfig(raw) {
       lon: finite(place["lon"], -105, -180, 180)
     },
     fps: Math.round(finite(record["fps"], 20, 1, 60)),
-    awaySeconds: Math.round(finite(record["awaySeconds"], 600, 0, 86_400))
+    awaySeconds: Math.round(finite(record["awaySeconds"], 600, 0, 86_400)),
+
+    // Strictly the boolean true. Anything else is "not agreed": this is what
+    // decides whether the product goes to the network, so a renderer that sends
+    // 1, "yes" or an object has not turned it on.
+    realWind: record["realWind"] === true
   };
 }
 
@@ -440,14 +519,20 @@ function registerIpc() {
       ? monitors.geometryFor(monitor, all)
       : { crop: { x: 0, y: 0, w: 1920, h: 1080 }, span: { w: 1920, h: 1080 }, pixelRatio: 1 };
 
-    return { geometry, ...runtime };
+    return { geometry, ...runtime, wind: windFeed?.current() ?? null };
   });
+
+  ipcMain.handle("wind:get", () => ({
+    wind: windFeed?.current() ?? null,
+    status: windFeed?.status() ?? { state: "off", fetchedAt: null }
+  }));
 
   ipcMain.on("config:push", (_event, raw) => {
     const next = validateConfig(raw);
     if (!next) return;
     runtime = next;
     broadcastConfig();
+    applyWindConsent();
 
     // The pause policy is the shell's, not a surface's, so this is the only
     // place the new threshold can land. Setting it re-evaluates immediately,
@@ -502,6 +587,7 @@ async function startWithoutEditor() {
     if (next) {
       runtime = next;
       pauseWatcher?.setAwaySeconds(next.awaySeconds);
+      applyWindConsent();
     }
 
     // Started at login but the wallpaper was off when they last closed it.
@@ -535,6 +621,11 @@ if (!app.requestSingleInstanceLock()) {
   void app.whenReady().then(() => {
     serveApp();
     registerIpc();
+    void createWindFeed().catch((error) => {
+      // Without the feed the product is simply on the simulated weather, which
+      // is what it always was, so this is a log line and not a failure.
+      console.error("[main] the real wind is unavailable", error);
+    });
 
     pauseWatcher = new PauseWatcher((state) => broadcastPause(state.paused));
     unwatchMonitors = monitors.watch(() => {
@@ -591,6 +682,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on("before-quit", () => {
     unwatchMonitors();
+    windFeed?.dispose();
     pauseWatcher?.stop();
     tray.destroy();
     destroySurfaces();

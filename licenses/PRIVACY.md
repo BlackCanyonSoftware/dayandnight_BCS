@@ -1,17 +1,22 @@
 # Privacy notice
 
 **Day and Night**, by Black Canyon Software
-October 2026
+November 2026
 
 ## The short version
 
 The Software collects nothing. It has no account, no sign-in, no analytics, no
-telemetry and no advertising, and it makes no network connections of its own.
-It runs entirely on your computer, and the only thing it writes is your own
+telemetry and no advertising. As installed it makes no network connections at
+all: it runs entirely on your computer, and the only thing it writes is your own
 settings, on your own disk.
 
-That includes your location. Where you are is the one piece of personal
-information the Software needs, and it never leaves your computer.
+There is one optional feature that goes online, **Use the real wind**. It is
+off until you turn it on, and [what it sends](#the-real-wind-optional-off-by-default)
+is described below in full.
+
+Where you are is the one piece of personal information the Software needs. It
+stays on your computer, apart from that one feature, which sends it rounded to
+a tenth of a degree (about 11 kilometres) and only if you turn it on.
 
 ## What is stored, and where
 
@@ -25,7 +30,48 @@ information the Software needs, and it never leaves your computer.
   settings, and no location.
 
 That is the complete list. Uninstalling the Software and deleting those files
-removes everything it ever stored.
+removes everything it ever stored. The wind data the real-wind feature fetches
+is kept in memory only and is discarded when you turn the feature off or quit.
+
+## The real wind (optional, off by default)
+
+In the Clouds panel, **Use the real wind** moves the clouds with the real wind
+for your place, taken from the forecast of MET Norway (the Norwegian
+Meteorological Institute), instead of the Software's simulated weather.
+
+**Nothing is sent until you tick it, and nothing is sent while it is unticked.**
+It is saved with your settings, so if you ticked it it starts again with the
+Software. A settings file, a share code or an undo cannot tick it for you.
+
+**What is sent, when it is on:**
+
+- Your **latitude and longitude, cut to one decimal place** (a tenth of a
+  degree, about 11 kilometres), in the address of the request. The decimals
+  beyond that never leave your computer.
+- Your **IP address**, which any request to any server includes. We run no
+  server of our own in between, so MET Norway sees it directly. MET Norway's own
+  documentation calls an IP address together with coordinates personal data, and
+  treats it under its own terms.
+- The name and version of the Software and our contact address
+  (`developer@blackcanyonsoftware.com`), which MET Norway requires of everyone
+  who uses its service, so that it can reach us rather than block us.
+
+Nothing else: no account, no identifier, no settings, no history of where you
+have been.
+
+**When:** once when you turn it on, again about once an hour while the editor is
+open or the wallpaper is on, and when you move your location to somewhere
+different. Not when neither is open. If MET Norway cannot be reached, the
+Software tries again later, more slowly each time, and the simulated weather
+carries on.
+
+**What comes back** is a wind forecast, kept in memory, shown to the screens, and
+discarded when you untick the box or quit.
+
+MET Norway's handling of a request is described by MET Norway, at
+[api.met.no](https://api.met.no/doc/TermsOfService). Their data is licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), and the Software
+credits them in the panel whenever it is in use.
 
 ## How it knows where you are
 

@@ -30,7 +30,7 @@ export const VERSION = 1;
  * @property {string} app
  * @property {number} version
  * @property {string} savedAt ISO 8601
- * @property {{ preset: Preset, place: Place, fps: number, awaySeconds: number, wallpaperOn: boolean }} cfg
+ * @property {{ preset: Preset, place: Place, fps: number, awaySeconds: number, wallpaperOn: boolean, realWind: boolean }} cfg
  * @property {{ theme: Theme }} ui
  */
 
@@ -48,7 +48,7 @@ const MIGRATIONS = {};
 /**
  * Build a document from the current state.
  *
- * @param {{ preset: Preset, place: Place, fps: number, awaySeconds: number, wallpaperOn: boolean, theme: Theme }} from
+ * @param {{ preset: Preset, place: Place, fps: number, awaySeconds: number, wallpaperOn: boolean, realWind?: boolean, theme: Theme }} from
  * @param {number} now timestamp, passed in rather than read from the clock
  * @returns {SettingsDoc}
  */
@@ -62,7 +62,8 @@ export function writeDocument(from, now) {
       place: { ...from.place },
       fps: from.fps,
       awaySeconds: from.awaySeconds,
-      wallpaperOn: from.wallpaperOn
+      wallpaperOn: from.wallpaperOn,
+      realWind: from.realWind === true
     },
     ui: { theme: from.theme }
   };
@@ -207,7 +208,13 @@ function normaliseCfg(raw) {
     // somebody who has never seen the wallpaper start itself, and turning it
     // on for them at the next launch would be the application taking over
     // their desktop unasked.
-    wallpaperOn: cfg["wallpaperOn"] === true
+    wallpaperOn: cfg["wallpaperOn"] === true,
+
+    // Consent to fetch the real wind. Defaulting to false is the whole point:
+    // a file written before this existed, or one that says nothing, or one that
+    // says anything but a true boolean, is somebody who has not agreed. Note
+    // what reads it - see `realWind` in ui/state.js.
+    realWind: cfg["realWind"] === true
   };
 }
 

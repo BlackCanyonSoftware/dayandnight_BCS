@@ -2866,3 +2866,171 @@ test("the sky at a fixed instant looks the way it did", async ({ page }) => {
   // make this fail every minute.
   await expect(page.locator("#preview")).toHaveScreenshot("sunrise-denver-june.png");
 });
+
+/* ------------------------------------------------------------ the real wind */
+
+/**
+ * A stand-in for the Electron shell, installed before the page loads, so the
+ * editor can be driven down its desktop path without a desktop. It records what
+ * the editor tells the shell and lets a test play the shell's part.
+ *
+ * @param {unknown} saved the settings document the "shell" has on disk, if any
+ */
+function fakeShell(saved) {
+  return `(() => {
+    const pushed = [];
+    const wind = { cb: null };
+    window.__pushed = pushed;
+    window.__wind = wind;
+    window.dayAndNight = {
+      version: "test",
+      getMonitors: async () => [
+        { id: 0, bounds: { x: 0, y: 0, w: 1920, h: 1080 }, scale: 1, primary: true }
+      ],
+      onMonitorsChanged: () => {},
+      setWallpaper: async () => ({ on: false, host: "off", screens: 0, paused: false }),
+      getWallpaperState: async () => ({ on: false, host: "off", screens: 0, paused: false }),
+      onWallpaperState: () => {},
+      getVersion: async () => "test",
+      listLegal: async () => [],
+      readLegal: async () => null,
+      getStartWithWindows: async () => false,
+      setStartWithWindows: () => {},
+      pushConfig: (c) => pushed.push(JSON.parse(JSON.stringify(c))),
+      loadSettings: async () => (${JSON.stringify(saved ?? null)}),
+      saveSettings: () => {},
+      getWind: async () => ({ wind: null, status: { state: "off", fetchedAt: null } }),
+      onWind: (cb) => { wind.cb = cb; }
+    };
+  })();`;
+}
+
+test("in a browser the real wind is off, cannot be turned on, and says so (NFR-5)", async ({
+  page
+}) => {
+  const state = await page.evaluate(() => ({
+    checked: document.querySelector("#realWind").checked,
+    disabled: document.querySelector("#realWind").disabled,
+    note: document.querySelector("#realWindNote").textContent,
+    consent: window.DayAndNight.document().cfg.realWind
+  }));
+
+  expect(state.checked).toBe(false);
+  expect(state.disabled).toBe(true);
+  expect(state.note).toContain("Only in the application");
+  expect(state.consent).toBe(false);
+});
+
+test("opening a settings document never turns the real wind on (NFR-5)", async ({ page }) => {
+  // A file somebody sent you, a share, an undo: none of them is the user saying
+  // yes to their location leaving the computer.
+  const consent = await page.evaluate(() => {
+    const doc = window.DayAndNight.document();
+    doc.cfg.realWind = true;
+    window.DayAndNight.apply(doc);
+    return window.DayAndNight.document().cfg.realWind;
+  });
+
+  expect(consent).toBe(false);
+});
+
+test("the real wind is off until clicked, and a click is what turns it on and off (NFR-5)", async ({
+  page
+}) => {
+  await page.addInitScript(fakeShell(null));
+  await page.goto("/index.html");
+  await page.waitForFunction(() => window.DayAndNight?.lastFrame() !== null);
+
+  await openSection(page, "Clouds");
+  const box = page.locator("#realWind");
+  await expect(box).toBeEnabled();
+  await expect(box).not.toBeChecked();
+  await expect(page.locator("#realWindNote")).toContainText("Nothing leaves your computer");
+
+  // Everything the editor has said to the shell so far says no.
+  const before = await page.evaluate(() => window.__pushed.map((c) => c.realWind));
+  expect(before.length).toBeGreaterThan(0);
+  expect(before.every((v) => v === false)).toBe(true);
+
+  await box.check();
+  await expect(page.locator("#realWindNote")).toContainText("MET Norway");
+  const after = await page.evaluate(() => window.__pushed.at(-1).realWind);
+  expect(after).toBe(true);
+  expect(await page.evaluate(() => window.DayAndNight.document().cfg.realWind)).toBe(true);
+
+  await box.uncheck();
+  expect(await page.evaluate(() => window.__pushed.at(-1).realWind)).toBe(false);
+});
+
+test("undo cannot turn the real wind on, or off (NFR-5)", async ({ page }) => {
+  await page.addInitScript(fakeShell(null));
+  await page.goto("/index.html");
+  await page.waitForFunction(() => window.DayAndNight?.lastFrame() !== null);
+
+  await openSection(page, "Clouds");
+  await page.locator("#realWind").check();
+  await page.evaluate(() => {
+    const slider = document.querySelector("#exposure");
+    slider.value = "1";
+    slider.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  // The button, because the keys belong to a focused checkbox just as they
+  // would to a text field.
+  await page.locator("#undoBtn").click();
+
+  // Undo did run: it took back the exposure, and left the consent alone.
+  expect(await page.evaluate(() => window.DayAndNight.document().cfg.preset.exposure)).not.toBe(1);
+  expect(await page.evaluate(() => window.DayAndNight.document().cfg.realWind)).toBe(true);
+  await expect(page.locator("#realWind")).toBeChecked();
+});
+
+test("a choice made earlier is restored from the user's own settings file", async ({ page }) => {
+  const saved = await page.evaluate(() => {
+    const doc = window.DayAndNight.document();
+    doc.cfg.realWind = true;
+    return doc;
+  });
+
+  await page.addInitScript(fakeShell(saved));
+  await page.goto("/index.html");
+  await page.waitForFunction(() => window.DayAndNight?.lastFrame() !== null);
+
+  await expect(page.locator("#realWind")).toBeChecked();
+  // And the shell was told, since it is what decides whether to ask.
+  expect(await page.evaluate(() => window.__pushed.at(-1).realWind)).toBe(true);
+});
+
+test("when the shell has the wind, the page says whose it is, and draws it", async ({ page }) => {
+  await page.addInitScript(fakeShell(null));
+  await page.goto("/index.html");
+  await page.waitForFunction(() => window.DayAndNight?.lastFrame() !== null);
+
+  await openSection(page, "Clouds");
+  await page.locator("#realWind").check();
+
+  const note = await page.evaluate(() => {
+    const t0 = Math.floor(Date.now() / 3_600_000) * 3_600_000;
+    window.__wind.cb({
+      wind: {
+        samples: [0, 1, 2, 3].map((i) => ({ t: t0 + i * 3_600_000, east: 20, north: 0 })),
+        origin: { east: 0, north: 0 }
+      },
+      status: { state: "live", fetchedAt: Date.now() }
+    });
+    return document.querySelector("#realWindNote").textContent;
+  });
+
+  // The licence asks for the source and the licence to be named where the data
+  // is used.
+  expect(note).toContain("MET Norway");
+  expect(note).toContain("CC BY 4.0");
+
+  // A refusal is stated, and the weather carries on.
+  const offline = await page.evaluate(() => {
+    window.__wind.cb({ wind: null, status: { state: "offline", fetchedAt: null } });
+    return document.querySelector("#realWindNote").textContent;
+  });
+  expect(offline).toContain("simulated weather");
+
+  // No errors reached the console while that happened (beforeEach holds this).
+});

@@ -93,13 +93,14 @@ Two things to know before changing any of it:
    update the README's Requirements line, which says only that Windows 10 1903
    or later is needed.
 
-2. **Real local wind: built up to the switch, which is the owner's.** The
-   engine accepts a series of wind samples and `desktop/wind-source.js` reads
-   MET Norway's forecast into one, both tested; nothing calls the adapter and
-   nothing touches the network. Turning it on needs the owner to choose: consent
-   (opt-in, off by default), the privacy notice, EULA and settings hint changed,
-   an ADR, whether to run a proxy, and whether to accept the 2.5 surface-to-cloud
-   factor, which is a judgement. `ROADMAP.md`, Milestone 3, has the list.
+2. **Real local wind: built, opt-in, unrun in the application.** ADR 0008.
+   The tick box, the feed, the IPC and the engine side are in and tested, and
+   the privacy notice, EULA, PRD and notices say so. It has not been seen
+   working in the running application, because that opens windows: after
+   `npm run test:desktop` and `verify-package` (which also need asking), tick
+   "Use the real wind" in the Clouds panel and check that the note under it
+   turns to "Wind data from MET Norway". Still open: a proxy, the 2.5 speed
+   factor, a persisted position (`ROADMAP.md`, Milestone 3).
 3. **The GPU, which has never been measured at all.** NFR-1 budgets 4 % and
    there is no way to check it. The cloud pass is a few hundred hashes a pixel
    where the sky used to be a table lookup, so this is the first time the
@@ -184,6 +185,34 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-11-13 (later) - the real wind, switched on
+
+The owner said "Yes, proceed" to MET Norway, opt-in, privacy changes and an ADR.
+
+- **`desktop/wind-feed.js`**: the schedule and the failure behaviour, with the
+  network and the clock injected. 15 tests, among them: nothing asked until it is
+  on; not before `Expires`; one request a minute at most and one at a time; a
+  dragged place is asked about once, after it settles; a late answer for a place
+  or a state that has gone is discarded; backoff; an hour after 403 or 429.
+- **A bug the design would have had, found by thinking about refresh:** a
+  forecast starts at the current hour, so every refresh moved the origin of the
+  clouds' position by an hour's travel and every cloud would have jumped hourly.
+  `makeWindSeries` takes an origin and `continueSeries` chooses it so that the
+  new forecast agrees with the old at the moment it arrives. Tested.
+- **Consent** is `cfg.realWind`, strictly `true`. Kept out of the preset (share
+  codes), out of the undo snapshot (the history also now leaves out
+  `wallpaperOn`, which its comment had always claimed), out of `apply` (a file
+  that is merely opened) and checked as a strict boolean in main. Tested at each.
+- **Fetching only happens while something shows the wind** (editor open or
+  wallpaper on), not just because the box is ticked.
+- **Checked in a windowless Electron run:** the engine's `wind.js` imports from
+  the CommonJS main process, from disk and from an asar; `net.fetch` carries our
+  User-Agent and 0.1-degree coordinates; one real request to MET Norway (for the
+  default placeholder place, not the owner's) parsed to 91 samples.
+- **Not run:** the application itself, `test:desktop`, `verify-package`. The
+  desktop tests have not run since `cloudWindFrom` and now `realWind` joined the
+  settings document and the IPC.
 
 ### 2026-11-13 - the real wind, up to the switch
 

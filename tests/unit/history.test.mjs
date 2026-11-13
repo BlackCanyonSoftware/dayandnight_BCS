@@ -21,6 +21,7 @@ function fakeEditor() {
     fps: 20,
     awaySeconds: 600,
     wallpaperOn: false,
+    realWind: false,
     /** @type {"dark"} */
     theme: "dark"
   };
@@ -51,6 +52,11 @@ function fakeEditor() {
     /** @param {"dark" | "light"} next */
     setTheme(next) {
       state = { ...state, theme: next };
+      history.record();
+    },
+    /** @param {boolean} next */
+    setRealWind(next) {
+      state = { ...state, realWind: next };
       history.record();
     },
     get exposure() {
@@ -250,4 +256,20 @@ test("the history does not grow without limit", () => {
 
   assert.ok(history.depth().past <= 200, `history grew to ${history.depth().past}`);
   assert.ok(history.depth().past > 150, "and it should still hold plenty");
+});
+
+test("agreeing to the real wind is not an edit, so undo can never be a way to agree", () => {
+  // Undoing the turning-off of it would turn it on, and the application would
+  // start sending a location over the network because somebody pressed Ctrl+Z.
+  const editor = fakeEditor();
+
+  editor.setRealWind(true);
+  editor.setRealWind(false);
+
+  assert.equal(history.canUndo(), false, "neither click is a step");
+
+  editor.edit({ exposure: 1 });
+  editor.setRealWind(true);
+  history.undo();
+  assert.equal(editor.exposure, defaultPreset().exposure, "the edit is what undo takes back");
 });

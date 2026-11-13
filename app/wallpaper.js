@@ -18,6 +18,7 @@
 
 import { DayNightEngine, defaultPreset } from "./engine/index.js";
 import { createContext, resizeToSurface } from "./engine/gl/context.js";
+import { makeWindSeries } from "./engine/sky/wind.js";
 
 /** @typedef {import("./engine/types.js").Place} Place */
 /** @typedef {import("./engine/types.js").Preset} Preset */
@@ -35,10 +36,21 @@ import { createContext, resizeToSurface } from "./engine/gl/context.js";
 
 /**
  * @typedef {object} WallpaperApi
- * @property {() => Promise<{ geometry: Geometry, preset: Preset, place: Place, fps: number }>} getInitial
+ * @property {() => Promise<{ geometry: Geometry, preset: Preset, place: Place, fps: number, wind: WindPayload | null }>} getInitial
  * @property {(cb: (c: { preset: Preset, place: Place, fps: number }) => void) => void} onConfig
  * @property {(cb: (g: Geometry) => void) => void} onGeometry
  * @property {(cb: (paused: boolean) => void) => void} onPause
+ * @property {(cb: (wind: WindPayload | null) => void) => void} onWind
+ */
+
+/**
+ * The real wind, if the user has agreed to it: what the shell fetched, and the
+ * origin to measure it from. Every surface is handed the same one, which is a
+ * distribution of data and not the surfaces talking to each other.
+ *
+ * @typedef {object} WindPayload
+ * @property {{ t: number, east: number, north: number }[]} samples
+ * @property {{ east: number, north: number }} origin
  */
 
 const api = /** @type {{ wallpaper?: WallpaperApi }} */ (/** @type {unknown} */ (globalThis))
@@ -64,6 +76,20 @@ let preset = defaultPreset();
 let place = { lat: 39.7, lon: -105 };
 
 let fps = 20;
+
+/**
+ * The real wind, or null for the simulated weather. Whatever the shell last
+ * said; this surface never asks for it and never fetches anything.
+ *
+ * @type {import("./engine/sky/wind.js").WindSeries | null}
+ */
+let wind = null;
+
+/** @param {WindPayload | null} payload */
+function takeWind(payload) {
+  wind = payload ? makeWindSeries(payload.samples, payload.origin) : null;
+  shown = null;
+}
 
 /** @type {number | null} */
 let timer = null;
@@ -112,7 +138,8 @@ function frame() {
     place,
     crop: geometry.crop,
     span: geometry.span,
-    pixelRatio: geometry.pixelRatio
+    pixelRatio: geometry.pixelRatio,
+    wind
   };
 
   const signature = engine.signature(request);
@@ -164,6 +191,7 @@ async function boot() {
     preset = initial.preset;
     place = initial.place;
     fps = initial.fps;
+    takeWind(initial.wind);
 
     api.onConfig((config) => {
       preset = config.preset;
@@ -184,6 +212,10 @@ async function boot() {
     });
 
     api.onPause((paused) => setRunning(!paused));
+
+    // A new forecast arrived, or the user turned it off. Nothing needs forcing
+    // here: the signature covers the wind, so the next tick redraws.
+    api.onWind((payload) => takeWind(payload));
   }
 
   setRunning(true);

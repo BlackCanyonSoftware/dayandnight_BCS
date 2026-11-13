@@ -522,6 +522,22 @@
               </div>
 
               <div class="row">
+                <label class="check">
+                  <input id="realWind" type="checkbox" />
+                  <span class="labelleft"
+                    ><span>Use the real wind</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="Move the clouds with the real wind for your place, from MET Norway's forecast, instead of the simulated weather. It is off, and it is the only thing in this application that uses the internet. Turning it on sends your location, rounded to a tenth of a degree (about 11 km), and your IP address to api.met.no about once an hour, and nothing else; while it is off, nothing is sent. If MET Norway cannot be reached the simulated weather carries on, and a fixed Wind from direction still wins. The data is only the wind ten metres up, so the speed at the clouds is an estimate. Weather data from MET Norway, licensed CC BY 4.0 (creativecommons.org/licenses/by/4.0); changed: reduced to a wind estimate for the clouds."
+                      >i</span
+                    ></span
+                  >
+                </label>
+                <div class="meta" id="realWindNote">Off. Nothing leaves your computer.</div>
+              </div>
+
+              <div class="row">
                 <label>
                   <span class="labelleft"
                     ><span>Size</span

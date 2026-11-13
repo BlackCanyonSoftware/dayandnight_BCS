@@ -18,7 +18,7 @@ import { DayNightEngine } from "../engine/index.js";
 import { createContext, resizeToSurface } from "../engine/gl/context.js";
 import { advance, currentT } from "./clock.js";
 import { MAX_PREVIEW_WIDTH, starScale } from "./scale.js";
-import { fps, place, preset, span } from "./state.js";
+import { fps, place, preset, span, wind } from "./state.js";
 
 /** @typedef {import("../engine/types.js").FrameInfo} FrameInfo */
 
@@ -94,7 +94,10 @@ export function createPreview(canvas, onFrame) {
       span: s,
       // The buffer is narrower than the span it stands for, and a star is
       // sized in pixels of the span: see ui/scale.js.
-      pixelRatio: starScale(Math.min(MAX_PREVIEW_WIDTH, s.w), s.w)
+      pixelRatio: starScale(Math.min(MAX_PREVIEW_WIDTH, s.w), s.w),
+      // The real wind, when there is one: so that the preview carries the
+      // clouds the way the wallpaper does.
+      wind
     };
 
     // The readout follows the clock every tick, whether or not anything is

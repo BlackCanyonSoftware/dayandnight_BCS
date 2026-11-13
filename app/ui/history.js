@@ -35,6 +35,10 @@
  * somebody's wallpaper off their desktop would be a surprise of a different
  * order from undoing a colour.
  *
+ * **Consent to fetch the real wind**, for the same reason and a worse one: the
+ * undo of turning it off would turn it on, and the application would start
+ * sending the user's location over the network because they pressed Ctrl+Z.
+ *
  * @module ui/history
  */
 
@@ -114,15 +118,16 @@ export function connect({ read, apply, changed }) {
 /**
  * The part of a document the history cares about, as a string.
  *
- * The theme and the wallpaper's on/off state are left out - see the note at
- * the top - and the timestamp with them, since a document saved a second later
- * is not a change anybody made.
+ * The theme, the wallpaper's on/off state and the consent to fetch the real
+ * wind are left out - see the note at the top - and the timestamp with them,
+ * since a document saved a second later is not a change anybody made.
  *
  * @returns {string}
  */
 function snapshot() {
   const doc = readState();
-  return JSON.stringify({ version: doc.version, cfg: doc.cfg });
+  const { wallpaperOn: _wallpaper, realWind: _consent, ...cfg } = doc.cfg;
+  return JSON.stringify({ version: doc.version, cfg });
 }
 
 /**

@@ -5,15 +5,15 @@ hunted for and nothing ships without it. The shape is the same as Pixel Galaxy
 Studio's, deliberately: see [ADR 0006](../docs/adr/0006-proprietary-licence-and-nsis-installer.md)
 for why, and for what was changed rather than copied.
 
-| File                                             | What it is                                                                          | Who reads it                                                  |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| [SOURCE-LICENSE.md](SOURCE-LICENSE.md)           | The terms this repository is under: all rights reserved, no permission to copy.     | Anyone who finds the repository.                              |
-| [EULA.md](EULA.md)                               | The licence the person who installs a released build receives.                      | Every customer. The store shows it; the application shows it. |
-| [DISCLAIMER.md](DISCLAIMER.md)                   | Warranty, the screen it runs on all day, the astronomy, and the desktop technique.  | Customers. Part of the EULA by reference.                     |
-| [PRIVACY.md](PRIVACY.md)                         | What the application collects, which is nothing, and where your location is kept.   | Customers. The store page links to it.                        |
-| [TRADEMARKS.md](TRADEMARKS.md)                   | Our names and marks, and other people's.                                            | Anyone using the brand, in or out of the company.             |
-| [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | Every piece of someone else's work in the product or its tooling, with its licence. | Customers (shipped with the build); contributors (keep true). |
-| [third-party/](third-party/)                     | The full text of each third-party licence.                                          | Shipped with the build.                                       |
+| File                                             | What it is                                                                                                                 | Who reads it                                                  |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [SOURCE-LICENSE.md](SOURCE-LICENSE.md)           | The terms this repository is under: all rights reserved, no permission to copy.                                            | Anyone who finds the repository.                              |
+| [EULA.md](EULA.md)                               | The licence the person who installs a released build receives.                                                             | Every customer. The store shows it; the application shows it. |
+| [DISCLAIMER.md](DISCLAIMER.md)                   | Warranty, the screen it runs on all day, the astronomy, and the desktop technique.                                         | Customers. Part of the EULA by reference.                     |
+| [PRIVACY.md](PRIVACY.md)                         | What the application collects, which is nothing, the one optional thing that goes online, and where your location is kept. | Customers. The store page links to it.                        |
+| [TRADEMARKS.md](TRADEMARKS.md)                   | Our names and marks, and other people's.                                                                                   | Anyone using the brand, in or out of the company.             |
+| [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | Every piece of someone else's work in the product or its tooling, with its licence.                                        | Customers (shipped with the build); contributors (keep true). |
+| [third-party/](third-party/)                     | The full text of each third-party licence.                                                                                 | Shipped with the build.                                       |
 
 ## Which applies where
 

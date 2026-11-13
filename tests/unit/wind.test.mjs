@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { LAYERS, driftCells, layerDisplacementKm } from "../../app/engine/sky/clouds.js";
 import {
+  continueSeries,
   makeWindSeries,
   prevailingEast,
   windAt,
@@ -416,4 +417,62 @@ test("a series that is not usable is refused, not repaired", () => {
     null,
     "a missing number"
   );
+});
+
+test("a new forecast carries on from where the last one had the clouds", () => {
+  // Forecasts start at the current hour, so each is an hour later than the one
+  // before. Measured from its own first sample, a new one would put every cloud
+  // somewhere new at each refresh; continuing it keeps them where they were.
+  const day = Date.UTC(2026, 10, 13, 0);
+  const hourly = (from, speed, count) =>
+    Array.from({ length: count }, (_, i) => ({
+      t: from + i * HOUR,
+      east: speed,
+      north: 0
+    }));
+
+  const first = makeWindSeries(hourly(day + 6 * HOUR, 20, 24));
+  const at = day + 8.5 * HOUR; // the refresh, half way through an hour
+  // The next forecast starts at the current hour and says something different.
+  const samples = hourly(day + 8 * HOUR, 35, 24);
+
+  const before = windIntegralKm(at, DENVER, 12, null, first);
+  const carried = windIntegralKm(at, DENVER, 12, null, continueSeries(first, samples, at, DENVER));
+  const bare = windIntegralKm(at, DENVER, 12, null, makeWindSeries(samples));
+
+  assert.ok(Math.abs(carried.east - before.east) < 1e-9, "the clouds are where they were");
+  assert.ok(Math.abs(carried.north - before.north) < 1e-9);
+  assert.ok(Math.abs(bare.east - before.east) > 10, "and without this they would have jumped");
+
+  // After the refresh they move at the new wind: 35 km/h for one hour more.
+  const later = windIntegralKm(
+    at + HOUR,
+    DENVER,
+    12,
+    null,
+    continueSeries(first, samples, at, DENVER)
+  );
+  assert.ok(Math.abs(later.east - carried.east - 35) < 1e-9, `${later.east - carried.east}`);
+});
+
+test("continuing with nothing before it, or after the data ran out, is still continuous", () => {
+  const t0 = Date.UTC(2026, 10, 13, 0);
+  const samples = Array.from({ length: 6 }, (_, i) => ({ t: t0 + i * HOUR, east: 10, north: 5 }));
+
+  assert.deepEqual(continueSeries(null, samples, t0, DENVER), makeWindSeries(samples));
+  assert.equal(continueSeries(null, [], t0, DENVER), null, "unusable samples are refused");
+
+  // The old forecast ended hours ago; the clouds have been on the simulation
+  // since. A new one must pick up from there, not from where the old one ended.
+  const old = makeWindSeries(samples);
+  const now = t0 + 20 * HOUR;
+  const fresh = Array.from({ length: 6 }, (_, i) => ({
+    t: now - HOUR + i * HOUR,
+    east: -15,
+    north: 0
+  }));
+
+  const was = windIntegralKm(now, DENVER, 12, null, old);
+  const next = windIntegralKm(now, DENVER, 12, null, continueSeries(old, fresh, now, DENVER));
+  assert.ok(Math.abs(next.east - was.east) < 1e-9 && Math.abs(next.north - was.north) < 1e-9);
 });

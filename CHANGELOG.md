@@ -86,6 +86,15 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Optionally, the real wind.** **Use the real wind** in the Clouds panel moves
+  the clouds with the wind where you are, from MET Norway's forecast, instead of
+  the simulated weather. It is off until you tick it, and it is the one thing in
+  the application that uses the internet: it sends your location rounded to a
+  tenth of a degree (about 11 km) and your IP address, about once an hour, and
+  nothing else. If it cannot be reached the simulated weather carries on. A
+  fixed **Wind from** direction still wins. The privacy notice, licence and
+  hints say exactly this, and the data credit (MET Norway, CC BY 4.0) is shown
+  in the panel while it is in use.
 - **Wind that behaves like weather.** The clouds used to drift the same way, at
   the same speed, for ever - towards the west, which with a view facing south
   sent every one of them sideways across the screen in a straight line. By

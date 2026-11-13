@@ -299,7 +299,7 @@ export function windIntegralKm(t, place, typicalKmh, fromDegrees, series = null)
   // Outside the data, the simulation's own movement, joined at the nearer end
   // so that the position is continuous: nothing jumps when the data runs out.
   const edge = t < first ? first : last;
-  const atEdge = t < first ? { east: 0, north: 0 } : seriesPosition(series, last);
+  const atEdge = seriesPosition(series, t < first ? first : last);
   const moved = simulatedIntegral(t, place, typicalKmh);
   const from = simulatedIntegral(edge, place, typicalKmh);
 
@@ -365,7 +365,9 @@ function simulatedIntegral(t, place, typicalKmh) {
  * @property {Float64Array} t
  * @property {Float64Array} east
  * @property {Float64Array} north
- * @property {Float64Array} cumEast km travelled from the first sample to each
+ * @property {Float64Array} cumEast km travelled at each sample, counted from an
+ *   origin that is the value at the first one (zero unless the series continues
+ *   an earlier one: see `continueSeries`)
  * @property {Float64Array} cumNorth
  */
 
@@ -377,10 +379,15 @@ function simulatedIntegral(t, place, typicalKmh) {
  * somewhere nobody asked for. Null means "use the weather".
  *
  * @param {WindSample[]} samples
+ * @param {{ east: number, north: number }} [origin] where the clouds are, in
+ *   kilometres, at the first sample. Position is only ever meaningful as a
+ *   difference, so this matters for one thing: a new forecast has to carry on
+ *   from where the last one had the clouds, or they jump at every refresh.
  * @returns {WindSeries | null}
  */
-export function makeWindSeries(samples) {
+export function makeWindSeries(samples, origin = { east: 0, north: 0 }) {
   if (!Array.isArray(samples) || samples.length < 2) return null;
+  if (!origin || !Number.isFinite(origin.east) || !Number.isFinite(origin.north)) return null;
 
   const n = samples.length;
   const t = new Float64Array(n);
@@ -388,6 +395,8 @@ export function makeWindSeries(samples) {
   const north = new Float64Array(n);
   const cumEast = new Float64Array(n);
   const cumNorth = new Float64Array(n);
+  cumEast[0] = origin.east;
+  cumNorth[0] = origin.north;
 
   for (let i = 0; i < n; i += 1) {
     const s = samples[i];
@@ -409,6 +418,32 @@ export function makeWindSeries(samples) {
   }
 
   return Object.freeze({ t, east, north, cumEast, cumNorth });
+}
+
+/**
+ * A fresh forecast, positioned so that the clouds do not move when it replaces
+ * the one before.
+ *
+ * A forecast starts at the current hour, so each new one starts an hour later
+ * than the last and would otherwise measure from a new origin: every cloud in
+ * the sky would jump by the hour's travel, once an hour, for ever. This picks
+ * the origin so that at `t` the two agree. `t` is the host's, chosen once and
+ * the result handed to every surface, so they still agree with each other.
+ *
+ * @param {WindSeries | null} previous what is on screen now, or null for none
+ * @param {WindSample[]} samples the new forecast
+ * @param {number} t the instant they have to agree at, milliseconds
+ * @param {{ lat: number, lon: number }} place
+ * @returns {WindSeries | null} null when the samples are unusable
+ */
+export function continueSeries(previous, samples, t, place) {
+  const bare = makeWindSeries(samples);
+  if (!bare || !previous) return bare;
+
+  const was = windIntegralKm(t, place, DEFAULT_TYPICAL_KMH, null, previous);
+  const now = windIntegralKm(t, place, DEFAULT_TYPICAL_KMH, null, bare);
+
+  return makeWindSeries(samples, { east: was.east - now.east, north: was.north - now.north });
 }
 
 /**

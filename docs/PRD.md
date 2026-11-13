@@ -196,13 +196,18 @@ accounts or any server; video export; audio reactivity.
 - **NFR-4 - Start cost.** Wallpaper rendering on screen within 3 seconds of
   login; the editor window interactive within 2 seconds of being opened.
 - **NFR-5 - Privacy.** No network request without an explicit user action.
-  Location, when entered, stays in the local settings file. No telemetry.
+  Location, when entered, stays in the local settings file. No telemetry. The
+  one feature that makes requests, the real wind (ADR 0008), is off until the
+  user ticks it, sends nothing but the location cut to a tenth of a degree and
+  what any request carries, stops the moment it is unticked, and cannot be
+  turned on by a settings file, a share code or an undo.
 - **NFR-6 - Accessibility.** The editor meets WCAG 2.2 AA: keyboard operable
   throughout, visible focus, 4.5:1 text contrast, `prefers-reduced-motion`
   honoured in the editor chrome. The wallpaper itself is decorative and exempt,
   but a "reduce motion" preset setting damps every animation rate.
-- **NFR-7 - Offline.** Every feature except the optional location lookup works
-  with no network, forever.
+- **NFR-7 - Offline.** Every feature except the optional location lookup and
+  the optional real wind works with no network, forever. The real wind falls
+  back to the simulated weather whenever it cannot be had.
 
 ## 7. Success metrics
 
