@@ -513,6 +513,65 @@ test("the same inputs give the same pixels (architecture invariant 1)", async ({
   expect(identical, "two renders of the same request must be byte-identical").toBe(true);
 });
 
+test("a star shrinks with the picture it is drawn in, and never to nothing", async ({ page }) => {
+  // A star is a point, sized in pixels of the desktop it stands for. A picture
+  // drawn smaller than that desktop has to say so through pixelRatio, or the
+  // stars keep their pixel size while the sky shrinks around them - a third of
+  // a degree on the wallpaper becoming three degrees in a thumbnail, which is
+  // what the gallery, the preview and the README's pictures did until
+  // 2026-11-12.
+  //
+  // Two claims, because they pull against each other. The stars drawn at a
+  // third of the scale must cover clearly less than at full scale. And they
+  // must still be there: a sprite under about a pixel can fall between pixel
+  // centres and not be drawn at all, so there is a floor, and the area does
+  // NOT fall by the square of the scale. (The first version of this test
+  // asserted that it did, written in the same change as the floor.)
+  const r = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset } = await import("/engine/index.js");
+
+    const width = 640;
+    const height = 360;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+    engine.setPreset(defaultPreset());
+
+    const area = (pixelRatio) => {
+      engine.render({
+        t: Date.UTC(2026, 5, 21, 8), // two in the morning in Denver
+        place: { lat: 39.74, lon: -104.99 },
+        crop: { x: 0, y: 0, w: width, h: height },
+        span: { w: width, h: height },
+        pixelRatio
+      });
+      const px = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      let lit = 0;
+      for (let i = 0; i < px.length; i += 4) {
+        if (px[i] + px[i + 1] + px[i + 2] > 60) lit += 1;
+      }
+      return lit;
+    };
+
+    return { full: area(1), third: area(1 / 3), tiny: area(0.05) };
+  });
+
+  expect(r.third, "a night sky should have stars in it at all").toBeGreaterThan(20);
+  expect(
+    r.full / r.third,
+    `stars at full size cover ${r.full} pixels and at a third of the scale ${r.third}`
+  ).toBeGreaterThan(1.5);
+
+  // The floor: even drawn absurdly small, the stars are still stars and not a
+  // blank sky.
+  expect(r.tiny, `at a twentieth of the scale only ${r.tiny} pixels are lit`).toBeGreaterThan(
+    r.full * 0.1
+  );
+});
+
 test("the star field turns at the sidereal rate, not the solar one (US-005)", async ({ page }) => {
   // The sharpest test of the rotation there is, and it needs no reference
   // data at all.
@@ -534,17 +593,27 @@ test("the star field turns at the sidereal rate, not the solar one (US-005)", as
 
     const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
     const engine = new DayNightEngine(gl);
+
     engine.setPreset(defaultPreset());
 
     const place = { lat: 39.7, lon: -105 };
 
     const starPixels = (t) => {
+      // Drawn at twice the scale, so that a star is a disc with a core well over
+      // the threshold below rather than one or two pixels barely over it. The
+      // test is about WHERE the stars are, and finding them should not depend
+      // on how small they are drawn. At the scale of 1 it passed until the stars
+      // were made smaller on 2026-11-12, and then failed at 71 per cent after
+      // exactly one sidereal day: not the rotation, but the auto-exposure
+      // moving a few per cent over four minutes of the sun's motion, enough to
+      // flip pixels that sat right at the threshold. A one-pixel tolerance and
+      // turning the twinkle off were both tried first and neither was the cause.
       engine.render({
         t,
         place,
         crop: { x: 0, y: 0, w: width, h: height },
         span: { w: width, h: height },
-        pixelRatio: 1
+        pixelRatio: 2
       });
 
       const pixels = new Uint8Array(width * height * 4);

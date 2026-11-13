@@ -17,12 +17,10 @@
 import { DayNightEngine } from "../engine/index.js";
 import { createContext, resizeToSurface } from "../engine/gl/context.js";
 import { advance, currentT } from "./clock.js";
+import { MAX_PREVIEW_WIDTH, starScale } from "./scale.js";
 import { fps, place, preset, span } from "./state.js";
 
 /** @typedef {import("../engine/types.js").FrameInfo} FrameInfo */
-
-/** How wide the preview buffer gets, regardless of how wide the span is. */
-const MAX_PREVIEW_WIDTH = 1600;
 
 /**
  * @typedef {object} Preview
@@ -94,7 +92,9 @@ export function createPreview(canvas, onFrame) {
       // The preview is the whole span, so its crop is the span itself.
       crop: { x: 0, y: 0, w: s.w, h: s.h },
       span: s,
-      pixelRatio: 1
+      // The buffer is narrower than the span it stands for, and a star is
+      // sized in pixels of the span: see ui/scale.js.
+      pixelRatio: starScale(Math.min(MAX_PREVIEW_WIDTH, s.w), s.w)
     };
 
     // The readout follows the clock every tick, whether or not anything is

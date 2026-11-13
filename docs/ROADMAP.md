@@ -271,6 +271,42 @@ against a table lookup and two phase functions - and NFR-1 budgets 4 % of the
 GPU for a project with no way to check it. It is the only thing between this
 milestone and a plain `done`.
 
+**Open, and the owner's call: the cloud motion's geometry.** Reported
+2026-11-12 from the README animation: the clouds read as a flat disc turning, -
+"coming closer on the left, going across to the right and then moving away" -
+where the stars, in the same picture, move as if the viewer were inside an orb.
+It is what the code does, and it is correct for what it models:
+
+- The drift is a fixed straight line toward the west (the noise's x axis is
+  east, and the pattern is sampled `drift` cells ahead, so features move to
+  -x), at every hour. The default view faces south, so every cloud crosses the
+  view sideways.
+- A cloud on a straight track across your view approaches, is nearest and
+  fastest as it passes the middle, and recedes - angular speed v/d, so it
+  slows towards both edges of the picture - while the stars turn at one
+  constant rate about the pole. In the cylindrical projection the two read as
+  different worlds.
+- (Real mid-latitude winds are westerlies, so the engine's cloud wind is also
+  the opposite sense of the real one. Nothing has asked for that to change.)
+
+Three ways to go, none built, because they are a look and not a bug:
+
+1. **Wind along the view.** The same flat layer, blowing toward or away from
+   the viewer, so clouds stream out of the horizon, grow, and pass overhead.
+   Physically what a cross-wind is not, and what time-lapse fisheye clouds look
+   like. Wants a wind-direction setting (default, schema row, hint), with
+   "along the view" as its default.
+2. **Clouds that turn with the sky.** Each layer rotated rigidly about the
+   vertical by an angle that is a pure function of the clock, at its own rate.
+   That is what was asked for: a constant angular speed at every position, like
+   the stars, with the layers' different rates still giving depth. It is a
+   stylisation - real clouds follow the wind, not the sky - and it is exactly
+   periodic every 360 degrees, which would retire the drift wrap and its
+   precision machinery.
+3. **Both, as a setting.** A cloud-motion choice of "wind" or "turning".
+
+The choice is a design decision, so it is recorded rather than made.
+
 ## Now
 
 ### Milestone 4 - the horizon `in progress` (M)
@@ -294,6 +330,17 @@ are in the gallery.
 
 **Still to do.** The user's own PNG, which is the half of US-032 this does not
 cover and is a genuinely different feature.
+
+**And the city's windows, which the owner finds tacky** (2026-11-12), and which
+are a first pass: a four-column grid per building, each window lit or not by a
+hash, every lit window the same warm colour at the same brightness with a hard
+edge and no glow. Seen at any size it is a dense barcode. What would help, none
+of it started: a few buildings much busier than the rest and some dark; whole
+floors and offices lit together rather than every cell independently; a spread
+of colour and brightness (warm, cool, white, the occasional blue flicker of a
+screen); fewer windows lit than the 42 % the shader allows; a soft glow so a
+lit window is a light and not a coloured square; and anti-aliased edges, since
+`step()` is what turns a small picture's windows into stripes.
 
 ### Milestone 5 - presets, sharing and polish `in progress` (M)
 
@@ -327,6 +374,13 @@ rather than engineering, which is the only reason they are last.
 ## Later
 
 ### Beyond
+
+- **The README animation is 7 MB.** One animated WebP, 1370 pixels wide for an
+  806-pixel slot so that it is sharp on high-DPI screens. Lossy WebP is
+  4:2:0, so a coloured one-pixel star comes out grey. If the weight matters:
+  fewer frames through the night, a lower frame rate, or an MP4 hosted as a
+  release asset. If a viewer does not animate WebP, a GIF or an APNG is the
+  fallback.
 
 - **A real star catalogue** - the one cheap piece of realism still missing.
   `engine/stars.js` already stores four floats per star (right ascension and

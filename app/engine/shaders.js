@@ -273,6 +273,13 @@ uniform float uTwinklePhase;   // 0..1, wraps continuously
 
 out vec3 vColour;
 out float vRadiance;
+out float vSize;
+
+// A sprite under about a pixel and a quarter can fall between pixel centres and
+// not be drawn at all, so a star in a small picture - a gallery thumbnail, a
+// README tile - would vanish rather than shrink. This is the least a star is
+// ever drawn at, whatever the picture is a picture of.
+const float MIN_STAR_PX = 1.3;
 
 // A star's colour from its hash. Real visible stars run from blue-white
 // through white to orange, weighted towards the warm end; this is that ramp,
@@ -336,7 +343,18 @@ void main() {
   // Brighter stars are drawn larger as well as more intensely, which is how
   // both a camera and an eye behave. Without it the bright stars clip to
   // white at the same size as the faint ones and the sky loses its depth.
-  gl_PointSize = uSize * (1.0 + 2.2 * sqrt(clamp(radiance * 3200.0, 0.0, 1.0)));
+  //
+  // But only a little larger. It was 2.2, which made the brightest star 3.2
+  // times the size of the faintest: eight pixels at the default, which on a
+  // single 1080p screen is wider than the moon and on two is about three fifths
+  // of it. A bright star is a brighter point, not a disc. 0.6 makes the
+  // brightest 1.6 times the faintest, so the sky's depth comes from how bright
+  // they are and not from a few of them being swollen. (1.4 was tried and the
+  // brightest were still moons in a small picture, where a single pixel is
+  // already half the moon's width.)
+  float size = max(MIN_STAR_PX, uSize * (1.0 + 0.6 * sqrt(clamp(radiance * 3200.0, 0.0, 1.0))));
+  gl_PointSize = size;
+  vSize = size;
 }
 `;
 
@@ -353,6 +371,7 @@ precision highp float;
 
 in vec3 vColour;
 in float vRadiance;
+in float vSize;
 
 out vec4 fragColor;
 
@@ -371,7 +390,14 @@ void main() {
   // because the peak kept landing in a gap. Spreading it over the pixels it
   // actually covers is what makes a star look like a star rather than a
   // flickering speck.
-  float core = exp(-r2 * 4.5);
+  //
+  // And flatter still when the sprite is small. A sprite a pixel or so wide is
+  // sampled at a single point wherever its centre happens to fall, so a sharp
+  // core makes the same star anything from full brightness to nothing
+  // depending on where it landed. Flatten the falloff as the sprite shrinks;
+  // at the size a star is on a real desktop it is the core it always was.
+  float small = 1.0 - smoothstep(1.3, 3.0, vSize);
+  float core = exp(-r2 * mix(4.5, 0.9, small));
   float halo = exp(-r2 * 1.2) * 0.25;
 
   fragColor = vec4(vColour * vRadiance * (core + halo), 1.0);

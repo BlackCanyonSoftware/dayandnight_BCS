@@ -93,17 +93,22 @@ Two things to know before changing any of it:
    update the README's Requirements line, which says only that Windows 10 1903
    or later is needed.
 
-2. **The GPU, which has never been measured at all.** NFR-1 budgets 4 % and
+2. **Cloud motion: the owner's call between three looks.** The clouds read as
+   a flat disc turning - nearest and fastest as they pass the middle of the
+   view - because the drift is a fixed straight line across it. `ROADMAP.md`,
+   Milestone 3, has the diagnosis and the three options (wind along the view,
+   clouds that turn with the sky, or a setting for both); none is built.
+3. **The GPU, which has never been measured at all.** NFR-1 budgets 4 % and
    there is no way to check it. The cloud pass is a few hundred hashes a pixel
    where the sky used to be a table lookup, so this is the first time the
    question has had teeth.
-3. **Verify by hand what only a person can:** a full-screen game pausing the
+4. **Verify by hand what only a person can:** a full-screen game pausing the
    wallpaper, and a system time-zone change with the application running. Lock,
    unlock, suspend and resume no longer need a person - the desktop tests
    deliver the real events and count the surface's render-loop ticks.
-4. **The three-monitor criteria**, which need a third monitor: one continuous
+5. **The three-monitor criteria**, which need a third monitor: one continuous
    sky with no seam by screenshot, and NFR-1 re-measured with three active.
-5. Then what is left of Milestone 4 - the user's own PNG as a horizon, which
+6. Then what is left of Milestone 4 - the user's own PNG as a horizon, which
    is the half of US-032 the computed library does not cover - and Milestone 5,
    which wants the guide, the FAQ and the first-run welcome. All three are
    writing rather than engineering.
@@ -177,6 +182,51 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-11-12 (later) - the owner looked at the animation
+
+Four things, from looking at the README on GitHub - which also answers whether
+it plays inline: it does.
+
+- **Stars "like moons": a real bug, and a bigger one than the picture.** A
+  star's size is set in pixels of the desktop, and everything that draws the
+  sky smaller than the desktop it stands for passed `pixelRatio: 1`. The
+  preview (1600 px for a 3840-px span), the gallery thumbnails (192 px) and
+  my animation (400 px) all drew stars at the size they are on a full desktop:
+  eight pixels for the brightest, which is wider than the moon on one 1080p
+  screen. `ui/scale.js` now supplies the ratio and the preview and thumbnails
+  use it; a unit test checks the arithmetic and another reads the source for a
+  literal `pixelRatio: 1`, which is the only thing that fails if someone puts it
+  back. **`pixelRatio` is used for nothing else in the engine**, which is why
+  this was safe.
+- **The brightest star was 3.2 times the faintest.** The bloom is 0.6 now (1.6
+  times). 1.1 and 1.4 were tried and the brightest were still moons in a small
+  picture, where one pixel is already half the moon's width - there is no
+  correct star size in a 560-pixel picture of a 150-degree sky, only one that
+  does not read as a moon.
+- **A sprite under a pixel vanishes.** Correct angular scaling alone made the
+  stars disappear from small pictures: a sprite narrower than a pixel can fall
+  between pixel centres and not be drawn at all. A 1.3 px floor and a flatter
+  falloff for small sprites fix it.
+- **Pixelation: the stars were blocks, and my encoding turned them grey.** At
+  400 px a 2.6-px star is a visible square, and 4:2:0 WebP drops a coloured
+  one-pixel star's colour. The animation is drawn at 680 px per tile (1370 wide)
+  for an 806-px slot, so it is crisp on high-DPI screens as well. 7 MB.
+- **Two tests had to change, and why is written on them.** The sidereal test
+  failed at 71 % after exactly one sidereal day, and the cause was not the
+  rotation: auto-exposure moves a few per cent over four minutes of sun
+  motion, and the small stars now sit right at the test's brightness
+  threshold. A one-pixel tolerance and turning twinkle off were both tried and
+  were not it; it now draws the stars at twice the scale so each has a core well
+  over the threshold - the test is about where the stars are. And my own new
+  test assumed area fell with the square of the scale, written in the same
+  change as the floor that makes it false.
+- **The city lights are a barcode** and are in the roadmap with a list of what
+  would help. **The cloud motion** is in the roadmap and Next steps, as a
+  decision between three looks.
+- The animation uses the stars at ratio 1.7 and the looks' own brightness: it
+  is a picture 680 pixels wide standing in for a 3840-pixel sky, and a star has
+  to be a couple of pixels at the size a reader sees it or the field disappears.
 
 ### 2026-11-12 - the clouds were not life-like, and are now measured to be
 

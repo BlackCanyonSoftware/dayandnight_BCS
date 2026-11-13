@@ -33,6 +33,7 @@
 
 import { DayNightEngine } from "../engine/index.js";
 import { LOOKS, presetFor } from "./presets.js";
+import { REFERENCE_SPAN_WIDTH, starScale } from "./scale.js";
 
 /**
  * When the thumbnails are taken.
@@ -92,7 +93,9 @@ export async function renderLookThumbnails(width, height) {
         place: SHOWCASE_PLACE,
         crop: { x: 0, y: 0, w: width, h: height },
         span: { w: width, h: height },
-        pixelRatio: 1
+        // A thumbnail stands for a whole desktop, so a star in it must be the
+        // size it is on one: see ui/scale.js.
+        pixelRatio: starScale(width, REFERENCE_SPAN_WIDTH)
       });
 
       shots.set(look.id, canvas.toDataURL("image/webp", 0.82));

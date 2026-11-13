@@ -86,6 +86,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Stars are smaller, and the brightest no longer swell into discs.** The
+  brightest star used to be three times the size of the faintest - eight
+  pixels, which on a single screen was wider than the moon. It is now about
+  half that. The editor's preview and the gallery's pictures also draw stars
+  at the size they are on the wallpaper; before, any picture smaller than the
+  wallpaper drew them far too large.
 - **Clouds now behave like clouds.** They used to reshape themselves so fast
   that nothing recognisable at one moment was there five minutes later - a sky
   that boils rather than drifts - and the low clouds raced past the high ones
