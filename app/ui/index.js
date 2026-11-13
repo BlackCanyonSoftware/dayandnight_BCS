@@ -263,6 +263,10 @@ function wireControls() {
 
   bindRange("cloudCover", (v) => setPreset({ cloudCover: v }));
   bindRange("cloudDrift", (v) => setPreset({ cloudDrift: v }));
+  // -1 is "weather": the simulated wind that wanders. As with Facing it is the
+  // leftmost position of the slider and not a separate control, because a
+  // checkbox beside a slider for one setting reads as two settings.
+  bindRange("cloudWindFrom", (v) => setPreset({ cloudWindFrom: v < 0 ? null : v }));
   bindRange("cloudScale", (v) => setPreset({ cloudScale: v }));
   bindRange("cloudSoftness", (v) => setPreset({ cloudSoftness: v }));
 
@@ -609,6 +613,7 @@ function paintFromState() {
 
   input("cloudCover").value = String(preset.cloudCover);
   input("cloudDrift").value = String(preset.cloudDrift);
+  input("cloudWindFrom").value = String(preset.cloudWindFrom === null ? -1 : preset.cloudWindFrom);
   input("cloudScale").value = String(preset.cloudScale);
   input("cloudSoftness").value = String(preset.cloudSoftness);
   input("turbidity").value = String(preset.turbidity);
@@ -656,6 +661,8 @@ function paintFromState() {
 
   $("#cloudCoverVal").textContent = `${Math.round(preset.cloudCover * 100)}%`;
   $("#cloudDriftVal").textContent = `${Math.round(preset.cloudDrift)} km/h`;
+  $("#cloudWindFromVal").textContent =
+    preset.cloudWindFrom === null ? "Weather" : compass(preset.cloudWindFrom);
   $("#cloudScaleVal").textContent = `${preset.cloudScale.toFixed(1)} km`;
   $("#cloudSoftnessVal").textContent = preset.cloudSoftness.toFixed(2);
   $("#turbidityVal").textContent = `${preset.turbidity.toFixed(1)}×`;

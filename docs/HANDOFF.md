@@ -93,11 +93,12 @@ Two things to know before changing any of it:
    update the README's Requirements line, which says only that Windows 10 1903
    or later is needed.
 
-2. **Cloud motion: the owner's call between three looks.** The clouds read as
-   a flat disc turning - nearest and fastest as they pass the middle of the
-   view - because the drift is a fixed straight line across it. `ROADMAP.md`,
-   Milestone 3, has the diagnosis and the three options (wind along the view,
-   clouds that turn with the sky, or a setting for both); none is built.
+2. **Real local wind, optional and later.** The wind is a simulation now and
+   the interface is ready for something that knows the real one. `ROADMAP.md`,
+   Milestone 3, lists what that would need: the host fetches on consent, a table
+   of samples with an exact piecewise integral, a changed privacy notice, and a
+   data source whose licence allows commercial use (Open-Meteo's free tier does
+   not). Not started.
 3. **The GPU, which has never been measured at all.** NFR-1 budgets 4 % and
    there is no way to check it. The cloud pass is a few hundred hashes a pixel
    where the sky used to be a table lookup, so this is the first time the
@@ -182,6 +183,40 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-11-12 (last) - the wind
+
+- **The owner's idea, taken in two halves.** "Use the real local wind" is a
+  network feature with consent, a privacy-notice change and a licensing question,
+  and is recorded, not built. "Failing that, simulate a wind that varies day to
+  day in speed and direction" is built, because it needs no network, fits the
+  invariants, and is the same interface real data would later fill.
+- **`sky/wind.js`**: velocity and its exact integral. The integral is the point:
+  clouds sit wherever the wind has carried them, which for a changing wind is an
+  integral, and it has to be a pure function of the clock. A constant plus
+  sinusoids integrates in closed form, so there is no history. **A unit test
+  differentiates the position and compares it with the velocity**, which is what
+  protects the algebra; at a 20-second step it was off by 0.001 km/h on the 17-
+  minute gusts alone, which is the finite difference and not the model, so the
+  step is two seconds.
+- **`cloudWindFrom`**: `null` is the simulated weather, a number is a fixed
+  compass bearing the wind blows from. In the panel as "Wind from", leftmost =
+  Weather, like Facing. `cloudDrift` now means the _typical_ speed.
+- **The layers veer** (20, 8, 0 degrees up, mirrored in the south). Judgement
+  from how real winds turn with height, like the speeds, and a revert is three
+  numbers.
+- **Behavioural test for direction**: render the same sky three minutes apart,
+  measure the sideways shift of the pattern. A wind from the east moved it 50 px
+  rightward against a threshold of 8, from the west leftward, and along the view
+  barely at all.
+- **The wrap test** now fixes a wind from the east, because the simulated wind
+  has no single instant at which the fastest layer wraps; the simulation is
+  covered by the unit tests instead (bounded over a century, every axis).
+- **Day-to-day behaviour of the simulation**, Denver, 3 to 16 November 2026:
+  mostly westerly, with a calm south-easterly on the 8th, a north-westerly on
+  the 9th and speeds from 1 to 25 km/h. The README animation uses the 9th and
+  was not chosen for its wind.
+- **Not done:** the real wind (above), and the animation's weight (7 MB).
 
 ### 2026-11-12 (later) - the owner looked at the animation
 

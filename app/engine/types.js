@@ -67,7 +67,9 @@
  * @property {number} bodyScale how much larger than life the discs are drawn
  * @property {number} turbidity
  * @property {number} cloudCover 0 for a clear sky, 1 for overcast
- * @property {number} cloudDrift the wind, in kilometres an hour
+ * @property {number} cloudDrift the wind's typical speed, in kilometres an hour
+ * @property {number | null} cloudWindFrom the bearing the wind blows FROM, clockwise
+ *   from north, or null for a simulated weather that wanders from day to day
  * @property {number} cloudScale kilometres, the size of the features
  * @property {number} cloudSoftness how sharply a cloud ends
  * @property {string} skyline none, mountains, city or trees

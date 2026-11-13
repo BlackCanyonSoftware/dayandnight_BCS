@@ -86,6 +86,15 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Wind that behaves like weather.** The clouds used to drift the same way, at
+  the same speed, for ever - towards the west, which with a view facing south
+  sent every one of them sideways across the screen in a straight line. By
+  default the wind now wanders from day to day in direction and in speed around
+  the prevailing wind for where you are, westerly in the mid-latitudes and
+  easterly in the tropics, and the higher clouds are blown a little differently
+  from the lower ones, as they are. It is a simulation, not a forecast. **Wind
+  from** in the Clouds panel fixes a compass direction instead, so you can have
+  the clouds coming towards you, going away, or crossing.
 - **Stars are smaller, and the brightest no longer swell into discs.** The
   brightest star used to be three times the size of the faintest - eight
   pixels, which on a single screen was wider than the moon. It is now about

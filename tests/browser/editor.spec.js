@@ -1274,7 +1274,14 @@ test("clouds drift, and the picture does not jump when the field wraps (US-030)"
 
     const wind = 12;
     const scale = defaultPreset().cloudScale;
-    engine.setPreset({ ...defaultPreset(), cloudCover: 0.6, cloudDrift: wind });
+
+    // A fixed wind from the east, so that the drift is a steady march along one
+    // axis and the instant the fastest layer wraps can be computed exactly. The
+    // simulated weather, which is the default, turns and speeds up and slows
+    // down, and has no such instant to aim at; it is checked to stay bounded
+    // and continuous in the unit tests.
+    const preset = { ...defaultPreset(), cloudCover: 0.6, cloudDrift: wind, cloudWindFrom: 90 };
+    engine.setPreset(preset);
 
     const place = { lat: 39.74, lon: -104.99 };
 
@@ -1290,7 +1297,12 @@ test("clouds drift, and the picture does not jump when the field wraps (US-030)"
     const fastest = LAYERS.reduce((most, layer) => (layer.drift > most.drift ? layer : most));
     const fastestIndex = LAYERS.indexOf(fastest);
     const cellKm = fastest.scale * scale;
-    const interval = ((PERIOD * cellKm) / (wind * fastest.drift)) * 3_600_000;
+
+    // The layer's wind is turned by its veer, so only the cosine of it is
+    // carried along the x axis, and it is the x axis that is watched for the
+    // wrap below.
+    const along = Math.cos((fastest.veer * Math.PI) / 180);
+    const interval = ((PERIOD * cellKm) / (wind * fastest.drift * along)) * 3_600_000;
 
     // Find a wrap that happens in daylight: at night the picture barely
     // changes at all and the ratio this test depends on becomes meaningless.
@@ -1334,7 +1346,7 @@ test("clouds drift, and the picture does not jump when the field wraps (US-030)"
       const t = wrapAt + i * step;
       const pixels = frame(t);
 
-      const drift = driftCells(t, wind, fastestIndex, scale);
+      const drift = driftCells(t, place, preset, fastestIndex)[0];
       if (lastDrift !== null && drift < lastDrift) crossed = true;
       lastDrift = drift;
 
@@ -1456,6 +1468,102 @@ test("a cloud pattern persists for minutes, not seconds, so it reads as weather"
   // And it gets steadily further away rather than flickering.
   expect(r.lost[1]).toBeLessThan(r.lost[4]);
   expect(r.lost[4]).toBeLessThan(r.lost[16]);
+});
+
+test("the clouds travel the way the wind direction says (US-030)", async ({ page }) => {
+  // Not a number from the module but the picture: render the same sky a few
+  // minutes apart and measure which way the pattern moved across the screen.
+  //
+  // Facing south, east is on the left. A wind FROM the east blows the clouds
+  // toward the west, so rightward on screen; a wind from the west, leftward; and
+  // a wind from the south, the way the camera faces, brings them toward the
+  // viewer, which is mostly not sideways at all.
+  test.slow();
+
+  const shifts = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset } = await import("/engine/index.js");
+
+    const width = 640;
+    const height = 360;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+
+    const place = { lat: 39.74, lon: -104.99 };
+    const noon = Date.UTC(2026, 5, 21, 18);
+
+    // A column profile of a band of sky, so the shift is one dimensional.
+    const profile = (from, t) => {
+      engine.setPreset({
+        ...defaultPreset(),
+        bearing: 180,
+        cloudCover: 0.55,
+        cloudDrift: 12,
+        cloudWindFrom: from
+      });
+      engine.render({
+        t,
+        place,
+        crop: { x: 0, y: 0, w: width, h: height },
+        span: { w: width, h: height },
+        pixelRatio: 1
+      });
+      const px = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+
+      const col = new Float64Array(width);
+      // readPixels is bottom-up; the band is the middle of the sky, above the
+      // horizon at 82% down and well clear of the sun's glow.
+      for (let y = Math.round(height * 0.3); y < Math.round(height * 0.55); y += 1) {
+        const row = height - 1 - y;
+        for (let x = 0; x < width; x += 1) {
+          const i = (row * width + x) * 4;
+          col[x] += px[i] + px[i + 1] + px[i + 2];
+        }
+      }
+      const mean = col.reduce((a, b) => a + b, 0) / width;
+      return col.map((v) => v - mean);
+    };
+
+    // The shift s that best lines the later profile up with the earlier one:
+    // a feature at x then is at x + s now.
+    const bestShift = (a, b) => {
+      let best = 0;
+      let bestScore = -Infinity;
+      for (let s = -90; s <= 90; s += 1) {
+        let score = 0;
+        for (let x = 100; x < width - 100; x += 1) score += a[x] * b[x + s];
+        if (score > bestScore) {
+          bestScore = score;
+          best = s;
+        }
+      }
+      return best;
+    };
+
+    const result = {};
+    for (const from of [90, 270, 180]) {
+      result[from] = bestShift(profile(from, noon), profile(from, noon + 3 * 60_000));
+    }
+    return result;
+  });
+
+  expect(
+    shifts[90],
+    `wind from the east moved the clouds ${shifts[90]} px; it should be rightward`
+  ).toBeGreaterThan(8);
+  expect(
+    shifts[270],
+    `wind from the west moved the clouds ${shifts[270]} px; it should be leftward`
+  ).toBeLessThan(-8);
+
+  // Along the view: much less sideways than across it.
+  expect(
+    Math.abs(shifts[180]),
+    `a wind along the view moved them ${shifts[180]} px sideways, against ${shifts[90]} across`
+  ).toBeLessThan(Math.abs(shifts[90]) / 2);
 });
 
 test("a skyline stands on the horizon and leaves the sky alone (US-032)", async ({ page }) => {

@@ -12,6 +12,27 @@ import {
   kmPerPixel
 } from "../../app/engine/sky/clouds.js";
 
+/** Denver, for the tests that need a place. */
+const PLACE = { lat: 39.74, lon: -104.99 };
+
+/**
+ * A preset's wind settings. The default direction is east, because that is
+ * the one fixed direction in which the whole drift lands on one axis, which is
+ * what the tests of the wrap and of monotonic travel need.
+ *
+ * @param {number} cloudDrift
+ * @param {number | null} [cloudWindFrom]
+ * @param {number} [cloudScale]
+ */
+function wind(cloudDrift, cloudWindFrom = 90, cloudScale = 1.6) {
+  return { cloudDrift, cloudWindFrom, cloudScale };
+}
+
+/** Whether two cloud steps differ at all. */
+function differ(a, b) {
+  return a.some((value, i) => value !== b[i]);
+}
+
 /**
  * The cloud field, which is the first thing in this product that moves.
  *
@@ -38,14 +59,18 @@ test("the drift stays small enough for a single-precision uniform", () => {
   // cell, and a cell is one scale unit. Anything over a few thousand is
   // already coarse.
   for (const t of centuryOfInstants()) {
-    for (const wind of [1, 12, 60, 200]) {
-      for (let layer = 0; layer < LAYERS.length; layer += 1) {
-        const cells = driftCells(t, wind, layer, 1.6);
-
-        assert.ok(
-          cells >= 0 && cells < PERIOD,
-          `drift ${cells} outside [0, ${PERIOD}) at t=${t}, wind=${wind}, layer=${layer}`
-        );
+    for (const speed of [1, 12, 60, 200]) {
+      // Fixed and simulated winds both, because the simulation's position is
+      // a sum of terms and each of them has to stay bounded too.
+      for (const from of [90, 200, null]) {
+        for (let layer = 0; layer < LAYERS.length; layer += 1) {
+          for (const cells of driftCells(t, PLACE, wind(speed, from), layer)) {
+            assert.ok(
+              cells >= 0 && cells < PERIOD,
+              `drift ${cells} outside [0, ${PERIOD}) at t=${t}, wind=${speed} from ${from}, layer=${layer}`
+            );
+          }
+        }
       }
     }
   }
@@ -56,10 +81,11 @@ test("the drift is bounded even at absurd wind speeds and far-future dates", () 
   // file is a file and the engine should not depend on the editor having
   // validated it.
   const t = Date.UTC(2999, 0, 1);
-  for (const wind of [0, 1e3, 1e6]) {
-    const cells = driftCells(t, wind, 2, 1.6);
-    assert.ok(Number.isFinite(cells), `drift is ${cells} at wind ${wind}`);
-    assert.ok(cells >= 0 && cells < PERIOD);
+  for (const speed of [0, 1e3, 1e6]) {
+    for (const cells of driftCells(t, PLACE, wind(speed), 2)) {
+      assert.ok(Number.isFinite(cells), `drift is ${cells} at wind ${speed}`);
+      assert.ok(cells >= 0 && cells < PERIOD);
+    }
   }
 });
 
@@ -69,7 +95,7 @@ test("the drift advances smoothly and wraps without a jump", () => {
   // checked here is the CPU half: that the value really does come back to zero
   // rather than to some arbitrary offset, which is what would turn a seamless
   // repeat into a visible jolt every few days.
-  const wind = 24;
+  const speed = 24;
   const layer = 2;
   const scale = 1.6;
 
@@ -77,17 +103,23 @@ test("the drift advances smoothly and wraps without a jump", () => {
   // distinction this test exists to pin down, since getting it wrong is what
   // made the sky jump.
   const cellKm = LAYERS[layer].scale * scale;
-  const hours = (PERIOD * cellKm) / (wind * LAYERS[layer].drift);
+  const hours = (PERIOD * cellKm) / (speed * LAYERS[layer].drift);
 
   const start = Date.UTC(2026, 0, 1);
   const after = start + hours * 3_600_000;
 
-  const before = driftCells(start, wind, layer, scale);
-  const wrapped = driftCells(after, wind, layer, scale);
+  // From the east, so the whole drift is along x, and the lowest layer, which
+  // has no veer to turn it off that axis.
+  const before = driftCells(start, PLACE, wind(speed, 90, scale), layer);
+  const wrapped = driftCells(after, PLACE, wind(speed, 90, scale), layer);
 
   assert.ok(
-    Math.abs(wrapped - before) < 1e-6 * PERIOD,
-    `a period later the drift should return to where it started: ${before} then ${wrapped}`
+    Math.abs(wrapped[0] - before[0]) < 1e-6 * PERIOD,
+    `a period later the drift should return to where it started: ${before[0]} then ${wrapped[0]}`
+  );
+  assert.ok(
+    Math.abs(wrapped[1] - before[1]) < 1e-6 * PERIOD,
+    "and nothing moved on the other axis"
   );
 });
 
@@ -97,11 +129,11 @@ test("the drift only ever goes backwards at a wrap", () => {
   // in the period is arbitrary - and that is the one place going backwards is
   // correct. More than once in seven hours would mean it was oscillating.
   const start = Date.UTC(2026, 5, 1);
-  let previous = driftCells(start, 12, 1, 1.6);
+  let previous = driftCells(start, PLACE, wind(12), 1)[0];
   let wraps = 0;
 
   for (let minute = 5; minute < 400; minute += 5) {
-    const cells = driftCells(start + minute * 60_000, 12, 1, 1.6);
+    const cells = driftCells(start + minute * 60_000, PLACE, wind(12), 1)[0];
     if (cells < previous) wraps += 1;
     previous = cells;
   }
@@ -111,7 +143,7 @@ test("the drift only ever goes backwards at a wrap", () => {
 
 test("every layer drifts at a different rate, which is what parallax is", () => {
   const t = Date.UTC(2026, 5, 1, 12);
-  const moved = LAYERS.map((_, i) => driftCells(t, 12, i, 1.6));
+  const moved = LAYERS.map((_, i) => driftCells(t, PLACE, wind(12), i).join(","));
 
   assert.equal(new Set(moved).size, LAYERS.length, "two layers moved together");
 
@@ -182,11 +214,11 @@ test("most frames are skipped, which is the whole point", () => {
   const km = kmPerPixel(150, 5760);
 
   let changed = 0;
-  let previous = cloudSteps(t, 12, km);
+  let previous = cloudSteps(t, PLACE, wind(12), km);
 
   for (let frame = 1; frame <= 200; frame += 1) {
-    const now = cloudSteps(t + frame * 50, 12, km);
-    if (now[0] !== previous[0] || now[1] !== previous[1]) changed += 1;
+    const now = cloudSteps(t + frame * 50, PLACE, wind(12), km);
+    if (differ(now, previous)) changed += 1;
     previous = now;
   }
 
@@ -198,8 +230,8 @@ test("a minute does move them, or nothing would ever be redrawn", () => {
   const t = Date.UTC(2026, 5, 1, 12);
   const km = kmPerPixel(150, 5760);
 
-  const now = cloudSteps(t, 12, km);
-  const later = cloudSteps(t + 60_000, 12, km);
+  const now = cloudSteps(t, PLACE, wind(12), km);
+  const later = cloudSteps(t + 60_000, PLACE, wind(12), km);
 
   assert.notDeepEqual(later, now);
 });
@@ -214,11 +246,11 @@ test("the redraw rate is somewhere a person would want it", () => {
   const km = kmPerPixel(150, 3840);
 
   let draws = 0;
-  let previous = cloudSteps(t, 12, km);
+  let previous = cloudSteps(t, PLACE, wind(12), km);
 
   for (let tick = 1; tick <= 20 * 60; tick += 1) {
-    const now = cloudSteps(t + tick * 50, 12, km);
-    if (now[0] !== previous[0] || now[1] !== previous[1]) draws += 1;
+    const now = cloudSteps(t + tick * 50, PLACE, wind(12), km);
+    if (differ(now, previous)) draws += 1;
     previous = now;
   }
 

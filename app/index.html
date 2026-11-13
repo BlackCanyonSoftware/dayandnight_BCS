@@ -496,13 +496,29 @@
                     ><span
                       class="info"
                       tabindex="0"
-                      data-tip="How fast they drift. The three layers move at different speeds because they are at different heights, which is what gives the sky depth. Faster also means redrawing more often, so this is the one cloud setting that costs you something."
+                      data-tip="How fast they drift, typically. With Wind from on Weather it wanders around this from day to day; with a direction fixed it is exactly this. The three layers move at different speeds because they are at different heights, which is what gives the sky depth. Faster also means redrawing more often, so this is the one cloud setting that costs you something."
                       >i</span
                     ></span
                   >
                   <span class="val" id="cloudDriftVal">12 km/h</span>
                 </label>
                 <input id="cloudDrift" type="range" min="0" max="60" step="1" value="12" />
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Wind from</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="Which way the wind blows from, as a compass bearing, so 270 is a westerly. Weather, the leftmost position, lets it wander from day to day in direction and speed the way real weather does. It is a simulation, not a forecast, and every screen agrees on it. Drag to fix a direction instead. A wind from the way you are facing brings the clouds towards you; from your side, across the sky."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="cloudWindFromVal">Weather</span>
+                </label>
+                <input id="cloudWindFrom" type="range" min="-1" max="359" step="1" value="-1" />
               </div>
 
               <div class="row">

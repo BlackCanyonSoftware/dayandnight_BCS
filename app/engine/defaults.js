@@ -114,7 +114,7 @@ export function defaultPreset() {
     cloudCover: 0,
 
     /**
-     * The wind, in kilometres an hour.
+     * The wind's typical speed, in kilometres an hour.
      *
      * Kilometres rather than degrees, because the clouds are sampled where the
      * view ray meets a plane and so move with the wind across that plane. The
@@ -123,11 +123,31 @@ export function defaultPreset() {
      * past each other is their distance, not a difference in the weather - see
      * `LAYERS` in `sky/clouds.js`.
      *
+     * *Typical*, because by default the wind wanders: see `cloudWindFrom`. With
+     * a fixed direction it is exactly this speed, always.
+     *
      * Twelve is a light breeze, and a cloud feature then takes about five
      * minutes to pass a point - which is what a real one does. It is also
      * what sets the redraw rate: see the note in `sky/clouds.js`.
      */
     cloudDrift: 12,
+
+    /**
+     * Where the wind blows from, as a compass bearing in degrees clockwise from
+     * north - the weather forecaster's convention, in which a westerly is 270.
+     *
+     * Null is the default, and means a *simulated* weather: the direction and
+     * the speed wander from day to day around the prevailing wind for the
+     * place, deterministically, so every screen agrees. See `sky/wind.js`. It
+     * is a simulation and not a forecast, and the room is left in that module
+     * for something that knows the real wind to replace it.
+     *
+     * A number fixes it: the wind then blows from that bearing at exactly the
+     * typical speed, for good. Which way that looks on screen depends on which
+     * way the view faces - a wind from the bearing the camera points at brings
+     * the clouds toward you; one from your left or right sends them across.
+     */
+    cloudWindFrom: null,
 
     /**
      * The size of the features, in kilometres on the sampling plane.

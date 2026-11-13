@@ -60,6 +60,10 @@
  * @module engine/sky/clouds
  */
 
+import { windIntegralKm } from "./wind.js";
+
+/** @typedef {import("../types.js").Preset} Preset */
+
 /**
  * The lattice period, in cells, for the first octave.
  *
@@ -93,14 +97,20 @@ export const PERIOD = 256;
  * reads, because nearer is still faster, and it stops looking like a scrolling
  * game.
  *
+ * **The wind also turns with height**, which is what `veer` is: degrees
+ * clockwise in the northern hemisphere and anticlockwise in the southern, the
+ * direction the real surface layer's friction turns it. Twenty degrees between
+ * the lowest sheet and the highest is modest and is a judgement, as the speeds
+ * are; it is why a layer cannot be mistaken for a copy of the one below it.
+ *
  * Different heights are what makes the parallax: a low sheet sweeps past
  * faster and converges to the horizon sooner than a high one, which is the
  * whole of what makes a sky look deep rather than painted.
  */
 export const LAYERS = [
-  { scale: 1.0, drift: 1.5, height: 7000, weight: 0.45 },
-  { scale: 2.1, drift: 1.0, height: 2600, weight: 0.85 },
-  { scale: 4.4, drift: 0.75, height: 1200, weight: 1.0 }
+  { scale: 1.0, drift: 1.5, veer: 20, height: 7000, weight: 0.45 },
+  { scale: 2.1, drift: 1.0, veer: 8, height: 2600, weight: 0.85 },
+  { scale: 4.4, drift: 0.75, veer: 0, height: 1200, weight: 1.0 }
 ];
 
 /**
@@ -151,7 +161,34 @@ export const CLOUD_SUNLIGHT = 0.9;
 export const EVOLUTION_SECONDS = 3600;
 
 /**
- * How far one layer has drifted, in **lattice cells**.
+ * How far the wind has carried one layer's clouds, in kilometres east and north.
+ *
+ * The wind's own integral (`sky/wind.js`: exact, a pure function of the clock),
+ * scaled by the layer's speed multiplier and turned by its veer.
+ *
+ * @param {number} t milliseconds since the epoch
+ * @param {{ lat: number, lon: number }} place
+ * @param {Pick<Preset, "cloudDrift" | "cloudWindFrom">} preset
+ * @param {number} layerIndex which of LAYERS
+ * @returns {{ east: number, north: number }}
+ */
+export function layerDisplacementKm(t, place, preset, layerIndex) {
+  const layer = LAYERS[layerIndex];
+  if (!layer) throw new Error(`no cloud layer ${layerIndex}`);
+
+  const { east, north } = windIntegralKm(t, place, preset.cloudDrift, preset.cloudWindFrom);
+
+  // Clockwise seen from above is an increasing compass bearing, which turns a
+  // vector (east, north) as below. The southern hemisphere turns the other way.
+  const turn = ((place.lat >= 0 ? 1 : -1) * layer.veer * Math.PI) / 180;
+  const e = east * Math.cos(turn) + north * Math.sin(turn);
+  const n = -east * Math.sin(turn) + north * Math.cos(turn);
+
+  return { east: e * layer.drift, north: n * layer.drift };
+}
+
+/**
+ * How far one layer has drifted, in **lattice cells**, along each axis.
  *
  * Cells rather than kilometres, and that is the whole subtlety. The wind is a
  * speed over the ground, so the natural thing is to wrap the distance at the
@@ -165,29 +202,38 @@ export const EVOLUTION_SECONDS = 3600;
  *
  * So the conversion happens here, before the wrap, and the shader is handed an
  * offset already counted in the units its lattice uses. Then the wrap is
- * exactly one period and the repeat is invisible.
+ * exactly one period and the repeat is invisible. It is applied to each axis
+ * separately, which is all a periodic field needs.
  *
- * A pure function of the clock and nothing else, which is architecture
- * invariant 1: the same instant gives the same sky on every screen and in
- * every process, with no shared state and no synchronisation. Two monitors
- * agree about where a cloud is for the same reason they agree about the sun.
+ * The sign: the shader samples the noise at `position / cell + drift`, so a
+ * feature that stays at one noise coordinate is at `(coordinate - drift) *
+ * cell`, and a cloud carried east has a drift that *falls* in x. The drift is
+ * minus the displacement.
+ *
+ * A pure function of the clock and the place and nothing else, which is
+ * architecture invariant 1: the same instant gives the same sky on every
+ * screen and in every process, with no shared state and no synchronisation.
+ * Two monitors agree about where a cloud is for the same reason they agree
+ * about the sun.
  *
  * @param {number} t milliseconds since the epoch
- * @param {number} kmPerHour the preset's wind speed
+ * @param {{ lat: number, lon: number }} place
+ * @param {Pick<Preset, "cloudDrift" | "cloudWindFrom" | "cloudScale">} preset
  * @param {number} layerIndex which of LAYERS
- * @param {number} cloudScale the preset's feature size
- * @returns {number} lattice cells, in [0, PERIOD)
+ * @returns {[number, number]} lattice cells in [0, PERIOD), along x (east) and z (north)
  */
-export function driftCells(t, kmPerHour, layerIndex, cloudScale) {
+export function driftCells(t, place, preset, layerIndex) {
   const layer = LAYERS[layerIndex];
   if (!layer) throw new Error(`no cloud layer ${layerIndex}`);
 
-  const km = (t / 3_600_000) * kmPerHour * layer.drift;
-  const cellKm = Math.max(layer.scale * cloudScale, 0.05);
+  const moved = layerDisplacementKm(t, place, preset, layerIndex);
+  const cellKm = Math.max(layer.scale * preset.cloudScale, 0.05);
 
   // Positive remainder. A negative one is just as valid to the noise but makes
   // the quantised steps run backwards through zero.
-  return (((km / cellKm) % PERIOD) + PERIOD) % PERIOD;
+  const wrap = (/** @type {number} */ cells) => ((cells % PERIOD) + PERIOD) % PERIOD;
+
+  return [wrap(-moved.east / cellKm), wrap(-moved.north / cellKm)];
 }
 
 /**
@@ -210,8 +256,13 @@ export function evolution(t) {
  * This is the frame signature's question, and it is answered without touching
  * the noise field - which is the point. The field translates and evolves; it
  * does not do anything else. So a change is visible exactly when the fastest
- * layer has moved by a pixel, or when the evolution has advanced by a step too
- * small to see.
+ * layer has moved by a pixel along either axis, or when the evolution has
+ * advanced by a step too small to see.
+ *
+ * The fastest layer is the one with the largest multiplier, and it is the one
+ * quantised: every other moves less, so if it has not moved a pixel neither
+ * has any of them. A wind blowing diagonally changes two axes at once and so
+ * redraws up to about 1.4 times as often as one blowing along an axis.
  *
  * The drift is taken unwrapped here. The wrap exists to keep a single
  * precision uniform honest, and wrapping the *step count* as well would make
@@ -220,24 +271,31 @@ export function evolution(t) {
  * frame gets skipped that should not have been.
  *
  * @param {number} t milliseconds since the epoch
- * @param {number} kmPerHour
+ * @param {{ lat: number, lon: number }} place
+ * @param {Pick<Preset, "cloudDrift" | "cloudWindFrom">} preset
  * @param {number} kmPerPixel how much ground one pixel covers, near the zenith
- * @returns {[number, number]} the drift and evolution steps
+ * @returns {[number, number, number]} the drift steps east and north, and the evolution step
  */
-export function cloudSteps(t, kmPerHour, kmPerPixel) {
-  const fastest = LAYERS.reduce((most, layer) => Math.max(most, layer.drift), 0);
-  const travelled = (t / 3_600_000) * kmPerHour * fastest;
+export function cloudSteps(t, place, preset, kmPerPixel) {
+  let fastest = 0;
+  for (let i = 1; i < LAYERS.length; i += 1) {
+    if (LAYERS[i].drift > LAYERS[fastest].drift) fastest = i;
+  }
+
+  const moved = layerDisplacementKm(t, place, preset, fastest);
+  const px = Math.max(kmPerPixel, 1e-9);
 
   // One pixel. Below that the picture is identical to the one before it by
   // definition, and the output dither turns what is left into noise.
-  const drift = Math.round(travelled / Math.max(kmPerPixel, 1e-9));
+  const east = Math.round(moved.east / px);
+  const north = Math.round(moved.north / px);
 
   // A thousand steps across one EVOLUTION_SECONDS: about one every four
   // seconds, well under the drift, so it adds little to the redraw rate on its
   // own.
   const evolved = Math.round((t / (EVOLUTION_SECONDS * 1000)) * 1000);
 
-  return [drift, evolved];
+  return [east, north, evolved];
 }
 
 /**

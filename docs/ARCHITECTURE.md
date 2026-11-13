@@ -494,6 +494,33 @@ A browser test now pins the evolution: wind off, the share of a pattern lost
 after four minutes must stay under 45 % and after sixteen above it. At the old
 rate it was 63 % lost at four; at the new, 21 %.
 
+**The wind, added 2026-11-12.** Until then the drift was a constant speed in a
+fixed direction - toward the west, forever - which, with a default view facing
+south, sent every cloud across the screen sideways on a straight track: nearer
+and faster in the middle, receding at the edges, in the same sense as the sun and
+unlike the stars. It is now `sky/wind.js`: a velocity, and its integral.
+
+The integral is the part that matters. A cloud is wherever the wind has carried
+it, which for a wind that changes is the _integral_ of the velocity, and it has
+to be a pure function of the clock (invariant 1) or two screens, or one screen
+after a sleep, would disagree about where a cloud is. So the velocity is a
+constant plus a few sinusoids, which integrate in closed form: the position at
+any instant is evaluated directly, with no history. The velocity is a prevailing
+wind from the latitude (easterly, westerly, easterly), three turning vectors with
+periods of about three, five and seven days that share no factor, a daily cycle,
+and two small gusts. Phases come from the place snapped to half a degree, with
+integer arithmetic so that it is the same in every engine. A test differentiates
+the position numerically and compares it with the velocity; another checks that
+the mid-latitudes are westerly and the tropics easterly on average and that over
+thirty days it blows from at least five of the eight directions and varies in
+speed by more than three to one.
+
+The drift is now a vector, wrapped per axis in lattice cells, and the signature
+quantises the fastest layer along both. A diagonal wind changes both axes and so
+redraws up to about 1.4 times as often as one along an axis. The simulation is a
+simulation: it knows nothing about the real wind, and the roadmap records what
+a real source would need.
+
 **The lighting is not a rule about sunrises.** The clouds are lit by the sun's
 own transmittance - the same value the sun and moon discs are drawn with -
 which is already reddened by the long path through the atmosphere at a low sun.

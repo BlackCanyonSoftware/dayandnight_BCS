@@ -549,7 +549,7 @@ void main() {
 /**
  * The three layers, written into the shader from `clouds.js` rather than
  * retyped - the same reason the LUT dimensions are injected above. A fourth
- * layer would need `uDrift` to stop being a vec3, which is why this asserts
+ * layer would need `uDriftX` and `uDriftZ` to stop being vec3s, which is why this asserts
  * rather than silently dropping one.
  */
 const LAYER_CALLS = (() => {
@@ -567,7 +567,7 @@ const LAYER_CALLS = (() => {
   return LAYERS.map(
     (layer, i) =>
       `depth += layerDepth(dir, ${float(layer.height)}, ${float(layer.scale)}, ` +
-      `uDrift[${i}], ${float(layer.weight)});`
+      `vec2(uDriftX[${i}], uDriftZ[${i}]), ${float(layer.weight)});`
   ).join("\n  ");
 })();
 
@@ -616,7 +616,8 @@ uniform vec3 uAmbient;
 
 uniform float uCover;
 uniform float uSoftness;
-uniform vec3 uDrift;
+uniform vec3 uDriftX;
+uniform vec3 uDriftZ;
 uniform float uEvolution;
 uniform float uScale;
 
@@ -715,7 +716,7 @@ float cloudDensity(vec3 p) {
 // One layer's optical depth along the view ray. Zero where the ray never
 // reaches the plane, which is everything at and below the horizon: clouds are
 // above you, and drawing them below it would put them in the ground.
-float layerDepth(vec3 dir, float height, float scale, float drift, float weight) {
+float layerDepth(vec3 dir, float height, float scale, vec2 drift, float weight) {
   if (dir.y < 0.02) return 0.0;
 
   float distance = height / dir.y;
@@ -725,10 +726,10 @@ float layerDepth(vec3 dir, float height, float scale, float drift, float weight)
   vec2 at = dir.xz * (distance / 1000.0);
 
   // Divided into lattice cells FIRST, then offset. The drift arrives already
-  // counted in cells, because that is the only place the wrap can be exactly
+  // counted in cells, along both axes, because that is the only place the wrap can be exactly
   // one period - see driftCells() for what happens when it is not.
   float cellKm = max(scale * uScale, 0.05);
-  vec3 p = vec3(at.x / cellKm + drift, uEvolution, at.y / cellKm);
+  vec3 p = vec3(at.x / cellKm + drift.x, uEvolution, at.y / cellKm + drift.y);
   float density = cloudDensity(p);
 
   // Coverage as a threshold, not a multiply. Multiplying fades the whole field

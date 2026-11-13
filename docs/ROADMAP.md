@@ -271,41 +271,58 @@ against a table lookup and two phase functions - and NFR-1 budgets 4 % of the
 GPU for a project with no way to check it. It is the only thing between this
 milestone and a plain `done`.
 
-**Open, and the owner's call: the cloud motion's geometry.** Reported
-2026-11-12 from the README animation: the clouds read as a flat disc turning, -
-"coming closer on the left, going across to the right and then moving away" -
-where the stars, in the same picture, move as if the viewer were inside an orb.
-It is what the code does, and it is correct for what it models:
+**The cloud motion, decided 2026-11-12: real translation, in any direction, with a
+simulated weather.** Reported from the README animation: the clouds read as a
+flat disc turning - coming closer on the left, crossing, and receding on the
+right - where the stars move as if the viewer were inside an orb. The cause was
+specific: the drift was a fixed straight line toward the west at every hour, and
+the default view faces south, so every cloud crossed the view sideways. A flat
+layer carried in a straight line does exactly that, and it is correct for what
+it models; it was a wind that never changed, in a direction nobody chose.
 
-- The drift is a fixed straight line toward the west (the noise's x axis is
-  east, and the pattern is sampled `drift` cells ahead, so features move to
-  -x), at every hour. The default view faces south, so every cloud crosses the
-  view sideways.
-- A cloud on a straight track across your view approaches, is nearest and
-  fastest as it passes the middle, and recedes - angular speed v/d, so it
-  slows towards both edges of the picture - while the stars turn at one
-  constant rate about the pole. In the cylindrical projection the two read as
-  different worlds.
-- (Real mid-latitude winds are westerlies, so the engine's cloud wind is also
-  the opposite sense of the real one. Nothing has asked for that to change.)
+The owner first asked for the clouds to turn with the sky like the stars, then
+on reflection wanted real translation instead: they do not rotate, they
+travel, towards, away or across in any compass direction, at a speed that
+varies, ideally from the real wind for where the user is, and failing that from
+a simulation. What is built is the second half of that and the interface for
+the first:
 
-Three ways to go, none built, because they are a look and not a bug:
+- A **`cloudWindFrom` setting**: a compass bearing the wind blows from (a
+  westerly is 270), in the panel as "Wind from". Fixed, it is exactly that
+  direction at exactly the typical speed.
+- A **simulated weather** as its default (null): `sky/wind.js`, a pure function
+  of the date and the place, so every screen agrees. Prevailing winds from the
+  latitude, three slowly turning weather systems, a daily cycle and small gusts;
+  direction and speed wander from day to day around the typical speed.
+  Documented as a simulation, not a forecast.
+- **The wind turns with height**: a veer of 20, 8 and 0 degrees from the highest
+  layer to the lowest, mirrored in the south, as it does.
+- The position is the **exact integral** of the velocity, in closed form, so a
+  wind that changes is still a pure function of the clock. A test differentiates
+  it and compares.
 
-1. **Wind along the view.** The same flat layer, blowing toward or away from
-   the viewer, so clouds stream out of the horizon, grow, and pass overhead.
-   Physically what a cross-wind is not, and what time-lapse fisheye clouds look
-   like. Wants a wind-direction setting (default, schema row, hint), with
-   "along the view" as its default.
-2. **Clouds that turn with the sky.** Each layer rotated rigidly about the
-   vertical by an angle that is a pure function of the clock, at its own rate.
-   That is what was asked for: a constant angular speed at every position, like
-   the stars, with the layers' different rates still giving depth. It is a
-   stylisation - real clouds follow the wind, not the sky - and it is exactly
-   periodic every 360 degrees, which would retire the drift wrap and its
-   precision machinery.
-3. **Both, as a setting.** A cloud-motion choice of "wind" or "turning".
+**Not built: real wind for where the user is.** It would be a _source_ for the
+same interface, `windAt` and `windIntegralKm`, and nothing downstream would
+change. What it needs, written down so that it is not rediscovered:
 
-The choice is a design decision, so it is recorded rather than made.
+- **The network is the host's, not the engine's** (invariant 2), on consent, at
+  an hourly cadence, cached, with the simulation as the offline fallback so the
+  product always works.
+- **A table, not a number.** A wind that really changes cannot be a constant
+  plus sinusoids, so the engine would be handed a series of samples and
+  integrate between them (piecewise-linear velocity gives a piecewise-quadratic
+  position, still exact and still pure). Every surface gets the same table from
+  the host, which is a distribution of data and not the surfaces talking to each
+  other.
+- **The privacy notice stops being true** when it is on: "nothing leaves your
+  computer" would become "your coordinates, rounded, go to a provider". `PRIVACY.md`,
+  the EULA, the settings hint and an ADR change with it.
+- **Licence and cost.** [Open-Meteo's free tier is for non-commercial use, and
+  commercial use needs a paid subscription](https://open-meteo.com/en/terms);
+  this product is proprietary, so it would need a plan or another source. Neither
+  the price nor whether pressure-level winds (the natural match for the three
+  layers' heights) are in a given plan was verified. Other providers were not
+  researched.
 
 ## Now
 

@@ -165,6 +165,12 @@ function normaliseCfg(raw) {
       turbidity: num(presetRaw["turbidity"], defaults.turbidity, 0.2, 8),
       cloudCover: num(presetRaw["cloudCover"], defaults.cloudCover, 0, 1),
       cloudDrift: num(presetRaw["cloudDrift"], defaults.cloudDrift, 0, 120),
+      // null is a real value here too - it means the simulated weather - so it
+      // is preserved rather than coerced to a direction.
+      cloudWindFrom:
+        presetRaw["cloudWindFrom"] === null || presetRaw["cloudWindFrom"] === undefined
+          ? defaults.cloudWindFrom
+          : num(presetRaw["cloudWindFrom"], 270, 0, 360),
       cloudScale: num(presetRaw["cloudScale"], defaults.cloudScale, 0.3, 12),
       cloudSoftness: num(presetRaw["cloudSoftness"], defaults.cloudSoftness, 0.02, 0.6),
 
