@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   STYLES,
   isStyle,
+  cityActivity,
   lightsOn,
   skylineVisible,
   styleIndex
@@ -90,4 +91,42 @@ test("the lights follow the sun rather than the clock", () => {
   // the only input, so this is what that means.
   assert.ok(lightsOn(-5) > lightsOn(0));
   assert.ok(lightsOn(0) > lightsOn(5));
+});
+
+test("a city thins out through the night and stirs again before dawn", () => {
+  // Local solar time is UTC plus the longitude over fifteen, so at longitude 0
+  // the UTC hour is the solar hour.
+  const at = (hour) => cityActivity(Date.UTC(2026, 10, 13) + hour * 3_600_000, 0);
+
+  assert.equal(at(19), 1, "every light is on in the evening");
+  assert.equal(at(21), 1);
+  assert.ok(at(23) < 1 && at(23) > 0.9, `the first of them go out at eleven: ${at(23)}`);
+  assert.ok(Math.abs(at(2) - 0.4) < 1e-9, `a scattering stays lit at two: ${at(2)}`);
+  assert.ok(at(4) > at(2), "and the early risers are back by four");
+  assert.ok(Math.abs(at(5.5) - 0.7) < 1e-9, `${at(5.5)}`);
+
+  // Never dark: a city has lights in it at every hour of the night.
+  for (let h = 0; h < 24; h += 0.25) {
+    assert.ok(at(h) >= 0.4 - 1e-9 && at(h) <= 1 + 1e-9, `hour ${h}: ${at(h)}`);
+  }
+});
+
+test("the city's activity changes smoothly, with no step at midnight", () => {
+  const t0 = Date.UTC(2026, 10, 13, 0);
+  let previous = cityActivity(t0, 0);
+  for (let minute = 1; minute <= 24 * 60; minute += 1) {
+    const now = cityActivity(t0 + minute * 60_000, 0);
+    assert.ok(Math.abs(now - previous) < 0.01, `a step at minute ${minute}`);
+    previous = now;
+  }
+});
+
+test("the city's hour is local solar time, so it moves with the longitude", () => {
+  // Fifteen degrees east is an hour ahead: two in the morning there is one
+  // o'clock in UTC.
+  const utcOne = Date.UTC(2026, 10, 13, 1);
+  assert.ok(Math.abs(cityActivity(utcOne, 15) - cityActivity(utcOne + 3_600_000, 0)) < 1e-9);
+
+  // And it is the same on every day.
+  assert.equal(cityActivity(utcOne, 0), cityActivity(utcOne + 86_400_000, 0));
 });

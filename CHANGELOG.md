@@ -96,7 +96,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   rooms and not a grid of orange dashes: some buildings are dark and others
   busy, a floor tends to be lit or dark as a whole, the light varies from warm
   lamp to whiter office to the odd blue screen, far fewer are lit, and each has
-  a soft glow.
+  a soft glow. Through the night the city thins out - most lights are off by
+  two - and some come back before dawn.
 - **Optionally, the real wind.** **Use the real wind** in the Clouds panel moves
   the clouds with the wind where you are, from MET Norway's forecast, instead of
   the simulated weather. It is off until you tick it, and it is the one thing in

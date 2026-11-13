@@ -186,6 +186,17 @@ its browser tests are headless.
 
 ## Session log
 
+### 2026-11-13 (after that) - the city has hours
+
+The lights were one number all night; three in the morning looked like eleven.
+`cityActivity(t, longitude)` in `skyline.js` (local solar time) scales them: 1
+until ten, 0.4 at two, 0.7 by half past five, smooth throughout, composed with
+`lightsOn` in the engine and the signature. Unit tests caught two of my own
+mistakes: `Date.UTC` truncates a fractional hour, and the first curve stepped by
+0.3 at noon (harmless, since the sun has the lights off then, but a step is a
+step). A browser test asserts far fewer lit windows at two than at nine. The
+README animation was redrawn with the new city.
+
 ### 2026-11-13 (last of all) - the city, properly
 
 The owner looked at the windows work and said the cityscape still looked like

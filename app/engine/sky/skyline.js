@@ -128,3 +128,38 @@ export function lightsOn(sunAltitude) {
   const t = (2 - sunAltitude) / 10;
   return Math.max(0, Math.min(1, t));
 }
+
+/**
+ * How much of a city is awake, by the hour of the night.
+ *
+ * `lightsOn` is about the sun and says nothing about people: with only that,
+ * three in the morning looks exactly like eleven at night, and a city does not.
+ * Offices empty and households go to bed through the late evening, a scattering
+ * stays lit through the small hours, and the early risers switch on again
+ * before it is light. Evening is 1; the deep night bottoms out at 0.4 around two
+ * and a little after; it climbs to 0.7 by half past five, after which the sun
+ * takes the lights out anyway.
+ *
+ * A pure function of the instant and the longitude, by local solar time (the
+ * equation of time is at most a quarter of an hour, which this does not need),
+ * so every screen agrees.
+ *
+ * @param {number} t milliseconds since the epoch
+ * @param {number} longitude degrees east
+ * @returns {number} 0.4 to 1
+ */
+export function cityActivity(t, longitude) {
+  const solarHour = (((t / 3_600_000 + longitude / 15) % 24) + 24) % 24;
+
+  // The night runs past midnight, so the small hours are counted on from 24.
+  const x = solarHour < 12 ? solarHour + 24 : solarHour;
+
+  const smooth = (/** @type {number} */ a, /** @type {number} */ b) => {
+    const k = Math.max(0, Math.min(1, (x - a) / (b - a)));
+    return k * k * (3 - 2 * k);
+  };
+
+  // Back to 1 through the morning, when the sun has the lights off anyway;
+  // it is there so that the value has no step at noon.
+  return 1 - 0.6 * smooth(22, 26) + 0.3 * smooth(26, 29.5) + 0.3 * smooth(30, 34);
+}

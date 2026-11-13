@@ -33,7 +33,7 @@
 
 import { verticalDegrees } from "./view.js";
 import { cloudSteps, cloudsVisible, kmPerPixel } from "./sky/clouds.js";
-import { lightsOn, skylineVisible, styleIndex } from "./sky/skyline.js";
+import { cityActivity, lightsOn, skylineVisible, styleIndex } from "./sky/skyline.js";
 
 import { sunPosition } from "./astro/solar.js";
 import { resolveBearing } from "./defaults.js";
@@ -93,9 +93,11 @@ function cloudParts(preset, t, span, place, wind) {
  *
  * @param {Preset} preset
  * @param {number} sunAltitude
+ * @param {number} t
+ * @param {number} longitude
  * @returns {number[]}
  */
-function skylineParts(preset, sunAltitude) {
+function skylineParts(preset, sunAltitude, t, longitude) {
   if (!skylineVisible(preset.skyline, preset.skylineHeight)) return [];
 
   return [
@@ -105,7 +107,7 @@ function skylineParts(preset, sunAltitude) {
     // Quantised to a hundred steps across the dusk it fades over, which is
     // about one step every twenty seconds - far below anything the clouds or
     // the sky itself ask for, so it never becomes the thing driving redraws.
-    Math.round(lightsOn(sunAltitude) * preset.skylineLights * 100)
+    Math.round(lightsOn(sunAltitude) * cityActivity(t, longitude) * preset.skylineLights * 100)
   ];
 }
 
@@ -195,7 +197,7 @@ export function frameSignature(preset, request, bufferWidth, bufferHeight) {
     // of the picture, and every probe is in the sky, where nothing has
     // happened. Without the last term the lights would come on only when
     // something else happened to force a draw.
-    ...skylineParts(preset, sun.altitude),
+    ...skylineParts(preset, sun.altitude, t, place.lon),
     // Geometry: a window that moved or resized must redraw even if the sky
     // has not changed at all.
     crop.x,

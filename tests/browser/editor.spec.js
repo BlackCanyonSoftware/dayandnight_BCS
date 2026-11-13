@@ -3205,3 +3205,50 @@ test("a city's outline has towers, setbacks and spires, not a row of boxes", asy
     "the tallest tower should stand well above the typical roof"
   ).toBeGreaterThan(60);
 });
+
+test("far fewer windows are lit at two in the morning than at nine in the evening", async ({
+  page
+}) => {
+  const lit = await page.evaluate(async () => {
+    const { DayNightEngine } = await import("/engine/index.js");
+    const { presetFor } = await import("/ui/presets.js");
+
+    const W = 1280;
+    const H = 720;
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = H;
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+    engine.setPreset({ ...presetFor("town"), cloudCover: 0 });
+
+    // Denver is seven hours behind UTC in November, and at 105 degrees west
+    // local solar time is within minutes of it.
+    const fraction = (utcHour, dayOffset) => {
+      engine.render({
+        t: Date.UTC(2026, 10, 10 + dayOffset, utcHour),
+        place: { lat: 39.74, lon: -105 },
+        crop: { x: 0, y: 0, w: W, h: H },
+        span: { w: W, h: H },
+        pixelRatio: 1
+      });
+      const px = new Uint8Array(W * H * 4);
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      let lit = 0;
+      for (let row = Math.floor(H * 0.7); row < Math.floor(H * 0.88); row += 1) {
+        const y = H - 1 - row;
+        for (let x = 0; x < W; x += 1) {
+          const i = (y * W + x) * 4;
+          if (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2] > 100) lit += 1;
+        }
+      }
+      return lit;
+    };
+
+    return { evening: fraction(4, 0), small: fraction(9, 0) };
+  });
+
+  expect(lit.evening).toBeGreaterThan(0);
+  expect(lit.small, "the small hours have lights, but far fewer").toBeGreaterThan(0);
+  expect(lit.small).toBeLessThan(lit.evening * 0.75);
+});

@@ -46,7 +46,7 @@ import { defaultPreset, resolveBearing } from "./defaults.js";
 import { frameSignature } from "./signature.js";
 import { verticalDegrees } from "./view.js";
 import { CLOUD_SUNLIGHT, cloudsVisible, driftCells, evolution } from "./sky/clouds.js";
-import { lightsOn, skylineVisible, styleIndex } from "./sky/skyline.js";
+import { cityActivity, lightsOn, skylineVisible, styleIndex } from "./sky/skyline.js";
 
 /** @typedef {import("./types.js").FrameInfo} FrameInfo */
 /** @typedef {import("./types.js").FrameRequest} FrameRequest */
@@ -534,7 +534,10 @@ export class DayNightEngine {
       gl.uniform1i(skyline.uniform("uStyle"), styleIndex(this.preset.skyline));
       gl.uniform1f(skyline.uniform("uHeight"), this.preset.skylineHeight);
       gl.uniform1f(skyline.uniform("uSeed"), this.preset.skylineSeed);
-      gl.uniform1f(skyline.uniform("uLights"), lightsOn(sun.altitude) * this.preset.skylineLights);
+      gl.uniform1f(
+        skyline.uniform("uLights"),
+        lightsOn(sun.altitude) * cityActivity(t, place.lon) * this.preset.skylineLights
+      );
 
       // The same ambient the clouds are lit by: a silhouette is lit by the
       // whole sky above it, which is why a ridge against a red sunset is a

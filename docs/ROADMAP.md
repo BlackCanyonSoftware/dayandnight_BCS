@@ -403,8 +403,11 @@ and at 560 wide (the README tile). A browser test measures the outline (spires,
 steps, range, that it runs all the way across) and another the windows (lit
 fraction, colour variety, brightness at two sizes); both fail on the old code.
 
-**Still true of the city:** the lights are one number through the night, so
-three in the morning is the same as eleven; the grade pulls the cool windows
+- **The night has hours.** `cityActivity` thins the lit windows after about
+  ten, to 0.4 of the evening by two, and brings some back before dawn: a pure
+  function of the instant and the longitude, by local solar time.
+
+**Still true of the city:** the grade pulls the cool windows
 most of the way to neutral, so the colour variety is subtler than the shader's
 hues; the near row is low and mostly below the horizon, so the near silhouette
 varies less than the rows behind it; nothing is drawn for cranes, water tanks,
