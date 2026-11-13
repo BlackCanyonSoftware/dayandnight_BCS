@@ -86,11 +86,17 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **A city's windows look like lit rooms.** They were a grid of identical
-  orange dashes. Now some buildings are dark and others busy, a floor tends to
-  be lit or dark as a whole, the light varies from warm lamp to whiter office
-  to the odd blue screen, far fewer are lit, and each has a soft edge and glow,
-  so the skyline reads as a city at night rather than a barcode, at any size.
+- **A city that looks like a city.** It was rectangles on rectangles. It is
+  now three rows deep, the farther ones paler with the air in front of them, with
+  a downtown where the towers gather and a low sprawl around it. Buildings have
+  flat roofs with plant rooms, wedge roofs, stepped setbacks, a lower wing, and
+  crowned towers with spires and the occasional mast. Some touch their
+  neighbours, each has its own tone, the side facing the sun catches the light,
+  and every edge is smoothed so a thin spire is a fine line. Its windows are lit
+  rooms and not a grid of orange dashes: some buildings are dark and others
+  busy, a floor tends to be lit or dark as a whole, the light varies from warm
+  lamp to whiter office to the odd blue screen, far fewer are lit, and each has
+  a soft glow.
 - **Optionally, the real wind.** **Use the real wind** in the Clouds panel moves
   the clouds with the wind where you are, from MET Norway's forecast, instead of
   the simulated weather. It is off until you tick it, and it is the one thing in

@@ -908,41 +908,215 @@ float ridges(float x, float seed, int octaves) {
   return sum / max(total, 1e-5);
 }
 
-// A city, as slots along the horizon. Each slot hashes to a width and a
-// height, so the blocks are of different sizes and the skyline is not a comb.
-// slotOut carries which building this is, for the windows.
-// How many buildings fit around the whole horizon.
+// ---------------------------------------------------------------- the city
 //
-// 72 rather than the 26 this started with. A slot is 360 degrees over this, so
-// 26 made each building fourteen degrees wide and a default field of view held
-// about eleven of them - which read as a comb rather than a city. At 72 the
-// same view holds thirty, which is what a skyline looks like from across a
-// river.
-const float CITY_SLOTS = 72.0;
+// A skyline is not a row of boxes, and the first two versions of this were. What
+// makes one read as a city is what this builds in, layer by layer:
+//
+//   depth      three rows of buildings, far to near, the far ones paler with
+//              the air in front of them and the near ones dark and sharp;
+//   districts  a downtown where the towers cluster and a low sprawl around it,
+//              rather than every building rolled from the same dice;
+//   shapes     flat roofs with a plant room on them, wedge roofs, stepped
+//              setbacks, a lower wing on one side, and crowned towers with a
+//              spire, and now and then a mast;
+//   widths     some buildings touch their neighbours and form a block, some
+//              stand apart;
+//   surface    each its own tone, a little lighter towards the top where it
+//              mirrors the sky, and the edge that faces the sun catching it;
+//   edges      anti-aliased, so a thin spire is a faint line and not a stripe.
+//
+// All of it is a function of the azimuth alone, so every screen draws the same
+// city and nothing is stored.
 
-float cityHeight(float az, float seed, out float slotOut, out float widthOut) {
-  float slots = CITY_SLOTS;
+// Smooth value noise that repeats after \`period\` steps, so that what it drives
+// is continuous all the way round the horizon.
+float pnoise(float x, float period, float seed) {
+  float i = floor(x);
+  float f = x - i;
+  float u = f * f * (3.0 - 2.0 * f);
+  float a = hash11(mod(i, period) + seed * 19.0);
+  float b = hash11(mod(i + 1.0, period) + seed * 19.0);
+  return mix(a, b, u);
+}
+
+// How much of the interval [lo, hi] a pixel centred on x and px wide covers.
+// Exact for a box, which is what makes a one-pixel spire a faint line rather
+// than either a stripe or nothing.
+float boxCover(float x, float lo, float hi, float px) {
+  return clamp(min(x + 0.5 * px, hi) - max(x - 0.5 * px, lo), 0.0, px) / px;
+}
+
+struct Building {
+  float cover;    // how much of this pixel the building covers, 0 to 1
+  float inBody;   // how much of it is the windowed body rather than a spire
+  float top;      // the very top, spire included, in degrees
+  float height;   // the nominal height, degrees
+  float rows;     // floors, by the building's real height
+  float slot;
+  float width;
+  float u;        // 0 to 1 across the building
+  float tone;     // this building's own surface brightness
+  float tall;
+};
+
+Building cityBuilding(
+  float az, float elevation, float seed, float slots, float scale, float district,
+  float crowd, float pxAzTurns, float pxElev
+) {
+  Building b;
+
   float x = az * slots;
   float slot = floor(x);
-  slotOut = slot;
+  float within = x - slot;
+
+  // Some buildings fill their slot and touch the next, which is most of a near
+  // street; the rest stand apart by a varied gap. The farther the row, the more
+  // gaps show, because there are more rows behind to fill them.
+  float joined = hash11(slot * 3.17 + seed * 5.9);
+  float w = joined < crowd ? 1.0 : 0.5 + 0.45 * hash11(slot * 8.3 + seed * 2.1);
+  float edge = (1.0 - w) * 0.5;
+  float u = (within - edge) / w;
+  float pxU = pxAzTurns * slots / w;
+
+  // Downtown: a few broad districts round the horizon where the towers gather.
+  float core = smoothstep(0.35, 0.7, pnoise(fract(az) * 7.0, 7.0, seed + district));
 
   float h = hash11(slot * 7.31 + seed * 11.3);
+  float tall = step(0.8, hash11(slot * 13.9 + seed * 2.7)) * core;
+  float nominal = (0.08 + 0.55 * h * h) * mix(0.5, 1.0, core)
+                + tall * (0.5 + 0.9 * hash11(slot * 19.3 + seed * 1.7));
+  float H = nominal * scale * uHeight;
 
-  // A wide spread of widths, so the gaps between buildings are as varied as
-  // the buildings. Equal widths are most of what made the first version read
-  // as a row of teeth.
-  float w = 0.25 + 0.7 * hash11(slot * 3.17 + seed * 5.9);
-  widthOut = w;
+  // The roof's character. A tower never has a plain flat top.
+  float kind = hash11(slot * 17.1 + seed * 4.3);
+  kind = mix(kind, 0.5 + 0.5 * kind, tall);
 
-  // Within the slot, the building occupies the middle w of it; the rest is
-  // the gap between it and the next one.
-  float within = x - slot;
-  float edge = (1.0 - w) * 0.5;
-  if (within < edge || within > 1.0 - edge) return 0.0;
+  float flip = step(0.5, hash11(slot * 29.7 + seed));
+  float s = flip > 0.5 ? u : 1.0 - u;
+  float t = abs(u - 0.5) * 2.0;
 
-  // A few are much taller, which is what stops a skyline reading as a wall.
-  float tall = step(0.86, hash11(slot * 13.9 + seed * 2.7));
-  return (0.25 + 0.45 * h) * (1.0 + 1.5 * tall);
+  float body = H;
+  if (kind < 0.28) {
+    // Flat, with a plant room on the roof.
+    body = H * (1.0 + 0.07 * step(0.3, u) * step(u, 0.65));
+  } else if (kind < 0.46) {
+    // A wedge: the roof rises across the building.
+    body = H * (0.84 + 0.16 * s);
+  } else if (kind < 0.70) {
+    // Setbacks, stepping in as it climbs.
+    body = H * (t > 0.66 ? 0.72 : t > 0.33 ? 0.88 : 1.0);
+  } else if (kind < 0.85) {
+    // A lower wing on one side.
+    body = H * (s < 0.3 ? 0.55 : 1.0);
+  } else {
+    // Crowned: a shoulder, and a spire (added below).
+    body = H * (t > 0.5 ? 0.9 : 1.0);
+  }
+
+  float spire = kind >= 0.85 ? 1.0 : 0.0;
+  float mast = step(0.88, hash11(slot * 5.3 + seed * 9.1));
+
+  float inside = boxCover(u, 0.0, 1.0, pxU);
+  float cBody = boxCover(elevation, -1000.0, body, pxElev) * inside;
+  float cSpire = spire * boxCover(elevation, -1000.0, body + H * 0.4, pxElev)
+               * boxCover(u, 0.47, 0.53, pxU);
+  float cMast = mast * boxCover(elevation, -1000.0, body + H * 0.65, pxElev)
+              * boxCover(u, 0.288, 0.312, pxU);
+
+  b.cover = max(cBody, max(cSpire, cMast));
+  b.inBody = cBody;
+  b.top = body + max(spire * H * 0.4, mast * H * 0.65);
+  b.height = H;
+  b.rows = max(4.0, floor(nominal * 22.0));
+  b.slot = slot;
+  b.width = w;
+  b.u = u;
+  b.tone = (0.55 + 0.9 * hash11(slot * 37.0 + seed * 3.1)) * (1.0 + 0.25 * tall);
+  b.tall = tall;
+  return b;
+}
+
+// The lit windows of one building, as radiance. Rooms, not cells: a building has
+// a character (one in eight is dark, the rest from quiet to busy), a floor is
+// mostly on or mostly off together like an office, and a window then differs
+// from its floor in brightness and in the colour of its light.
+vec3 cityWindows(Building b, float elevation, float seed, float slots, float pxAzTurns,
+                 float pxElev, float lights) {
+  // Three to five columns, so a wide building has wider rooms than a narrow one.
+  float cols = 3.0 + floor(hash11(b.slot * 23.0 + seed * 7.0) * 3.0);
+
+  vec2 grid = vec2(b.u * cols, (elevation / max(b.height, 1e-4)) * b.rows);
+  vec2 index = floor(grid);
+  vec2 cell = fract(grid);
+
+  float character = hash11(b.slot * 57.0 + seed * 13.0);
+  float busy = character < 0.12 ? 0.0 : mix(0.2, 1.0, hash11(b.slot * 29.0 + seed * 3.0));
+
+  float floorKey = hash11(b.slot * 131.0 + index.y * 7.9 + seed * 17.0);
+  float roomKey = hash11(b.slot * 101.0 + index.x * 17.0 + index.y * 3.7 + seed * 29.0);
+  float key = mix(roomKey, floorKey, 0.6);
+
+  // Under a third are lit even at full, as in a real city.
+  float on = step(key, lights * busy * 0.5);
+
+  float tone = hash11(b.slot * 41.0 + index.x * 11.3 + index.y * 5.7 + seed * 31.0);
+  float level = mix(0.45, 1.0, hash11(index.x * 3.3 + index.y * 9.1 + b.slot * 67.0));
+  vec3 lamp = vec3(2.0e-4, 1.45e-4, 0.78e-4);
+  vec3 office = vec3(1.75e-4, 1.6e-4, 1.2e-4);
+  vec3 cool = vec3(1.3e-4, 1.5e-4, 1.8e-4);
+  vec3 screen = vec3(0.7e-4, 1.0e-4, 2.1e-4);
+  vec3 colour = tone < 0.55 ? lamp : tone < 0.8 ? office : tone < 0.95 ? cool : screen;
+
+  // A rounded room with a soft glow past its edge, its edge as wide as a pixel.
+  vec2 pixel = clamp(vec2(pxAzTurns * slots / b.width * cols, pxElev / max(b.height, 1e-4) * b.rows),
+                     vec2(0.0), vec2(0.5));
+  vec2 outside = max(abs(cell - 0.5) - vec2(0.3), 0.0);
+  float core = 1.0 - smoothstep(0.0, 1.0, length(outside / max(pixel, vec2(1e-3))));
+  float glow = 0.22 * exp(-dot(outside, outside) * 60.0);
+  float room = max(core, glow);
+
+  // Smaller than a pixel, the pattern cannot be shown; fade to what it averages.
+  float resolved = 1.0 - smoothstep(0.35, 0.9, max(pixel.x, pixel.y));
+  float average = lights * busy * 0.2;
+  float shown = mix(average, on * room, resolved);
+
+  // The brightest thing in the frame and still the colour of a lamp. The
+  // auto-exposure reaches 4000x at night, which is why the stars show; a window
+  // at the radiance this first used clipped to flat white. These land near 0.8.
+  return colour * level * shown * lights;
+}
+
+// One layer of the city's three: far, middle, near. \`layer\` is 0, 1 or 2.
+vec3 cityShade(Building b, float layer, float elevation, float azimuth, float lights,
+               float seed, float slots, float pxAzTurns, float pxElev, float haze) {
+  // The silhouette is lit by the whole sky above it: very low albedo, so it
+  // reads dark against anything bright and takes the sky's colour against
+  // anything dim. A little lighter towards the top, where it mirrors the sky.
+  float up = clamp(elevation / max(b.top, 1e-4), 0.0, 1.0);
+  vec3 body = uAmbient * 0.085 * b.tone * mix(0.8, 1.2, up);
+
+  // The side that faces the sun catches it.
+  float towardSun = wrap180(uSunAzimuth - azimuth);
+  float s = towardSun > 0.0 ? b.u : 1.0 - b.u;
+  body += uHazeToSun * 0.16 * smoothstep(0.93, 1.0, s) * (1.0 - haze);
+
+  // Air in front of the farther rows, tinted by what is behind them.
+  float fromSun = abs(wrap180(azimuth - uSunAzimuth)) / 180.0;
+  // Darker than the sky it stands against, or it would vanish into it.
+  // The sky's glow is concentrated near the sun, so the air is too.
+  float glow = smoothstep(0.35, 0.0, fromSun);
+  vec3 air = 0.6 * mix(uHazeAway, uHazeToSun, glow * glow);
+  // Thicker at the foot of a building, where there is more air in front.
+  body = mix(body, air, haze * mix(1.0, 0.6, up));
+
+  // Lights shine through the haze rather than being dulled by it.
+  vec3 lit = vec3(0.0);
+  if (lights > 0.0) {
+    lit = cityWindows(b, elevation, seed, slots, pxAzTurns, pxElev, lights) * b.inBody;
+    lit *= layer == 0.0 ? 0.4 : layer == 1.0 ? 0.6 : 1.0;
+  }
+  return body + lit;
 }
 
 void main() {
@@ -956,11 +1130,55 @@ void main() {
   // span that wraps past north does not meet a seam.
   float az = azimuth / 360.0;
 
+  if (uStyle == 2) {
+    // The size of a pixel, taken before anything diverges, and used to give
+    // every edge a pixel's width of softness.
+    float pxAzTurns = fwidth(azimuth) / 360.0;
+    float pxElev = max(fwidth(elevation), 1e-5);
+
+    // Nothing stands higher than this, so most of the frame stops here.
+    if (elevation > uHeight * 3.4) {
+      outColour = vec4(0.0, 0.0, 0.0, 1.0);
+      return;
+    }
+
+    // Far to near, each laid over the last. Below the horizon is the dark mass
+    // the rows stand on, so the gaps between the near buildings are not a taller
+    // row of buildings behind them, which read as a barcode.
+    vec3 colour = vec3(0.0);
+    float opacity = 0.0;
+
+
+
+    float ground = boxCover(elevation, -1000.0, 0.0, pxElev);
+    colour = uAmbient * 0.06 * ground;
+    opacity = ground;
+
+    for (int layer = 0; layer < 3; layer++) {
+      float l = float(layer);
+      float slots = layer == 0 ? 150.0 : layer == 1 ? 104.0 : 72.0;
+      float scale = layer == 0 ? 0.9 : layer == 1 ? 0.6 : 1.25;
+      float haze = layer == 0 ? 0.5 : layer == 1 ? 0.22 : 0.0;
+      float crowd = layer == 0 ? 0.3 : layer == 1 ? 0.45 : 0.65;
+      float seed = uSeed + l * 41.0;
+
+      Building b = cityBuilding(az, elevation, seed, slots, scale, 3.0 + l * 0.8, crowd, pxAzTurns, pxElev);
+
+      // The farther rows stand on the horizon: nothing of them below it.
+      if (layer < 2) b.cover *= boxCover(elevation, 0.0, 1000.0, pxElev);
+      if (b.cover <= 0.0) continue;
+
+      vec3 shaded = cityShade(b, l, elevation, azimuth, uLights, seed, slots, pxAzTurns, pxElev, haze);
+      colour = colour * (1.0 - b.cover) + shaded * b.cover;
+      opacity = 1.0 - (1.0 - opacity) * (1.0 - b.cover);
+    }
+
+    outColour = vec4(colour, 1.0 - opacity);
+    return;
+  }
+
   float profile = 0.0;
   float far = 0.0;
-  float slot = 0.0;
-  float width = 0.0;
-
   if (uStyle == 1) {
     // Two ranges, and the far one sits HIGHER in the frame rather than lower.
     //
@@ -980,8 +1198,6 @@ void main() {
     // Raised to a power to push the valleys down and leave the peaks, which
     // is what gives the near range somewhere for the far one to show through.
     profile = 0.92 * pow(ridges(az * 13.0, uSeed, 5), 1.7);
-  } else if (uStyle == 2) {
-    profile = cityHeight(az, uSeed, slot, width);
   } else if (uStyle == 3) {
     // Trees: high frequency, low amplitude, with a solid band underneath so
     // the gaps between trunks do not show sky at ground level.
@@ -1018,89 +1234,6 @@ void main() {
     vec3 haze = mix(uHazeToSun, uHazeAway, fromSun);
 
     body = mix(uAmbient * 0.11, haze, 0.62);
-  }
-
-  if (uStyle == 2 && isNear && uLights > 0.0) {
-    // Windows, as lit rooms rather than as a grid of lit cells.
-    //
-    // The first version hashed every window on its own, with one warm colour
-    // and a hard edge, and the result at any size was a barcode. What a real
-    // skyline has instead is structure, so this builds it in layers:
-    //
-    //   a building has a character - some are dark (an empty block, a closed
-    //   office), the rest are anywhere from quiet to busy;
-    //   a floor is mostly on or mostly off together, the way an office is;
-    //   a window then differs a little from its floor, in brightness and in
-    //   the colour of its light.
-    //
-    // The grid follows the building rather than the frame: a short block gets
-    // fewer rows than a tower, so a window is about the same size on both.
-    float height01 = nearTop / max(uHeight, 1e-4);
-    float rows = max(4.0, floor(height01 * 22.0));
-
-    // Three to five columns, so that a wide building has wider rooms than a
-    // narrow one rather than every building having the same four.
-    float cols = 3.0 + floor(hash11(slot * 23.0 + uSeed * 7.0) * 3.0);
-
-    float within = fract(az * CITY_SLOTS);
-    float edge = (1.0 - width) * 0.5;
-    float acrossBuilding = (within - edge) / max(width, 1e-4);
-
-    vec2 grid = vec2(acrossBuilding * cols, (elevation / max(nearTop, 1e-4)) * rows);
-    vec2 index = floor(grid);
-    vec2 cell = fract(grid);
-
-    // How busy this building is: one in eight is dark, and the rest run from
-    // a few lights to most of it.
-    float character = hash11(slot * 57.0 + uSeed * 13.0);
-    float busy = character < 0.12 ? 0.0 : mix(0.2, 1.0, hash11(slot * 29.0 + uSeed * 3.0));
-
-    // A floor, which is mostly one thing. The window's own hash is blended in
-    // so that a floor is mostly on rather than entirely.
-    float floorKey = hash11(slot * 131.0 + index.y * 7.9 + uSeed * 17.0);
-    float roomKey = hash11(slot * 101.0 + index.x * 17.0 + index.y * 3.7 + uSeed * 29.0);
-    float key = mix(roomKey, floorKey, 0.6);
-
-    // key below the threshold is lit. As uLights rises through dusk more pass
-    // it, and the threshold is under a third even at full, so most windows
-    // are dark, as they are.
-    float on = step(key, uLights * busy * 0.5);
-
-    // A spread of brightness, and of colour: mostly the warm of a lamp, some
-    // the whiter light of an office, a few cool, and now and then the blue of
-    // a screen. Each is scaled to a similar luminance so the picture is
-    // varied without being uneven.
-    float tone = hash11(slot * 41.0 + index.x * 11.3 + index.y * 5.7 + uSeed * 31.0);
-    float level = mix(0.45, 1.0, hash11(index.x * 3.3 + index.y * 9.1 + slot * 67.0));
-    vec3 lamp = vec3(2.0e-4, 1.45e-4, 0.78e-4);
-    vec3 office = vec3(1.75e-4, 1.6e-4, 1.2e-4);
-    vec3 cool = vec3(1.3e-4, 1.5e-4, 1.8e-4);
-    vec3 screen = vec3(0.7e-4, 1.0e-4, 2.1e-4);
-    vec3 colour = tone < 0.55 ? lamp : tone < 0.8 ? office : tone < 0.95 ? cool : screen;
-
-    // The room: a rounded rectangle inside the cell, and a soft glow past its
-    // edge, so that a lit window is a light and not a coloured square. The
-    // distance is in cell units; its edge is as soft as a pixel is wide, which
-    // is what keeps a small picture's windows from turning into stripes.
-    vec2 pixel = clamp(fwidth(grid), vec2(0.0), vec2(0.5));
-    vec2 halfSize = vec2(0.3, 0.3);
-    float distanceOut = length(max(abs(cell - vec2(0.5, 0.5)) - halfSize, 0.0) / max(pixel, vec2(1e-3)));
-    float distanceCells = length(max(abs(cell - vec2(0.5, 0.5)) - halfSize, 0.0));
-    float core = 1.0 - smoothstep(0.0, 1.0, distanceOut);
-    float glow = 0.22 * exp(-distanceCells * distanceCells * 60.0);
-    float room = max(core, glow);
-
-    // When a window is smaller than a pixel the pattern cannot be shown, and
-    // trying to shows aliasing. Fade to what it averages to instead.
-    float resolved = 1.0 - smoothstep(0.35, 0.9, max(pixel.x, pixel.y));
-    float average = uLights * busy * 0.2;
-    float shown = mix(average, on * room, resolved);
-
-    // The brightest thing in the frame, and still the colour of a lamp. The
-    // auto-exposure reaches 4000x at night, which is the whole reason the stars
-    // are visible; a window at the radiance this first used came to 220
-    // through that and clipped to flat white. These land near 0.8 instead.
-    body += colour * level * shown * uLights;
   }
 
   outColour = vec4(body, 0.0);

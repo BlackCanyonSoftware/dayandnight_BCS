@@ -372,25 +372,43 @@ are in the gallery.
 **Still to do.** The user's own PNG, which is the half of US-032 this does not
 cover and is a genuinely different feature.
 
-**The city's windows, which the owner found tacky** (2026-11-12): reworked
-2026-11-13. They were a first pass - a grid per building, each window lit by its
-own hash, one warm colour at one brightness, a hard edge and no glow - and read
-as a dense barcode at any size. They now have structure in layers: a building is
-dark (one in eight) or anywhere from quiet to busy; a floor is mostly on or
-mostly off together, like an office; a window then differs from its floor in
-brightness and in the colour of its light (lamp, office white, cool, the
-occasional blue screen); under a third are lit at full; three to five columns
-per building and squarer rooms; and a soft edge and glow, with the edge as wide
-as a pixel so that a small picture does not turn into stripes and a window
-smaller than a pixel fades to what it averages to. Judged by eye at 1920 wide
-and measured at three sizes (`editor.spec.js`, "lit rooms").
+**The city, which the owner found tacky twice** (2026-11-12, and again
+2026-11-13 after the windows alone were reworked: "just some rectangles put on
+top of other rectangles"). It is now built the way a skyline is, in
+`engine/shaders.js`, all a function of the azimuth:
 
-**Still true of the city:** the lights are one number through the whole night,
-so three in the morning is the same as eleven, although the shader's own
-comment promises a scattering still on in the small hours; the grade pulls the
-cool windows most of the way to neutral at night, so the colour variety is
-subtler than the hues in the shader; and nobody has judged it on the owner's
-own monitor.
+- **Depth.** Three rows, far to near, the far ones paler and hazier (the air
+  takes the colour of the sky behind it, concentrated near the sun) and the near
+  one dark and sharp, each row from its own hash so the rows do not line up.
+  Below the horizon is a dark mass, so the gaps between near buildings are not
+  a taller row behind them.
+- **Districts.** A periodic noise puts a downtown where the towers gather and
+  a low sprawl around it, continuous all the way round the horizon.
+- **Shapes.** Flat roof with a plant room, wedge, setbacks, a lower wing,
+  crowned with a spire; a tower never has a plain top, and one in nine has a
+  mast. Some buildings fill their slot and touch the next, which is most of the
+  near row.
+- **Surface.** A tone per building, lighter toward the top, haze thicker at the
+  foot, and the sun-facing edge catching the light.
+- **Edges.** Every silhouette edge is a box-filtered pixel, so a spire narrower
+  than a pixel is a faint line and not a stripe or nothing.
+- **Windows** are lit rooms: a building is dark (one in eight) or from quiet to
+  busy, a floor is mostly on or mostly off together, brightness and colour
+  vary (lamp, office white, cool, the occasional blue screen), under a third
+  are lit at full, three to five columns, a soft glow, and below a pixel they
+  fade to what they average to. Fainter on the farther rows.
+
+Judged by eye at 1920 wide at dusk, evening, late, the small hours and noon,
+and at 560 wide (the README tile). A browser test measures the outline (spires,
+steps, range, that it runs all the way across) and another the windows (lit
+fraction, colour variety, brightness at two sizes); both fail on the old code.
+
+**Still true of the city:** the lights are one number through the night, so
+three in the morning is the same as eleven; the grade pulls the cool windows
+most of the way to neutral, so the colour variety is subtler than the shader's
+hues; the near row is low and mostly below the horizon, so the near silhouette
+varies less than the rows behind it; nothing is drawn for cranes, water tanks,
+bridges or a river; and nobody has judged it on the owner's own monitor.
 
 ### Milestone 5 - presets, sharing and polish `in progress` (M)
 

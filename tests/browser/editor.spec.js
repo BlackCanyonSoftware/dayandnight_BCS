@@ -3113,3 +3113,95 @@ test("a city's windows are lit rooms, not a barcode: varied, mostly dark, and th
   // And with the lights off there are none.
   expect(runs.off.litFraction).toBeLessThan(0.001);
 });
+
+test("a city's outline has towers, setbacks and spires, not a row of boxes", async ({ page }) => {
+  const outline = await page.evaluate(async () => {
+    const { DayNightEngine } = await import("/engine/index.js");
+    const { presetFor } = await import("/ui/presets.js");
+
+    const W = 1920;
+    const H = 1080;
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = H;
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+
+    const draw = (skyline) => {
+      engine.setPreset({ ...presetFor("town"), cloudCover: 0, skyline });
+      engine.render({
+        t: Date.UTC(2026, 10, 10, 6, 30),
+        place: { lat: 39.74, lon: -104.99 },
+        crop: { x: 0, y: 0, w: W, h: H },
+        span: { w: W, h: H },
+        pixelRatio: 1
+      });
+      const px = new Uint8Array(W * H * 4);
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      return px;
+    };
+
+    // The same sky with and without the city: where they differ is the city.
+    const sky = draw("none");
+    const city = draw("city");
+
+    // The top of the outline in each column, counted down from the top of the
+    // picture, ignoring stars (single bright pixels) by asking for a run.
+    const tops = new Int32Array(W).fill(H);
+    for (let x = 0; x < W; x += 1) {
+      let run = 0;
+      for (let row = 0; row < H; row += 1) {
+        const i = ((H - 1 - row) * W + x) * 4;
+        const d =
+          Math.abs(city[i] - sky[i]) +
+          Math.abs(city[i + 1] - sky[i + 1]) +
+          Math.abs(city[i + 2] - sky[i + 2]);
+        run = d > 12 ? run + 1 : 0;
+        if (run === 4) {
+          tops[x] = row - 3;
+          break;
+        }
+      }
+    }
+
+    // Narrow peaks: a column that stands at least 12 px above both sides, 6 px
+    // away, and is itself thin.
+    let spires = 0;
+    for (let x = 8; x < W - 8; x += 1) {
+      const here = tops[x];
+      if (here === H) continue;
+      if (tops[x - 6] - here >= 12 && tops[x + 6] - here >= 12) spires += 1;
+    }
+
+    // How many separate steps the outline takes, and how far it ranges.
+    let steps = 0;
+    for (let x = 1; x < W; x += 1) {
+      if (Math.abs(tops[x] - tops[x - 1]) >= 3) steps += 1;
+    }
+    const heights = Array.from(tops)
+      .filter((v) => v < H)
+      .sort((a, b) => a - b);
+
+    return {
+      covered: heights.length / W,
+      spires,
+      steps,
+      range: heights[Math.floor(heights.length * 0.5)] - heights[0]
+    };
+  });
+
+  expect(outline.covered, "the city runs all the way across").toBeGreaterThan(0.95);
+
+  // Spires and masts: thin things standing clear of the roofline.
+  expect(outline.spires, "there should be spires and masts").toBeGreaterThan(3);
+
+  // A roofline that steps often, where a row of boxes steps once per building
+  // at most and a wedge or a setback adds more.
+  expect(outline.steps, "the roofline should step, not be a handful of edges").toBeGreaterThan(60);
+
+  // Downtown towers stand well above the typical roof.
+  expect(
+    outline.range,
+    "the tallest tower should stand well above the typical roof"
+  ).toBeGreaterThan(60);
+});

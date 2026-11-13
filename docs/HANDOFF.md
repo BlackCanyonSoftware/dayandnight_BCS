@@ -186,7 +186,24 @@ its browser tests are headless.
 
 ## Session log
 
-### 2026-11-13 (last) - the city's windows
+### 2026-11-13 (last of all) - the city, properly
+
+The owner looked at the windows work and said the cityscape still looked like
+"rectangles on top of other rectangles with no variation or originality". Right:
+I had polished the windows and left the shape alone. The city is rebuilt:
+three depth rows with haze, a downtown cluster, roof shapes (plant room, wedge,
+setbacks, lower wing, crowned with spire, masts), joined and separate
+buildings, per-building tone, sun-side edge light, and anti-aliased silhouettes
+(`ROADMAP.md`, Milestone 4, lists all of it). Rendered and looked at five times
+of day at 1920 wide and at 560. Two bugs found by looking, not by tests: the far
+rows were orange where the sky was dark (the haze glow was a linear blend over
+180 degrees; it is now concentrated near the sun), and the gaps between near
+buildings showed a taller row behind them as pale vertical bars by day (below
+the horizon is now a dark mass). New outline test fails on the old code. **Not
+done:** cranes, water towers, a river, the small-hours thinning of lights, the
+owner's own eyes on it.
+
+### 2026-11-13 (before that) - the city's windows
 
 Taken from the roadmap's list, because the owner called them tacky and it needs
 no desktop to check. Rendered the town look at 1920 wide at four hours before
