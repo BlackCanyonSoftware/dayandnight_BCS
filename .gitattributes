@@ -9,6 +9,7 @@
 # Binary, never diffed or line-ending-converted.
 *.png  binary
 *.jpg  binary
+*.webp binary
 *.ico  binary
 *.ttf  binary
 *.mp4  binary

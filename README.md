@@ -35,14 +35,15 @@ By [Black Canyon Software](https://github.com/BlackCanyonSoftware).
 
 <p align="center">
   <img
-    src="docs/screenshots/a-day.jpg"
-    alt="Four skies from one day: a dawn of orange cloud over mountains, a bright overcast noon, a dusk of rose cloud over a city skyline, and a starry night with the moon low on the right"
-    width="860"
+    src="docs/screenshots/a-day.webp"
+    alt="An animation of one day in four skies at once: a clear sky with the sun crossing over mountains, a bright sky of moving cloud, a cloudy sky over a city that lights up after dark, and a wide view of cloud, with stars wheeling overhead at night"
+    width="806"
   />
 </p>
 <p align="center">
-  <sub>One day in Denver, 21 June, at 05:52, 12:30, 20:25 and 23:30, in four of the
-  editor's looks. Computed from the clock and the coordinates, not played back.</sub>
+  <sub>One day in Denver in sixteen seconds, in four of the editor's looks. Daylight runs at
+  four minutes a frame and the night three times faster. Nothing is played back: every frame
+  is computed from the clock and the coordinates.</sub>
 </p>
 
 <p align="center">
@@ -54,7 +55,8 @@ By [Black Canyon Software](https://github.com/BlackCanyonSoftware).
 </p>
 <p align="center">
   <sub>The editor. The wallpaper itself has no window: this is how you choose its look.
-  Both pictures were rendered by the editor's own preview in a headless browser.</sub>
+  The animation above was drawn by the engine directly and this picture by the editor's own
+  preview, both in a headless browser, so neither is a capture of a real desktop.</sub>
 </p>
 
 ---

@@ -213,7 +213,30 @@ its browser tests are headless.
   clouds were "not yet measured end to end", three days after they were
   (0.05 points of a core). Redraws are now about three a second, not four, so
   the cost can only have fallen, but it has **not been re-measured**.
-- The README animation is built from the corrected engine, not before it.
+- **The README animation is built from the corrected engine**, and replaced the
+  four still tiles: one day in four looks at once - a clear sky with the sun
+  crossing, three cloudy ones, a city that lights up, stars wheeling - 236 frames
+  at 15 fps, 16 seconds, 3.8 MB, `docs/screenshots/a-day.webp`. Daylight is four
+  simulated minutes a frame and the night three times faster, eased across dusk
+  and dawn. Four minutes is a step at which the same cloud is still recognisable
+  frame to frame; at the old evolution rate it would have been flicker.
+- **It was drawn at the panels' final size, by the engine directly.** The first
+  two attempts went through the editor's preview and showed almost no stars: a
+  one-pixel star shrunk 2.8 times by the preview's CSS is a smudge. Rendering
+  each 400x225 panel with `DayNightEngine` shows a dense coloured star field,
+  and took 31 seconds where the preview route took eleven minutes.
+- **Two checks that misled me, so they are written down.** The loop seam
+  looked like a hard cut (28 to 35 against a median of 5), but the median was
+  dragged down by quiet night frames: a daytime step in a cloudy panel is
+  already about that big, so the seam is an ordinary step and a cross-dissolve
+  only added ghosting. And 8x-median "jumps" in the cloudy panels are a real
+  cloud bank forming over a few minutes, continuous at one-minute steps, not a
+  glitch.
+- **Still true and worth knowing:** the overcast "Big weather" panel is almost
+  black at night, which is accurate for an overcast sky and means that panel is
+  quiet for a third of the loop. Cloud banks can still form quickly (a large
+  mass covers 40 % of the view in about six minutes); that may deserve a look
+  later, and it is not something this session measured against reality.
 
 ### 2026-11-12 - the repository's front door
 
