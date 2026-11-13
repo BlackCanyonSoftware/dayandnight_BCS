@@ -26,16 +26,19 @@
  * and in units anybody can argue with.
  *
  * What it comes to, at the default twelve kilometres an hour: the fastest
- * layer moves about six metres a second, a pixel covers about one and a half
- * metres of it on a two-screen span, so the sky redraws roughly **four times
+ * layer moves about five metres a second, a pixel covers about one and a half
+ * metres of it on a two-screen span, so the sky redraws roughly **three times
  * a second**. A clear sky redraws once every sixteen seconds, so clouds are
- * sixty times more expensive than nothing - and five times cheaper than the
- * twenty frames a second it would have cost to animate them honestly.
+ * about fifty times more expensive than nothing - and six times cheaper than
+ * the twenty frames a second it would have cost to animate them honestly.
  *
  * Against the measured cost of drawing, about 0.09 % of a core per frame per
- * second, four a second comes to roughly 0.4 % against a budget of 2. Clouds
- * are affordable; they are not free; and `cloudCover` of zero skips the pass
- * entirely, so nobody pays for them who does not want them.
+ * second, three a second comes to roughly 0.3 % against a budget of 2. (It was
+ * four a second and 0.4 % until the layers' speeds and the evolution rate were
+ * corrected on 2026-11-12; both corrections can only lower it, and the last
+ * measurement, at the old rate, put the clouds at 0.05 points of a core.)
+ * Clouds are affordable; they are not free; and `cloudCover` of zero skips the
+ * pass entirely, so nobody pays for them who does not want them.
  *
  * ## Why everything here is bounded
  *
@@ -71,21 +74,33 @@
 export const PERIOD = 256;
 
 /**
- * The layers, from the highest and slowest to the lowest and fastest.
+ * The layers, from the highest to the lowest.
  *
  * Three, because two read as a pattern and four cost more than they show.
  * `scale` is the size of the features in kilometres, `drift` multiplies the
  * preset's wind speed, `height` is where the plane sits in metres, and
  * `weight` is how much of the sky that layer can take away.
  *
+ * **The wind strengthens with height**, as the real atmosphere's does: friction
+ * slows the air near the ground, so a high sheet is carried faster than a low
+ * one, and the multipliers are ordered that way. They were ordered the other
+ * way until 2026-11-12 - 0.55 at the top and 1.9 at the bottom - which kept the
+ * parallax and made it absurd. How fast a cloud appears to move overhead is
+ * its ground speed divided by its height, so the low layer crossed the sky
+ * about twenty times faster than the high one; a real sky has them within a
+ * factor of a few. At the default wind the three now come to roughly 7, 4 and
+ * 2.5 degrees a minute overhead, low to high (it was 18, 4 and 1). Depth still
+ * reads, because nearer is still faster, and it stops looking like a scrolling
+ * game.
+ *
  * Different heights are what makes the parallax: a low sheet sweeps past
  * faster and converges to the horizon sooner than a high one, which is the
  * whole of what makes a sky look deep rather than painted.
  */
 export const LAYERS = [
-  { scale: 1.0, drift: 0.55, height: 7000, weight: 0.45 },
+  { scale: 1.0, drift: 1.5, height: 7000, weight: 0.45 },
   { scale: 2.1, drift: 1.0, height: 2600, weight: 0.85 },
-  { scale: 4.4, drift: 1.9, height: 1200, weight: 1.0 }
+  { scale: 4.4, drift: 0.75, height: 1200, weight: 1.0 }
 ];
 
 /**
@@ -110,14 +125,30 @@ export const LAYERS = [
 export const CLOUD_SUNLIGHT = 0.9;
 
 /**
- * How long the field takes to become a different sky, in seconds.
+ * The length of one unit of the noise's third axis, in seconds.
  *
- * Twenty minutes. Clouds form and dissolve on roughly that timescale, and it
- * is slow enough that evolution costs far fewer redraws than drift does -
- * which matters, because evolution is the part that cannot be made cheap by
- * moving a sample point.
+ * **Not a lifetime**, and the first version of this comment said it was: that
+ * the field becomes a different sky in twenty minutes. Measured on 2026-11-12,
+ * with the wind off so that nothing moves and only this acts, the pattern had
+ * lost half of what it shared with itself after **2.8 minutes**, and was as
+ * unrelated to itself as a sky a day apart by eight. Two things multiply the
+ * unit: every octave samples the axis at twice the rate of the one below, so
+ * the finest of the four changes eight times faster than the coarsest, and the
+ * domain warp feeds that change back into the sampling position, so a small
+ * shift in the noise is a large shift in the shape.
+ *
+ * The measurement chose the constant. At 3600 seconds the half-life is about
+ * 14 minutes for fine detail and about 29 for the large features, which is the
+ * way round clouds are: a cumulus lives a quarter of an hour, the sheet it
+ * sits in much longer, and a sky-imaging forecaster pushes today's field
+ * forward ten or twenty minutes on the assumption that it is still the same
+ * field. The detail turning over faster than the structure falls out of the
+ * octaves; nothing here puts it there.
+ *
+ * Slower is cheaper as well. Evolution is the one part of the redraw rate that
+ * cannot be hidden by moving a sample point.
  */
-export const EVOLUTION_SECONDS = 1200;
+export const EVOLUTION_SECONDS = 3600;
 
 /**
  * How far one layer has drifted, in **lattice cells**.
@@ -201,9 +232,9 @@ export function cloudSteps(t, kmPerHour, kmPerPixel) {
   // definition, and the output dither turns what is left into noise.
   const drift = Math.round(travelled / Math.max(kmPerPixel, 1e-9));
 
-  // A thousand steps across the twenty minutes it takes the field to become a
-  // different sky: about one a second, the same order as the drift, so it adds
-  // nothing to the redraw rate on its own.
+  // A thousand steps across one EVOLUTION_SECONDS: about one every four
+  // seconds, well under the drift, so it adds little to the redraw rate on its
+  // own.
   const evolved = Math.round((t / (EVOLUTION_SECONDS * 1000)) * 1000);
 
   return [drift, evolved];

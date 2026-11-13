@@ -1070,6 +1070,18 @@ test("clouds are lit from the side the sun is on (US-030)", async ({ page }) => 
   // atmosphere at a low sun, so a cloud lit at dawn comes out the colour dawn
   // is. What can be checked is the geometry - that the lit side is the side
   // the sun is actually on.
+  //
+  // **Over many skies, not one.** This used to render a single instant, and
+  // that is a bad experiment: the brightness of a third of the frame depends
+  // on which clouds happen to be in it. Measured on 2026-11-12 over forty
+  // independent mornings, the lit side is brighter by about 14 levels on
+  // average and on 31 to 34 of the 40 mornings - a real, systematic effect, and
+  // one with a spread as large as itself, so one sky in five or six comes out
+  // the wrong way round. The single instant passed for as long as it happened
+  // to be a good one, and stopped the day the clouds' evolution was corrected
+  // and it landed on a bad one, with nothing about the lighting having
+  // changed. The claim is the same; it is now measured on enough skies for the
+  // pattern to average away.
   const findings = await page.evaluate(async () => {
     const { DayNightEngine, defaultPreset, sunPosition, resolveBearing } =
       await import("/engine/index.js");
@@ -1087,47 +1099,55 @@ test("clouds are lit from the side the sun is on (US-030)", async ({ page }) => 
     engine.setPreset(preset);
 
     const place = { lat: 39.74, lon: -104.99 };
-
-    // Morning, with the sun well to one side of the frame.
-    const t = Date.UTC(2026, 5, 21, 13, 30);
-    const sun = sunPosition(t, place);
     const bearing = resolveBearing(preset, place);
 
-    engine.render({
-      t,
-      place,
-      crop: { x: 0, y: 0, w: width, h: height },
-      span: { w: width, h: height },
-      pixelRatio: 1
-    });
+    const advantages = [];
+    let sunFraction = 0.5;
+    let sunAltitude = 0;
 
-    const pixels = new Uint8Array(width * height * 4);
-    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    // The same clock time on sixteen consecutive days. The sun hardly moves
+    // between them and the clouds are unrelated to one another, which is what
+    // makes the mean mean something.
+    for (let day = 0; day < 16; day += 1) {
+      const t = Date.UTC(2026, 5, 1 + day, 13, 30);
+      const sun = sunPosition(t, place);
 
-    // Where the sun is across the frame, as a fraction.
-    const offset = ((sun.azimuth - bearing + 540) % 360) - 180;
-    const sunFraction = 0.5 + offset / preset.fieldOfView;
+      engine.render({
+        t,
+        place,
+        crop: { x: 0, y: 0, w: width, h: height },
+        span: { w: width, h: height },
+        pixelRatio: 1
+      });
 
-    // Mean brightness of the left third and the right third of the sky.
-    const band = (from, to) => {
-      let total = 0;
-      let samples = 0;
-      for (let y = Math.floor(height * 0.3); y < height; y += 1) {
-        for (let x = Math.floor(width * from); x < Math.floor(width * to); x += 1) {
-          const i = (y * width + x) * 4;
-          total += pixels[i] + pixels[i + 1] + pixels[i + 2];
-          samples += 1;
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+      // Where the sun is across the frame, as a fraction.
+      const offset = ((sun.azimuth - bearing + 540) % 360) - 180;
+      sunFraction = 0.5 + offset / preset.fieldOfView;
+      sunAltitude = sun.altitude;
+
+      // Mean brightness of the left and right thirds of the sky.
+      const band = (from, to) => {
+        let total = 0;
+        let samples = 0;
+        for (let y = Math.floor(height * 0.3); y < height; y += 1) {
+          for (let x = Math.floor(width * from); x < Math.floor(width * to); x += 1) {
+            const i = (y * width + x) * 4;
+            total += pixels[i] + pixels[i + 1] + pixels[i + 2];
+            samples += 1;
+          }
         }
-      }
-      return total / (samples * 3);
-    };
+        return total / (samples * 3);
+      };
 
-    return {
-      sunFraction,
-      sunAltitude: sun.altitude,
-      left: band(0, 0.28),
-      right: band(0.72, 1)
-    };
+      const left = band(0, 0.28);
+      const right = band(0.72, 1);
+      advantages.push(sunFraction < 0.5 ? left - right : right - left);
+    }
+
+    return { sunFraction, sunAltitude, advantages };
   });
 
   // The test is only meaningful if the sun is off to one side and up.
@@ -1137,14 +1157,20 @@ test("clouds are lit from the side the sun is on (US-030)", async ({ page }) => 
     "the sun should be well off centre for this to say anything"
   ).toBeGreaterThan(0.15);
 
-  const sunSide = findings.sunFraction < 0.5 ? findings.left : findings.right;
-  const awaySide = findings.sunFraction < 0.5 ? findings.right : findings.left;
+  const mean = findings.advantages.reduce((a, b) => a + b, 0) / findings.advantages.length;
+  const brighter = findings.advantages.filter((a) => a > 0).length;
 
   expect(
-    sunSide,
-    `the side the sun is on (${findings.sunFraction.toFixed(2)} across) should be brighter: ` +
-      `${sunSide.toFixed(1)} against ${awaySide.toFixed(1)}`
-  ).toBeGreaterThan(awaySide);
+    mean,
+    `over ${findings.advantages.length} skies the sun's side should be brighter on average, ` +
+      `and was ${mean.toFixed(1)} levels ${mean > 0 ? "brighter" : "darker"}`
+  ).toBeGreaterThan(0);
+
+  // And it is the usual case rather than one sky dragging the mean.
+  expect(
+    brighter,
+    `the sun's side was brighter on ${brighter} of ${findings.advantages.length} skies`
+  ).toBeGreaterThanOrEqual(Math.ceil(findings.advantages.length * 0.6));
 });
 
 test("clouds drift, and the picture does not jump when the field wraps (US-030)", async ({
@@ -1189,7 +1215,11 @@ test("clouds drift, and the picture does not jump when the field wraps (US-030)"
     // across. Computing this in kilometres alone is the exact slip that made
     // the sky jump in the first place, so the test states it the same way the
     // module does.
-    const fastest = LAYERS[2];
+    // Whichever layer carries the largest multiplier: that is the one that
+    // wraps first. It was LAYERS[2] only while the lowest layer was the
+    // fastest, which was the inverted wind this test now sits beside.
+    const fastest = LAYERS.reduce((most, layer) => (layer.drift > most.drift ? layer : most));
+    const fastestIndex = LAYERS.indexOf(fastest);
     const cellKm = fastest.scale * scale;
     const interval = ((PERIOD * cellKm) / (wind * fastest.drift)) * 3_600_000;
 
@@ -1235,7 +1265,7 @@ test("clouds drift, and the picture does not jump when the field wraps (US-030)"
       const t = wrapAt + i * step;
       const pixels = frame(t);
 
-      const drift = driftCells(t, wind, 2, scale);
+      const drift = driftCells(t, wind, fastestIndex, scale);
       if (lastDrift !== null && drift < lastDrift) crossed = true;
       lastDrift = drift;
 
@@ -1277,6 +1307,86 @@ test("clouds drift, and the picture does not jump when the field wraps (US-030)"
     `one step changed by ${findings.worstJump.toFixed(2)} against a mean of ` +
       `${findings.meanChange.toFixed(2)} - that is a jump, so the field is not periodic`
   ).toBeLessThan(findings.meanChange * 4);
+});
+
+test("a cloud pattern persists for minutes, not seconds, so it reads as weather", async ({
+  page
+}) => {
+  // The wind is switched OFF, so nothing moves and the only thing that can
+  // change the picture is the field evolving - the one quantity that needs no
+  // alignment to measure, which is why this is the way to pin it.
+  //
+  // The distance between two frames is compared with the distance between two
+  // skies a day apart, which share a horizon and a gradient but not a single
+  // cloud. A pattern that has lost nothing scores 0 and one that has lost
+  // everything scores 1.
+  //
+  // Measured on 2026-11-12: at the old 1200 s the pattern was gone in about
+  // eight minutes (half of it in 2.8), against the twenty the comment on
+  // EVOLUTION_SECONDS claimed. A cumulus lives a quarter of an hour and the
+  // sheet it sits in longer; a sky that reforms every few minutes boils.
+  test.slow();
+
+  const r = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset } = await import("/engine/index.js");
+
+    const width = 320;
+    const height = 180;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+    engine.setPreset({ ...defaultPreset(), cloudCover: 0.6, cloudDrift: 0 });
+
+    const place = { lat: 39.74, lon: -104.99 };
+    const frame = (t) => {
+      engine.render({
+        t,
+        place,
+        crop: { x: 0, y: 0, w: width, h: height },
+        span: { w: width, h: height },
+        pixelRatio: 1
+      });
+      const px = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      return px;
+    };
+
+    const distance = (a, b) => {
+      let sum = 0;
+      for (let i = 0; i < a.length; i += 4) {
+        sum +=
+          Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+      }
+      return sum / (a.length / 4) / 3;
+    };
+
+    const t0 = Date.UTC(2026, 5, 1, 18); // noon, Denver
+    const base = frame(t0);
+    const control = distance(base, frame(t0 + 86_400_000));
+
+    const minutes = [1, 4, 8, 16];
+    const lost = {};
+    for (const m of minutes) lost[m] = distance(base, frame(t0 + m * 60_000)) / control;
+    return { control, lost };
+  });
+
+  expect(r.control, "two skies a day apart should differ").toBeGreaterThan(1);
+
+  // Still recognisable after four minutes, and visibly changed by sixteen.
+  expect(
+    r.lost[4],
+    `lost ${(r.lost[4] * 100).toFixed(0)}% of the pattern in 4 minutes`
+  ).toBeLessThan(0.45);
+  expect(
+    r.lost[16],
+    `lost only ${(r.lost[16] * 100).toFixed(0)}% in 16 minutes: frozen`
+  ).toBeGreaterThan(0.45);
+
+  // And it gets steadily further away rather than flickering.
+  expect(r.lost[1]).toBeLessThan(r.lost[4]);
+  expect(r.lost[4]).toBeLessThan(r.lost[16]);
 });
 
 test("a skyline stands on the horizon and leaves the sky alone (US-032)", async ({ page }) => {

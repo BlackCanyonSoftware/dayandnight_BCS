@@ -124,7 +124,42 @@ test("every layer drifts at a different rate, which is what parallax is", () => 
   );
 });
 
-test("the evolution is bounded too, and advances about once a second", () => {
+test("the wind strengthens with height, as it does, and the parallax stays modest", () => {
+  // The layers run highest to lowest, so a wind that strengthens with height
+  // is one whose multiplier falls down the list. They were the other way round
+  // until 2026-11-12: 0.55 at the top and 1.9 at the bottom, which put the
+  // low layer overhead about twenty times faster than the high one where a
+  // real sky has them within a factor of a few.
+  for (let i = 1; i < LAYERS.length; i += 1) {
+    assert.ok(
+      LAYERS[i].drift <= LAYERS[i - 1].drift,
+      `layer ${i} is lower than layer ${i - 1} and must not be carried faster`
+    );
+  }
+
+  // How fast a cloud appears to move overhead is its ground speed over its
+  // height. The fastest-looking layer against the slowest is the depth cue, and
+  // it should be there without being a scrolling game.
+  const apparent = LAYERS.map((layer) => layer.drift / layer.height);
+  const ratio = Math.max(...apparent) / Math.min(...apparent);
+  assert.ok(ratio > 1.5, `a ratio of ${ratio.toFixed(1)} is no parallax at all`);
+  assert.ok(ratio < 6, `a ratio of ${ratio.toFixed(1)} is a scrolling game, not a sky`);
+});
+
+test("the field persists for minutes, not seconds", () => {
+  // The constant is what makes a cloud look like a cloud rather than like
+  // boiling. The pattern was measured to lose half of what it shared with
+  // itself in 2.8 minutes at 1200 s, and the corrected value is the one that
+  // puts that near a quarter of an hour. The measurement is in the browser
+  // suite, because it needs the noise; what can be pinned here is that nobody
+  // quietly makes it fast again.
+  assert.ok(
+    EVOLUTION_SECONDS >= 3000,
+    `${EVOLUTION_SECONDS} s is the old, boiling rate; see the comment on the constant`
+  );
+});
+
+test("the evolution is bounded too, and advances about once every few seconds", () => {
   for (const t of centuryOfInstants()) {
     const e = evolution(t);
     assert.ok(e >= 0 && e < PERIOD, `evolution ${e} outside [0, ${PERIOD})`);

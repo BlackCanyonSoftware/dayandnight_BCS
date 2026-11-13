@@ -118,8 +118,10 @@ export function defaultPreset() {
      *
      * Kilometres rather than degrees, because the clouds are sampled where the
      * view ray meets a plane and so move with the wind across that plane. The
-     * layers multiply it: the lowest moves at 1.9 times this and the highest
-     * at 0.55, which is what makes them slide past each other.
+     * layers multiply it: the highest moves at 1.5 times this and the lowest
+     * at 0.75, because the wind strengthens with height. What makes them slide
+     * past each other is their distance, not a difference in the weather - see
+     * `LAYERS` in `sky/clouds.js`.
      *
      * Twelve is a light breeze, and a cloud feature then takes about five
      * minutes to pass a point - which is what a real one does. It is also

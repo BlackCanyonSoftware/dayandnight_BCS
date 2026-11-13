@@ -86,6 +86,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Clouds now behave like clouds.** They used to reshape themselves so fast
+  that nothing recognisable at one moment was there five minutes later - a sky
+  that boils rather than drifts - and the low clouds raced past the high ones
+  about twenty times faster. A cloud now stays recognisably the same cloud for
+  around ten minutes, the big sheets lasting longer than the small wisps, and
+  the layers move at believable speeds relative to each other, higher air
+  moving faster as it really does. The wallpaper also redraws a little less
+  often, which makes it a little cheaper to leave running.
 - **The editor is built to Material Design 3.** The brand it carries is built
   to one published design system, and this is it: rounded buttons that are a
   proper size to hit, taller text fields that show where you are by thickening

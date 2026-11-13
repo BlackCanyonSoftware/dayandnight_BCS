@@ -461,6 +461,39 @@ divide. Near the horizon the ray turns parallel to the plane and the
 intersection runs away, so the sample fades out over the last stretch; real
 cloudscapes merge into haze there for the same reason.
 
+**The motion, and a correction made on 2026-11-12.** The field does two
+things over time: it is carried by the wind, and it evolves, which is the noise's
+third axis advancing. Both were wrong, and neither had been measured.
+
+_Evolution was about five times too fast._ The comment on the constant said the
+field became a different sky in twenty minutes. Measured with the wind off, so
+that nothing moves and the only thing that can change the picture is the
+evolution - the one quantity that needs no alignment to measure - the pattern
+had lost half of what it shared with itself in **2.8 minutes** and was gone in
+eight. Every octave samples the axis at twice the rate of the one below, so the
+finest of four changes eight times faster than the coarsest, and the domain warp
+feeds the change back into the sampling position. At the corrected 3600 s the
+half-life is about 14 minutes for fine detail and 29 for the large features,
+which is the way round clouds are: a cumulus lives about a quarter of an hour
+and the sheet it sits in much longer.
+
+_The wind ran the wrong way up._ The layers' multipliers were 0.55 at the top
+and 1.9 at the bottom, so the low layer crossed the sky about twenty times
+faster than the high one. A real atmosphere has wind that strengthens with
+height, and the apparent speed of a cloud is its ground speed over its height,
+so real layers move within a factor of a few of one another. They are now 1.5,
+1.0 and 0.75, roughly 2.5, 4 and 7 degrees a minute overhead at the default
+wind, and the depth still reads because nearer is still faster. **This half is
+a judgement from meteorology, not a measurement.** The obvious measurement -
+how much of the pattern survives under the wind - turned out not to be one: a
+rigid-shift alignment cannot follow a flat plane seen through a wide projection,
+so it scores a perfectly frozen, drifting field as having lost its pattern, and
+the wind-on numbers from that attempt are not quoted.
+
+A browser test now pins the evolution: wind off, the share of a pattern lost
+after four minutes must stay under 45 % and after sixteen above it. At the old
+rate it was 63 % lost at four; at the new, 21 %.
+
 **The lighting is not a rule about sunrises.** The clouds are lit by the sun's
 own transmittance - the same value the sun and moon discs are drawn with -
 which is already reddened by the long path through the atmosphere at a low sun.
@@ -488,12 +521,16 @@ It does not, because the field only translates and evolves. So "would this
 frame differ from the last" is two scalars rather than a noise field, and the
 frame signature answers it without evaluating an octave. The quantum is one
 pixel of the fastest layer, which makes the redraw rate a stated number rather
-than an emergent one: at the default wind, about **four redraws a second**
-against one every sixteen seconds for a clear sky, and against the twenty a
-second it would have cost to animate honestly.
+than an emergent one: at the default wind, about **three redraws a second**
+(it was four before the layers and the evolution were corrected) against one
+every sixteen seconds for a clear sky, and against the twenty a second it would
+have cost to animate honestly.
 
-At the measured 0.09 % of a core per frame per second that is roughly 0.4 %,
-against a budget of 2. **Not yet measured end to end** - and the GPU side,
+At the measured 0.09 % of a core per frame per second that is roughly 0.3 %,
+against a budget of 2. **Measured end to end on 2026-11-04, at the old rate:**
+the clouds cost 0.05 points of a core (Measurement, Milestones 3 and 4). Both
+corrections lower the redraw rate and neither raises the cost of a frame, so
+that figure can only have improved, but it has not been re-taken. The GPU side,
 which this pass loads far more heavily than anything before it, has never been
 measured at all.
 

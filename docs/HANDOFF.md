@@ -13,14 +13,15 @@ one: scattering for its colour, Meeus astronomy for the sun and moon, stars
 turning at the sidereal rate, and a grade over the top.
 
 - **Branch:** `main`
-- **Remote:** `origin` is `github.com/BlackCanyonSoftware/dayandnight_BCS`.
-  **Nothing has been pushed.** The owner pushes.
+- **Remote:** `origin` is `github.com/BlackCanyonSoftware/dayandnight_BCS`,
+  public. The owner pushes; commits wait locally until they do.
 - **Tier:** MVP
-- **Checks:** lint, format and typecheck clean; **177 unit and 44 browser
-  tests**, all passing on 2026-11-03, and `npm run build` green on the same
-  date including `check-bundle.js` with its eight legal documents. `npm audit
---audit-level=high` is clean too, which it was not before Electron 44.10.2.
-  **CI itself is still red on GitHub** until these commits are pushed.
+- **Checks:** lint, format and typecheck clean; **168 unit and 45 browser
+  tests**, all passing on 2026-11-12. `npm run build` was last run green on
+  2026-11-06, including `check-bundle.js` with its nine legal documents, and
+  `npm audit --audit-level=high` is clean (it was not before Electron 44.10.2).
+  **CI has passed on every push since 2026-11-04**; before that it had never
+  passed, for the reasons in the 2026-11-03 session entry.
 - **The 12 desktop tests and `node tools/verify-package.js` pass**, run on
   2026-11-04 - the first time since 2026-10-24, and so the first time against
   the clouds, the horizon, Electron 44.10.2 and the two typefaces. The
@@ -176,6 +177,43 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-11-12 - the clouds were not life-like, and are now measured to be
+
+- **Prompted by the owner, while building the README animation:** "the clouds
+  need to be life-like throughout the day ... if your cloud motion isn't
+  life-like that's another problem that should be fixed before doing these
+  animations." It was.
+- **Evolution was about five times too fast.** `EVOLUTION_SECONDS` was 1200 and
+  its comment said the field became a different sky in twenty minutes. Measured
+  with the wind off, the pattern lost half of what it shared with itself in
+  **2.8 minutes** and was gone in eight. Now 3600: about 14 minutes for fine
+  detail and 29 for large features, by the same measure. A browser test pins it
+  and was checked to fail at the old value (63 % lost at four minutes against a
+  limit of 45).
+- **The wind ran the wrong way up.** Layer multipliers were 0.55 high to 1.9
+  low, so the low layer crossed the sky about twenty times faster than the high
+  one. Now 1.5, 1.0, 0.75. **That half is judgement, not measurement**, and
+  `ARCHITECTURE.md` says so: the metric I first used for it - best-alignment
+  correlation under the wind - cannot follow a plane through a wide projection
+  and scores a frozen drifting field as lost, so its wind-on numbers are not
+  quoted. Revert is two numbers in `LAYERS` if the look is not liked.
+- **A test that passed by luck was found on the way.** "Clouds are lit from the
+  side the sun is on" rendered one instant, whose result depends on which clouds
+  happen to be in the frame. Over forty independent mornings the lit side is
+  brighter by about 14 levels on average and on 31 to 34 mornings of 40 under
+  both the old and the new engine - real, and with a spread as large as the
+  effect, so one sky in five or six comes out the wrong way. The old test
+  passed while its instant was a good one and failed when the corrected
+  evolution moved it onto a bad one. It now averages sixteen mornings and still
+  asserts the same thing, so the claim is not weakened, only measured on enough
+  skies. The drift-wrap test hard-coded layer 2 as the fastest, which stopped
+  being true; it uses the layer with the largest multiplier.
+- **A stale claim fixed in the same paragraph:** `ARCHITECTURE.md` still said the
+  clouds were "not yet measured end to end", three days after they were
+  (0.05 points of a core). Redraws are now about three a second, not four, so
+  the cost can only have fallen, but it has **not been re-measured**.
+- The README animation is built from the corrected engine, not before it.
 
 ### 2026-11-12 - the repository's front door
 
