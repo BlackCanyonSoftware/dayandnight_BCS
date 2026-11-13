@@ -93,12 +93,13 @@ Two things to know before changing any of it:
    update the README's Requirements line, which says only that Windows 10 1903
    or later is needed.
 
-2. **Real local wind, optional and later.** The wind is a simulation now and
-   the interface is ready for something that knows the real one. `ROADMAP.md`,
-   Milestone 3, lists what that would need: the host fetches on consent, a table
-   of samples with an exact piecewise integral, a changed privacy notice, and a
-   data source whose licence allows commercial use (Open-Meteo's free tier does
-   not). Not started.
+2. **Real local wind: built up to the switch, which is the owner's.** The
+   engine accepts a series of wind samples and `desktop/wind-source.js` reads
+   MET Norway's forecast into one, both tested; nothing calls the adapter and
+   nothing touches the network. Turning it on needs the owner to choose: consent
+   (opt-in, off by default), the privacy notice, EULA and settings hint changed,
+   an ADR, whether to run a proxy, and whether to accept the 2.5 surface-to-cloud
+   factor, which is a judgement. `ROADMAP.md`, Milestone 3, has the list.
 3. **The GPU, which has never been measured at all.** NFR-1 budgets 4 % and
    there is no way to check it. The cloud pass is a few hundred hashes a pixel
    where the sky used to be a table lookup, so this is the first time the
@@ -183,6 +184,27 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-11-13 - the real wind, up to the switch
+
+- **Series in the engine.** `makeWindSeries` and an optional series through
+  `windAt`, `windIntegralKm`, `driftCells`, `cloudSteps`, the signature and
+  `FrameRequest.wind`. Exact piecewise-quadratic position from prefix sums;
+  continuous at both ends of the data, with the simulation's increments
+  continuing outside it. The same differentiation test as the simulation covers
+  it.
+- **`desktop/wind-source.js`** for MET Norway, whose terms I read on their own
+  pages today rather than from memory. Pure: request, response reading, refetch
+  timing. 0.1-degree coordinates, identifying User-Agent, attribution string.
+- **The browser direction test** now also hands in real winds toward the east
+  and the west and expects opposite shifts, so a series cannot pass by being
+  ignored while the simulation happens to agree.
+- **Verification:** lint, format, typecheck clean; 204 unit tests and 47 browser
+  tests pass. `npm run test:desktop` and `tools/verify-package.js` were **not
+  run** since `cloudWindFrom` joined the settings document: they open windows and
+  the owner said not now.
+- **Not done:** the fetch, consent, privacy changes and attribution in the About
+  panel (the owner's call, above).
 
 ### 2026-11-12 (last) - the wind
 

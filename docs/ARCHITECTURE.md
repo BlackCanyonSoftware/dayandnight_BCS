@@ -518,8 +518,13 @@ speed by more than three to one.
 The drift is now a vector, wrapped per axis in lattice cells, and the signature
 quantises the fastest layer along both. A diagonal wind changes both axes and so
 redraws up to about 1.4 times as often as one along an axis. The simulation is a
-simulation: it knows nothing about the real wind, and the roadmap records what
-a real source would need.
+simulation, but the engine can be handed a real wind: an optional series of
+samples in the frame request, whose position is the exact piecewise-quadratic
+integral of the linear interpolation between them. Outside the data the
+simulation's increments continue from the series' ends, so the position is
+continuous and a stale table falls back to the weather. The engine only receives
+the table; fetching it is the host's job (`desktop/wind-source.js`, not yet
+wired), and the roadmap records what turning that on needs.
 
 **The lighting is not a rule about sunrises.** The clouds are lit by the sun's
 own transmittance - the same value the sun and moon discs are drawn with -

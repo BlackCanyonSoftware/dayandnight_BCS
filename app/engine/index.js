@@ -496,7 +496,9 @@ export class DayNightEngine {
       // One drift per layer, which is what makes the parallax: the layers are
       // at different heights and move at different rates, so they slide past
       // each other instead of together.
-      const drifts = [0, 1, 2].map((layer) => driftCells(t, place, this.preset, layer));
+      const drifts = [0, 1, 2].map((layer) =>
+        driftCells(t, place, this.preset, layer, request.wind ?? null)
+      );
       gl.uniform3f(clouds.uniform("uDriftX"), drifts[0][0], drifts[1][0], drifts[2][0]);
       gl.uniform3f(clouds.uniform("uDriftZ"), drifts[0][1], drifts[1][1], drifts[2][1]);
 

@@ -49,11 +49,33 @@
  * is", and the wind wanders around it. A fixed direction switches the whole
  * simulation off: the wind then blows from that bearing at exactly that speed.
  *
+ * ## A real wind, when one is supplied
+ *
+ * `windAt` and `windIntegralKm` also take a **series of samples** - the wind at
+ * a run of instants, from whoever knows it. Between samples the velocity is
+ * linear, so the position is piecewise quadratic and still exact; the prefix
+ * sums are built once by `makeWindSeries`. Outside the series the simulation
+ * carries on from where the data stopped, with the position continuous across
+ * the join, so a screen that has no data, or is looking at a date the data does
+ * not reach, degrades to the weather it always had rather than to nothing.
+ *
+ * The engine never fetches anything (architecture invariant 2). A series is
+ * something the host hands it, the way it hands it a place.
+ *
+ * With a series, `typicalKmh` is a scale: the preset's wind slider relative to
+ * its default, so that the default is the data as it is and the slider can still
+ * make a day windier or calmer. A fixed direction ignores the series.
+ *
  * @module engine/sky/wind
  */
 
+import { defaultPreset } from "../defaults.js";
+
 const HOUR_MS = 3_600_000;
 const TWO_PI = Math.PI * 2;
+
+/** The wind slider's default, which is what a series is scaled against. */
+const DEFAULT_TYPICAL_KMH = defaultPreset().cloudDrift;
 
 /** @param {number} a @param {number} b @param {number} x */
 function smoothstep(a, b, x) {
@@ -185,10 +207,11 @@ function partsFor(place) {
  * @param {{ lat: number, lon: number }} place
  * @param {number} typicalKmh the preset's `cloudDrift`
  * @param {number | null} fromDegrees a fixed bearing it blows from, or null
- *   for the simulated weather
+ *   for the weather
+ * @param {WindSeries | null} [series] real samples, used inside their span
  * @returns {Wind}
  */
-export function windAt(t, place, typicalKmh, fromDegrees) {
+export function windAt(t, place, typicalKmh, fromDegrees, series = null) {
   let east;
   let north;
 
@@ -197,6 +220,11 @@ export function windAt(t, place, typicalKmh, fromDegrees) {
     const toward = ((fromDegrees + 180) * Math.PI) / 180;
     east = typicalKmh * Math.sin(toward);
     north = typicalKmh * Math.cos(toward);
+  } else if (series && t >= series.t[0] && t <= series.t[series.t.length - 1]) {
+    const v = seriesVelocity(series, t);
+    const scale = typicalKmh / DEFAULT_TYPICAL_KMH;
+    east = v.east * scale;
+    north = v.north * scale;
   } else {
     const hours = t / HOUR_MS;
     const parts = partsFor(place);
@@ -244,12 +272,12 @@ export function windAt(t, place, typicalKmh, fromDegrees) {
  * @param {{ lat: number, lon: number }} place
  * @param {number} typicalKmh
  * @param {number | null} fromDegrees
+ * @param {WindSeries | null} [series] real samples
  * @returns {{ east: number, north: number }}
  */
-export function windIntegralKm(t, place, typicalKmh, fromDegrees) {
-  const hours = t / HOUR_MS;
-
+export function windIntegralKm(t, place, typicalKmh, fromDegrees, series = null) {
   if (fromDegrees !== null) {
+    const hours = t / HOUR_MS;
     const toward = ((fromDegrees + 180) * Math.PI) / 180;
     return {
       east: typicalKmh * Math.sin(toward) * hours,
@@ -257,6 +285,40 @@ export function windIntegralKm(t, place, typicalKmh, fromDegrees) {
     };
   }
 
+  if (!series) return simulatedIntegral(t, place, typicalKmh);
+
+  const first = series.t[0];
+  const last = series.t[series.t.length - 1];
+  const scale = typicalKmh / DEFAULT_TYPICAL_KMH;
+
+  if (t >= first && t <= last) {
+    const p = seriesPosition(series, t);
+    return { east: p.east * scale, north: p.north * scale };
+  }
+
+  // Outside the data, the simulation's own movement, joined at the nearer end
+  // so that the position is continuous: nothing jumps when the data runs out.
+  const edge = t < first ? first : last;
+  const atEdge = t < first ? { east: 0, north: 0 } : seriesPosition(series, last);
+  const moved = simulatedIntegral(t, place, typicalKmh);
+  const from = simulatedIntegral(edge, place, typicalKmh);
+
+  return {
+    east: atEdge.east * scale + (moved.east - from.east),
+    north: atEdge.north * scale + (moved.north - from.north)
+  };
+}
+
+/**
+ * The simulated weather's position: the exact antiderivative of its velocity.
+ *
+ * @param {number} t
+ * @param {{ lat: number, lon: number }} place
+ * @param {number} typicalKmh
+ * @returns {{ east: number, north: number }}
+ */
+function simulatedIntegral(t, place, typicalKmh) {
+  const hours = t / HOUR_MS;
   const parts = partsFor(place);
 
   let east = parts.prevailing * hours;
@@ -281,4 +343,123 @@ export function windIntegralKm(t, place, typicalKmh, fromDegrees) {
   }
 
   return { east: east * typicalKmh, north: north * typicalKmh };
+}
+
+// ------------------------------------------------------------ a real wind
+
+/**
+ * One sample of a real wind: the wind at the cloud layers' level at an instant,
+ * as a velocity toward the east and the north.
+ *
+ * @typedef {object} WindSample
+ * @property {number} t milliseconds since the epoch, UTC
+ * @property {number} east km/h, toward the east
+ * @property {number} north km/h, toward the north
+ */
+
+/**
+ * Samples prepared for exact evaluation. Immutable; build one with
+ * `makeWindSeries` and hand the same one to every frame.
+ *
+ * @typedef {object} WindSeries
+ * @property {Float64Array} t
+ * @property {Float64Array} east
+ * @property {Float64Array} north
+ * @property {Float64Array} cumEast km travelled from the first sample to each
+ * @property {Float64Array} cumNorth
+ */
+
+/**
+ * Prepare a series, or refuse one that is not usable.
+ *
+ * Refused rather than repaired: samples out of order or with a missing number
+ * are somebody's bug, and quietly sorting or skipping them would put clouds
+ * somewhere nobody asked for. Null means "use the weather".
+ *
+ * @param {WindSample[]} samples
+ * @returns {WindSeries | null}
+ */
+export function makeWindSeries(samples) {
+  if (!Array.isArray(samples) || samples.length < 2) return null;
+
+  const n = samples.length;
+  const t = new Float64Array(n);
+  const east = new Float64Array(n);
+  const north = new Float64Array(n);
+  const cumEast = new Float64Array(n);
+  const cumNorth = new Float64Array(n);
+
+  for (let i = 0; i < n; i += 1) {
+    const s = samples[i];
+    if (!s || !Number.isFinite(s.t) || !Number.isFinite(s.east) || !Number.isFinite(s.north)) {
+      return null;
+    }
+    if (i > 0 && !(s.t > t[i - 1])) return null;
+
+    t[i] = s.t;
+    east[i] = s.east;
+    north[i] = s.north;
+
+    if (i > 0) {
+      // Trapezoid, which is exact for a velocity that is linear between samples.
+      const hours = (t[i] - t[i - 1]) / HOUR_MS;
+      cumEast[i] = cumEast[i - 1] + 0.5 * (east[i - 1] + east[i]) * hours;
+      cumNorth[i] = cumNorth[i - 1] + 0.5 * (north[i - 1] + north[i]) * hours;
+    }
+  }
+
+  return Object.freeze({ t, east, north, cumEast, cumNorth });
+}
+
+/**
+ * The index of the segment containing an instant: the largest i with t[i] <= ms,
+ * kept inside [0, n - 2] so that i + 1 always exists.
+ *
+ * @param {WindSeries} series
+ * @param {number} ms
+ * @returns {number}
+ */
+function segmentOf(series, ms) {
+  let lo = 0;
+  let hi = series.t.length - 2;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (series.t[mid] <= ms) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
+
+/**
+ * @param {WindSeries} series
+ * @param {number} ms inside the series' span
+ * @returns {{ east: number, north: number }}
+ */
+function seriesVelocity(series, ms) {
+  const i = segmentOf(series, ms);
+  const f = (ms - series.t[i]) / (series.t[i + 1] - series.t[i]);
+  return {
+    east: series.east[i] + (series.east[i + 1] - series.east[i]) * f,
+    north: series.north[i] + (series.north[i + 1] - series.north[i]) * f
+  };
+}
+
+/**
+ * The position at an instant inside the series: the prefix sum to the segment's
+ * start plus the integral of a linear velocity across part of the segment.
+ *
+ * @param {WindSeries} series
+ * @param {number} ms inside the series' span
+ * @returns {{ east: number, north: number }}
+ */
+function seriesPosition(series, ms) {
+  const i = segmentOf(series, ms);
+  const segment = (series.t[i + 1] - series.t[i]) / HOUR_MS;
+  const h = (ms - series.t[i]) / HOUR_MS;
+
+  // v(h) = v0 + (v1 - v0) * h / segment, so the integral is v0 h + slope h^2 / 2.
+  const e = series.east[i] * h + (0.5 * (series.east[i + 1] - series.east[i]) * h * h) / segment;
+  const n = series.north[i] * h + (0.5 * (series.north[i + 1] - series.north[i]) * h * h) / segment;
+
+  return { east: series.cumEast[i] + e, north: series.cumNorth[i] + n };
 }

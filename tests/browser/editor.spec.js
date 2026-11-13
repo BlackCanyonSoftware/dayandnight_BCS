@@ -1495,7 +1495,7 @@ test("the clouds travel the way the wind direction says (US-030)", async ({ page
     const noon = Date.UTC(2026, 5, 21, 18);
 
     // A column profile of a band of sky, so the shift is one dimensional.
-    const profile = (from, t) => {
+    const profile = (from, t, wind = null) => {
       engine.setPreset({
         ...defaultPreset(),
         bearing: 180,
@@ -1508,7 +1508,8 @@ test("the clouds travel the way the wind direction says (US-030)", async ({ page
         place,
         crop: { x: 0, y: 0, w: width, h: height },
         span: { w: width, h: height },
-        pixelRatio: 1
+        pixelRatio: 1,
+        wind
       });
       const px = new Uint8Array(width * height * 4);
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, px);
@@ -1547,6 +1548,25 @@ test("the clouds travel the way the wind direction says (US-030)", async ({ page
     for (const from of [90, 270, 180]) {
       result[from] = bestShift(profile(from, noon), profile(from, noon + 3 * 60_000));
     }
+
+    // A real wind handed in by the host: 20 km/h toward the east for a day
+    // either side of noon, which is a wind from the west. With the direction
+    // left on the weather (null) the series is what carries the clouds.
+    //
+    // And the opposite wind too. One series alone could be satisfied by
+    // ignoring it, if the simulated weather that day happened to blow the same
+    // way; no single answer satisfies both.
+    const { makeWindSeries } = await import("/engine/sky/wind.js");
+    const constant = (east) =>
+      makeWindSeries([
+        { t: noon - 12 * 3_600_000, east, north: 0 },
+        { t: noon + 12 * 3_600_000, east, north: 0 }
+      ]);
+    const shiftWith = (series) =>
+      bestShift(profile(null, noon, series), profile(null, noon + 3 * 60_000, series));
+
+    result.series = shiftWith(constant(20));
+    result.seriesBack = shiftWith(constant(-20));
     return result;
   });
 
@@ -1558,6 +1578,17 @@ test("the clouds travel the way the wind direction says (US-030)", async ({ page
     shifts[270],
     `wind from the west moved the clouds ${shifts[270]} px; it should be leftward`
   ).toBeLessThan(-8);
+
+  // A real wind from the west, handed in by the host, carries them leftward
+  // like the fixed one - the engine is using it, not the weather.
+  expect(
+    shifts.series,
+    `a real wind toward the east moved the clouds ${shifts.series} px; it should be leftward`
+  ).toBeLessThan(-8);
+  expect(
+    shifts.seriesBack,
+    `a real wind toward the west moved the clouds ${shifts.seriesBack} px; it should be rightward`
+  ).toBeGreaterThan(8);
 
   // Along the view: much less sideways than across it.
   expect(

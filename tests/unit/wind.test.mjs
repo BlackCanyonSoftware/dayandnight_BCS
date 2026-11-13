@@ -2,7 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { LAYERS, driftCells, layerDisplacementKm } from "../../app/engine/sky/clouds.js";
-import { prevailingEast, windAt, windIntegralKm } from "../../app/engine/sky/wind.js";
+import {
+  makeWindSeries,
+  prevailingEast,
+  windAt,
+  windIntegralKm
+} from "../../app/engine/sky/wind.js";
 
 /**
  * The wind. A simulation, so there is no truth to compare it against; what can
@@ -225,4 +230,190 @@ test("every layer's drift stays inside the period whichever way the wind blows",
       }
     }
   }
+});
+
+// ---------------------------------------------------------------- a real wind
+
+/** A made-up but wiggly series: a sample every hour for two days. */
+function wigglySeries(start = Date.UTC(2026, 5, 1)) {
+  const samples = [];
+  for (let h = 0; h <= 48; h += 1) {
+    samples.push({
+      t: start + h * HOUR,
+      east: 14 + 9 * Math.sin(h * 0.61) - 4 * Math.cos(h * 0.23),
+      north: -6 + 7 * Math.cos(h * 0.47) + 3 * Math.sin(h * 1.1)
+    });
+  }
+  return { start, samples, series: makeWindSeries(samples) };
+}
+
+test("inside a series, the position is the integral of the velocity it gives", () => {
+  // The same claim as for the simulation, for the piecewise-linear velocity: a
+  // quadratic inside each segment and a prefix sum between them, and it is easy
+  // to get a half or a segment wrong in either.
+  const { start, series } = wigglySeries();
+  assert.ok(series, "the series should be usable");
+
+  const dt = 2_000;
+  for (let k = 0; k < 60; k += 1) {
+    // Thirty seconds past a minute, so that no instant is within the two-second
+    // window of an hourly sample: across one the velocity has a kink and a
+    // central difference is not exact there, which is the instrument again.
+    const t = start + (5 + k * 47) * 60_000 + 30_000;
+    if (t + dt > start + 48 * HOUR) break;
+
+    const a = windIntegralKm(t - dt, DENVER, 12, null, series);
+    const b = windIntegralKm(t + dt, DENVER, 12, null, series);
+    const v = windAt(t, DENVER, 12, null, series);
+
+    const east = ((b.east - a.east) / (2 * dt)) * HOUR;
+    const north = ((b.north - a.north) / (2 * dt)) * HOUR;
+
+    assert.ok(
+      Math.abs(east - v.east) < 1e-6 && Math.abs(north - v.north) < 1e-6,
+      `the integral moves at (${east}, ${north}) but the velocity is (${v.east}, ${v.north})`
+    );
+  }
+});
+
+test("a constant series carries a cloud exactly as far as the speed says", () => {
+  const start = Date.UTC(2026, 5, 1);
+  const series = makeWindSeries([
+    { t: start, east: 20, north: -5 },
+    { t: start + 6 * HOUR, east: 20, north: -5 }
+  ]);
+
+  const a = windIntegralKm(start + HOUR, DENVER, 12, null, series);
+  const b = windIntegralKm(start + 4 * HOUR, DENVER, 12, null, series);
+
+  assert.ok(Math.abs(b.east - a.east - 60) < 1e-9, "three hours at 20 km/h is 60 km east");
+  assert.ok(Math.abs(b.north - a.north + 15) < 1e-9, "and 15 km south");
+});
+
+test("the slider scales a real wind and leaves its direction alone", () => {
+  // The default slider is the data as it is.
+  const { start, series } = wigglySeries();
+  const t0 = start + 3 * HOUR;
+  const t1 = start + 20 * HOUR;
+
+  const travel = (speed) => {
+    const a = windIntegralKm(t0, DENVER, speed, null, series);
+    const b = windIntegralKm(t1, DENVER, speed, null, series);
+    return { east: b.east - a.east, north: b.north - a.north };
+  };
+
+  const asGiven = travel(12);
+  const doubled = travel(24);
+  assert.ok(Math.abs(doubled.east - 2 * asGiven.east) < 1e-9);
+  assert.ok(Math.abs(doubled.north - 2 * asGiven.north) < 1e-9);
+
+  // Compared with === and not assert.equal, which tells -0 from 0: a scale of
+  // zero times a negative number is -0, and nobody cares.
+  const none = travel(0);
+  assert.ok(
+    none.east === 0 && none.north === 0,
+    `no wind moved the clouds by (${none.east}, ${none.north})`
+  );
+});
+
+test("the position is continuous where the data starts and where it ends", () => {
+  const { start, series } = wigglySeries();
+  const end = start + 48 * HOUR;
+
+  for (const edge of [start, end]) {
+    const before = windIntegralKm(edge - 1, DENVER, 12, null, series);
+    const at = windIntegralKm(edge, DENVER, 12, null, series);
+    const after = windIntegralKm(edge + 1, DENVER, 12, null, series);
+
+    // A millisecond at twenty or thirty kilometres an hour is under a centimetre.
+    assert.ok(
+      Math.abs(at.east - before.east) < 1e-5 && Math.abs(after.east - at.east) < 1e-5,
+      "east jumped"
+    );
+    assert.ok(
+      Math.abs(at.north - before.north) < 1e-5 && Math.abs(after.north - at.north) < 1e-5,
+      "north jumped"
+    );
+  }
+});
+
+test("outside the data the weather carries on, moving as the simulation moves", () => {
+  // Not "stops" and not "jumps": a screen with no data for this date gets the
+  // clouds it always had, from where the data left them.
+  const { start, series } = wigglySeries();
+  const end = start + 48 * HOUR;
+
+  const later = (t) => windIntegralKm(t, DENVER, 12, null, series);
+  const sim = (t) => windIntegralKm(t, DENVER, 12, null, null);
+
+  for (const hours of [1, 9, 50, 400]) {
+    const t = end + hours * HOUR;
+    const movedReal = {
+      east: later(t).east - later(end).east,
+      north: later(t).north - later(end).north
+    };
+    const movedSim = { east: sim(t).east - sim(end).east, north: sim(t).north - sim(end).north };
+    assert.ok(
+      Math.abs(movedReal.east - movedSim.east) < 1e-6 &&
+        Math.abs(movedReal.north - movedSim.north) < 1e-6
+    );
+  }
+
+  // And before the data starts, the same.
+  for (const hours of [1, 30, 300]) {
+    const t = start - hours * HOUR;
+    const movedReal = {
+      east: later(start).east - later(t).east,
+      north: later(start).north - later(t).north
+    };
+    const movedSim = {
+      east: sim(start).east - sim(t).east,
+      north: sim(start).north - sim(t).north
+    };
+    assert.ok(
+      Math.abs(movedReal.east - movedSim.east) < 1e-6 &&
+        Math.abs(movedReal.north - movedSim.north) < 1e-6
+    );
+  }
+});
+
+test("a fixed direction ignores a real wind, because the owner said where it blows from", () => {
+  const { start, series } = wigglySeries();
+  const t = start + 10 * HOUR;
+  assert.deepEqual(windAt(t, DENVER, 12, 90, series), windAt(t, DENVER, 12, 90, null));
+  assert.deepEqual(
+    windIntegralKm(t, DENVER, 12, 90, series),
+    windIntegralKm(t, DENVER, 12, 90, null)
+  );
+});
+
+test("a series that is not usable is refused, not repaired", () => {
+  const t = Date.UTC(2026, 5, 1);
+  assert.equal(makeWindSeries([]), null, "empty");
+  assert.equal(makeWindSeries([{ t, east: 1, north: 1 }]), null, "one sample is no series");
+  assert.equal(makeWindSeries(null), null);
+  assert.equal(
+    makeWindSeries([
+      { t: t + HOUR, east: 1, north: 1 },
+      { t, east: 1, north: 1 }
+    ]),
+    null,
+    "out of order"
+  );
+  assert.equal(
+    makeWindSeries([
+      { t, east: 1, north: 1 },
+      { t, east: 2, north: 2 }
+    ]),
+    null,
+    "a repeated instant"
+  );
+  assert.equal(
+    makeWindSeries([
+      { t, east: 1, north: 1 },
+      { t: t + HOUR, east: NaN, north: 1 }
+    ]),
+    null,
+    "a missing number"
+  );
 });

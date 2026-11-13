@@ -301,28 +301,47 @@ the first:
   wind that changes is still a pure function of the clock. A test differentiates
   it and compares.
 
-**Not built: real wind for where the user is.** It would be a _source_ for the
-same interface, `windAt` and `windIntegralKm`, and nothing downstream would
-change. What it needs, written down so that it is not rediscovered:
+**Real wind for where the user is: the groundwork is built, the switch is not.**
+It is a _source_ for the same interface, and the parts that need no decision are
+done and tested:
 
-- **The network is the host's, not the engine's** (invariant 2), on consent, at
-  an hourly cadence, cached, with the simulation as the offline fallback so the
-  product always works.
-- **A table, not a number.** A wind that really changes cannot be a constant
-  plus sinusoids, so the engine would be handed a series of samples and
-  integrate between them (piecewise-linear velocity gives a piecewise-quadratic
-  position, still exact and still pure). Every surface gets the same table from
-  the host, which is a distribution of data and not the surfaces talking to each
-  other.
-- **The privacy notice stops being true** when it is on: "nothing leaves your
-  computer" would become "your coordinates, rounded, go to a provider". `PRIVACY.md`,
-  the EULA, the settings hint and an ADR change with it.
-- **Licence and cost.** [Open-Meteo's free tier is for non-commercial use, and
-  commercial use needs a paid subscription](https://open-meteo.com/en/terms);
-  this product is proprietary, so it would need a plan or another source. Neither
-  the price nor whether pressure-level winds (the natural match for the three
-  layers' heights) are in a given plan was verified. Other providers were not
-  researched.
+- **The engine takes a series.** `makeWindSeries` turns samples of the wind (a
+  time and an east and north velocity) into a table; `FrameRequest.wind` hands it
+  in. Piecewise-linear velocity gives a piecewise-quadratic position, exact from
+  prefix sums, still a pure function of the clock, and every surface gets the
+  same table from the host (a distribution of data, not the surfaces talking).
+  Outside the data the simulation's increments carry on from where the data
+  ended, so the position is continuous at both ends and a stale table degrades
+  to the weather rather than freezing the clouds. With a series, `cloudDrift` is
+  a scale relative to its default; a fixed `cloudWindFrom` still ignores it,
+  because the owner said where it blows from.
+- **`desktop/wind-source.js` is the provider adapter, with no network in it and
+  nothing calling it.** It builds the request, reads the response into samples
+  and says when to ask again.
+
+**Provider, checked on 2026-11-13 against the providers' own pages.** MET Norway's
+Locationforecast 2.0: free including for commercial and paid-for apps under
+CC BY 4.0 (attribution required), global, hourly wind speed and direction to ten
+days. Its rules are built into the adapter: an identifying User-Agent with a
+contact, coordinates truncated (here to 0.1 degree, about 11 km), never ask before
+`Expires`, a 30-minute floor, random spread. Its limits: only the **ten-metre**
+wind exists, so the cloud level's wind is estimated with
+`SURFACE_TO_CLOUD_LEVEL = 2.5`, **a judgement and not a measurement**, which sets
+how fast real clouds move. [Open-Meteo's free tier is non-commercial](https://open-meteo.com/en/terms);
+commercial use needs a paid plan, whose price and pressure-level coverage were
+not verified.
+
+**What turning it on needs from the owner**, because it ends the sentence "nothing
+leaves your computer":
+
+- Consent: an opt-in setting, off by default, with a hint that says what is sent.
+- The privacy notice, EULA and settings hint changed to match, and an ADR.
+  MET Norway sees the IP address and the truncated coordinates, which their FAQ
+  calls personal data; only a proxy of our own would hide the IP, and running one
+  is a decision and a bill.
+- Then the work: the Electron main process fetches on consent and on schedule,
+  sends the sample table to the surfaces over IPC, falls back to the simulation
+  offline, and the About panel carries `ATTRIBUTION`.
 
 ## Now
 

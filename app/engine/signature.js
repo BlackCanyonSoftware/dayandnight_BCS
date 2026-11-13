@@ -73,13 +73,14 @@ const PROBES = [
  * @param {number} t
  * @param {{ w: number, h: number }} span
  * @param {{ lat: number, lon: number }} place the wind depends on where you are
+ * @param {import("./sky/wind.js").WindSeries | null} wind real wind, if any
  * @returns {number[]}
  */
-function cloudParts(preset, t, span, place) {
+function cloudParts(preset, t, span, place, wind) {
   if (!cloudsVisible(preset.cloudCover)) return [];
 
   return [
-    ...cloudSteps(t, place, preset, kmPerPixel(preset.fieldOfView, span.w)),
+    ...cloudSteps(t, place, preset, kmPerPixel(preset.fieldOfView, span.w), wind),
     // The shape settings, which change every cloud without moving any of them.
     Math.round(preset.cloudCover * 1000),
     Math.round(preset.cloudScale * 1000),
@@ -187,7 +188,7 @@ export function frameSignature(preset, request, bufferWidth, bufferHeight) {
     // to a step of the evolution. That quantum is the redraw rate, which is
     // why it is stated there in units rather than discovered here in
     // behaviour.
-    ...cloudParts(preset, t, span, place),
+    ...cloudParts(preset, t, span, place, request.wind ?? null),
     // The skyline, which never moves - so unlike the clouds it costs no
     // redraws at all and only its settings need to be here. Except for the
     // windows: a city lighting up at dusk changes every pixel along the bottom

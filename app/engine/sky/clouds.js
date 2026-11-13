@@ -170,13 +170,14 @@ export const EVOLUTION_SECONDS = 3600;
  * @param {{ lat: number, lon: number }} place
  * @param {Pick<Preset, "cloudDrift" | "cloudWindFrom">} preset
  * @param {number} layerIndex which of LAYERS
+ * @param {import("./wind.js").WindSeries | null} [series] real wind, if the host has any
  * @returns {{ east: number, north: number }}
  */
-export function layerDisplacementKm(t, place, preset, layerIndex) {
+export function layerDisplacementKm(t, place, preset, layerIndex, series = null) {
   const layer = LAYERS[layerIndex];
   if (!layer) throw new Error(`no cloud layer ${layerIndex}`);
 
-  const { east, north } = windIntegralKm(t, place, preset.cloudDrift, preset.cloudWindFrom);
+  const { east, north } = windIntegralKm(t, place, preset.cloudDrift, preset.cloudWindFrom, series);
 
   // Clockwise seen from above is an increasing compass bearing, which turns a
   // vector (east, north) as below. The southern hemisphere turns the other way.
@@ -220,13 +221,14 @@ export function layerDisplacementKm(t, place, preset, layerIndex) {
  * @param {{ lat: number, lon: number }} place
  * @param {Pick<Preset, "cloudDrift" | "cloudWindFrom" | "cloudScale">} preset
  * @param {number} layerIndex which of LAYERS
+ * @param {import("./wind.js").WindSeries | null} [series]
  * @returns {[number, number]} lattice cells in [0, PERIOD), along x (east) and z (north)
  */
-export function driftCells(t, place, preset, layerIndex) {
+export function driftCells(t, place, preset, layerIndex, series = null) {
   const layer = LAYERS[layerIndex];
   if (!layer) throw new Error(`no cloud layer ${layerIndex}`);
 
-  const moved = layerDisplacementKm(t, place, preset, layerIndex);
+  const moved = layerDisplacementKm(t, place, preset, layerIndex, series);
   const cellKm = Math.max(layer.scale * preset.cloudScale, 0.05);
 
   // Positive remainder. A negative one is just as valid to the noise but makes
@@ -274,15 +276,16 @@ export function evolution(t) {
  * @param {{ lat: number, lon: number }} place
  * @param {Pick<Preset, "cloudDrift" | "cloudWindFrom">} preset
  * @param {number} kmPerPixel how much ground one pixel covers, near the zenith
+ * @param {import("./wind.js").WindSeries | null} [series]
  * @returns {[number, number, number]} the drift steps east and north, and the evolution step
  */
-export function cloudSteps(t, place, preset, kmPerPixel) {
+export function cloudSteps(t, place, preset, kmPerPixel, series = null) {
   let fastest = 0;
   for (let i = 1; i < LAYERS.length; i += 1) {
     if (LAYERS[i].drift > LAYERS[fastest].drift) fastest = i;
   }
 
-  const moved = layerDisplacementKm(t, place, preset, fastest);
+  const moved = layerDisplacementKm(t, place, preset, fastest, series);
   const px = Math.max(kmPerPixel, 1e-9);
 
   // One pixel. Below that the picture is identical to the one before it by
