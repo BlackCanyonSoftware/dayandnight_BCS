@@ -1713,8 +1713,12 @@ test("a city lights up after sunset and not before (US-032)", async ({ page }) =
 
     const place = { lat: 39.74, lon: -104.99 };
 
-    // The brightest pixel in the band the buildings occupy, which is a window
-    // if any are lit and a roofline if none are.
+    // What the band the buildings occupy holds: its brightest pixel, and how
+    // many pixels are a bright warm light. The count is what carries the claim
+    // now. This used to ask only whether the brightest pixel was warm, which
+    // held while every window was the same lamp; windows now vary in colour, so
+    // the brightest may be a whiter office light, and "a warm light exists" is
+    // the part that was always meant.
     const brightestInCity = (t) => {
       engine.render({
         t,
@@ -1731,6 +1735,7 @@ test("a city lights up after sunset and not before (US-032)", async ({ page }) =
       // picture, which is upwards in the buffer from 0 to 0.28 of the height.
       let best = 0;
       let warm = 0;
+      let lamps = 0;
       for (let y = 0; y < Math.floor(height * 0.28); y += 1) {
         for (let x = 0; x < width; x += 1) {
           const i = (y * width + x) * 4;
@@ -1739,9 +1744,10 @@ test("a city lights up after sunset and not before (US-032)", async ({ page }) =
             best = v;
             warm = pixels[i] - pixels[i + 2];
           }
+          if (v > 250 && pixels[i] - pixels[i + 2] > 12) lamps += 1;
         }
       }
-      return { best, warm, altitude: sunPosition(t, place).altitude };
+      return { best, warm, lamps, altitude: sunPosition(t, place).altitude };
     };
 
     return {
@@ -1753,19 +1759,15 @@ test("a city lights up after sunset and not before (US-032)", async ({ page }) =
   expect(findings.noon.altitude).toBeGreaterThan(20);
   expect(findings.night.altitude).toBeLessThan(-12);
 
-  // At night the brightest thing down there is a lit window, and it is warm -
-  // red well above blue. That is the check that it is a light rather than a
-  // patch of sky showing through.
-  expect(
-    findings.night.warm,
-    "the brightest thing in a night city should be a warm window, not a grey roof"
-  ).toBeGreaterThan(12);
+  // At night there are lit windows, and many are warm - red well above blue,
+  // and bright. That is the check that they are lights rather than a patch of
+  // sky showing through or a grey roof.
+  expect(findings.night.lamps, "a night city should have warm lit windows in it").toBeGreaterThan(
+    10
+  );
 
-  // By day the buildings are silhouettes: dark, and not warm.
-  expect(
-    findings.noon.warm,
-    "nothing should be glowing out of a city in broad daylight"
-  ).toBeLessThan(findings.night.warm);
+  // By day the buildings are silhouettes: dark, and nothing glows.
+  expect(findings.noon.lamps, "nothing should be glowing out of a city in broad daylight").toBe(0);
 });
 
 test("the grade changes the picture, and a neutral one does not", async ({ page }) => {
@@ -3033,4 +3035,81 @@ test("when the shell has the wind, the page says whose it is, and draws it", asy
   expect(offline).toContain("simulated weather");
 
   // No errors reached the console while that happened (beforeEach holds this).
+});
+
+test("a city's windows are lit rooms, not a barcode: varied, mostly dark, and the same at any size", async ({
+  page
+}) => {
+  const runs = await page.evaluate(async () => {
+    const { DayNightEngine } = await import("/engine/index.js");
+    const { presetFor } = await import("/ui/presets.js");
+
+    const measure = (W, lights) => {
+      const H = Math.round((W * 9) / 16);
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = H;
+      const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+      const engine = new DayNightEngine(gl);
+      engine.setPreset({ ...presetFor("town"), cloudCover: 0, skylineLights: lights });
+      engine.render({
+        // Half past eleven at night in Denver: every light that is going to be
+        // on is on.
+        t: Date.UTC(2026, 10, 10, 6, 30),
+        place: { lat: 39.74, lon: -104.99 },
+        crop: { x: 0, y: 0, w: W, h: H },
+        span: { w: W, h: H },
+        pixelRatio: 1
+      });
+
+      const px = new Uint8Array(W * H * 4);
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+
+      // The band the skyline stands in, from the top of the towers to the
+      // bottom of the frame.
+      let pixels = 0;
+      let lit = 0;
+      let warm = 0;
+      let cool = 0;
+      let sum = 0;
+      for (let row = Math.floor(H * 0.7); row < Math.floor(H * 0.88); row += 1) {
+        const y = H - 1 - row;
+        for (let x = 0; x < W; x += 1) {
+          const i = (y * W + x) * 4;
+          const r = px[i];
+          const g = px[i + 1];
+          const b = px[i + 2];
+          const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          pixels += 1;
+          sum += luma;
+          if (luma > 100) {
+            lit += 1;
+            if (r > 1.4 * b) warm += 1;
+          }
+          // The whiter and cooler lights, which the grade pulls toward neutral.
+          if (luma > 100 && r < 1.3 * b) cool += 1;
+        }
+      }
+      return { litFraction: lit / pixels, warm, cool, mean: sum / pixels };
+    };
+
+    return { big: measure(1920, 1), small: measure(480, 1), off: measure(1920, 0) };
+  });
+
+  // Mostly dark, as a city is: not the 40 % of cells the first version lit.
+  expect(runs.big.litFraction).toBeGreaterThan(0.02);
+  expect(runs.big.litFraction).toBeLessThan(0.2);
+
+  // Not one colour: the lamp is common, and there is light of another hue.
+  expect(runs.big.warm).toBeGreaterThan(2000);
+  expect(runs.big.cool, "some windows are lit a whiter, cooler colour").toBeGreaterThan(30);
+
+  // The same city at a quarter of the size is about as bright overall, so a
+  // small picture does not dissolve into stripes or lose its lights.
+  const ratio = runs.small.mean / runs.big.mean;
+  expect(ratio, `the small picture is ${ratio.toFixed(2)} times as bright`).toBeGreaterThan(0.6);
+  expect(ratio).toBeLessThan(1.8);
+
+  // And with the lights off there are none.
+  expect(runs.off.litFraction).toBeLessThan(0.001);
 });

@@ -372,16 +372,25 @@ are in the gallery.
 **Still to do.** The user's own PNG, which is the half of US-032 this does not
 cover and is a genuinely different feature.
 
-**And the city's windows, which the owner finds tacky** (2026-11-12), and which
-are a first pass: a four-column grid per building, each window lit or not by a
-hash, every lit window the same warm colour at the same brightness with a hard
-edge and no glow. Seen at any size it is a dense barcode. What would help, none
-of it started: a few buildings much busier than the rest and some dark; whole
-floors and offices lit together rather than every cell independently; a spread
-of colour and brightness (warm, cool, white, the occasional blue flicker of a
-screen); fewer windows lit than the 42 % the shader allows; a soft glow so a
-lit window is a light and not a coloured square; and anti-aliased edges, since
-`step()` is what turns a small picture's windows into stripes.
+**The city's windows, which the owner found tacky** (2026-11-12): reworked
+2026-11-13. They were a first pass - a grid per building, each window lit by its
+own hash, one warm colour at one brightness, a hard edge and no glow - and read
+as a dense barcode at any size. They now have structure in layers: a building is
+dark (one in eight) or anywhere from quiet to busy; a floor is mostly on or
+mostly off together, like an office; a window then differs from its floor in
+brightness and in the colour of its light (lamp, office white, cool, the
+occasional blue screen); under a third are lit at full; three to five columns
+per building and squarer rooms; and a soft edge and glow, with the edge as wide
+as a pixel so that a small picture does not turn into stripes and a window
+smaller than a pixel fades to what it averages to. Judged by eye at 1920 wide
+and measured at three sizes (`editor.spec.js`, "lit rooms").
+
+**Still true of the city:** the lights are one number through the whole night,
+so three in the morning is the same as eleven, although the shader's own
+comment promises a scattering still on in the small hours; the grade pulls the
+cool windows most of the way to neutral at night, so the colour variety is
+subtler than the hues in the shader; and nobody has judged it on the owner's
+own monitor.
 
 ### Milestone 5 - presets, sharing and polish `in progress` (M)
 

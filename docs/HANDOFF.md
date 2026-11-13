@@ -186,6 +186,19 @@ its browser tests are headless.
 
 ## Session log
 
+### 2026-11-13 (last) - the city's windows
+
+Taken from the roadmap's list, because the owner called them tacky and it needs
+no desktop to check. Rendered the town look at 1920 wide at four hours before
+and after and compared the pictures; the change is in the windows block of the
+skyline fragment shader only. Structure in layers (dark and busy buildings,
+floors lit together, varied brightness and colour, fewer lit, soft edges that
+are a pixel wide, fade to the average below a pixel). A browser test measures
+the lit fraction, the variety of colour, the brightness at 1920 and at 480, and
+that none are lit with the lights off; it fails on the old shader. **Not done:**
+the lights are still one number all night (the small hours match eleven
+o'clock), and the owner has not seen it.
+
 ### 2026-11-13 (later) - the real wind, switched on
 
 The owner said "Yes, proceed" to MET Norway, opt-in, privacy changes and an ADR.

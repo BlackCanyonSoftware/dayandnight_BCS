@@ -1021,42 +1021,86 @@ void main() {
   }
 
   if (uStyle == 2 && isNear && uLights > 0.0) {
-    // Windows. A grid inside each building, with a hash per window deciding
-    // both whether it is lit at all and how late it stays on - so they come on
-    // a few at a time through dusk rather than all together, and a scattering
-    // are still on in the small hours.
+    // Windows, as lit rooms rather than as a grid of lit cells.
+    //
+    // The first version hashed every window on its own, with one warm colour
+    // and a hard edge, and the result at any size was a barcode. What a real
+    // skyline has instead is structure, so this builds it in layers:
+    //
+    //   a building has a character - some are dark (an empty block, a closed
+    //   office), the rest are anywhere from quiet to busy;
+    //   a floor is mostly on or mostly off together, the way an office is;
+    //   a window then differs a little from its floor, in brightness and in
+    //   the colour of its light.
+    //
     // The grid follows the building rather than the frame: a short block gets
     // fewer rows than a tower, so a window is about the same size on both.
-    // Fixed rows made the windows on a low building into thin slots.
-    float rows = max(4.0, floor((nearTop / max(uHeight, 1e-4)) * 30.0));
-    float cols = 4.0;
+    float height01 = nearTop / max(uHeight, 1e-4);
+    float rows = max(4.0, floor(height01 * 22.0));
+
+    // Three to five columns, so that a wide building has wider rooms than a
+    // narrow one rather than every building having the same four.
+    float cols = 3.0 + floor(hash11(slot * 23.0 + uSeed * 7.0) * 3.0);
 
     float within = fract(az * CITY_SLOTS);
     float edge = (1.0 - width) * 0.5;
     float acrossBuilding = (within - edge) / max(width, 1e-4);
 
-    float wx = floor(acrossBuilding * cols);
-    float wy = floor((elevation / max(nearTop, 1e-4)) * rows);
+    vec2 grid = vec2(acrossBuilding * cols, (elevation / max(nearTop, 1e-4)) * rows);
+    vec2 index = floor(grid);
+    vec2 cell = fract(grid);
 
-    float key = hash11(slot * 101.0 + wx * 17.0 + wy * 3.7 + uSeed * 29.0);
+    // How busy this building is: one in eight is dark, and the rest run from
+    // a few lights to most of it.
+    float character = hash11(slot * 57.0 + uSeed * 13.0);
+    float busy = character < 0.12 ? 0.0 : mix(0.2, 1.0, hash11(slot * 29.0 + uSeed * 3.0));
 
-    // Only the middle of each cell is glass; the rest is wall.
-    vec2 cell = fract(vec2(acrossBuilding * cols, (elevation / max(nearTop, 1e-4)) * rows));
-    float glass = step(0.22, cell.x) * step(cell.x, 0.78) * step(0.3, cell.y) * step(cell.y, 0.8);
+    // A floor, which is mostly one thing. The window's own hash is blended in
+    // so that a floor is mostly on rather than entirely.
+    float floorKey = hash11(slot * 131.0 + index.y * 7.9 + uSeed * 17.0);
+    float roomKey = hash11(slot * 101.0 + index.x * 17.0 + index.y * 3.7 + uSeed * 29.0);
+    float key = mix(roomKey, floorKey, 0.6);
 
-    // key below the threshold is lit. As uLights rises through dusk more of
-    // them pass it, and the brightest are the ones that come on first.
-    float lit = step(key, uLights * 0.42) * glass;
+    // key below the threshold is lit. As uLights rises through dusk more pass
+    // it, and the threshold is under a third even at full, so most windows
+    // are dark, as they are.
+    float on = step(key, uLights * busy * 0.5);
 
-    // Warm, and bright enough to read as light sources rather than as lighter
-    // paint - but deliberately under the point where they clip.
-    //
-    // The auto-exposure reaches 4000x at night, which is the whole reason the
-    // stars are visible at all. A window at the radiance this first used came
-    // to 220 through that and clipped to flat white, losing exactly the warmth
-    // that makes a lit window look lit. These land near 0.8 instead, so they
-    // are the brightest thing in the frame and still the colour of a lamp.
-    body += vec3(2.0e-4, 1.45e-4, 0.78e-4) * lit * uLights;
+    // A spread of brightness, and of colour: mostly the warm of a lamp, some
+    // the whiter light of an office, a few cool, and now and then the blue of
+    // a screen. Each is scaled to a similar luminance so the picture is
+    // varied without being uneven.
+    float tone = hash11(slot * 41.0 + index.x * 11.3 + index.y * 5.7 + uSeed * 31.0);
+    float level = mix(0.45, 1.0, hash11(index.x * 3.3 + index.y * 9.1 + slot * 67.0));
+    vec3 lamp = vec3(2.0e-4, 1.45e-4, 0.78e-4);
+    vec3 office = vec3(1.75e-4, 1.6e-4, 1.2e-4);
+    vec3 cool = vec3(1.3e-4, 1.5e-4, 1.8e-4);
+    vec3 screen = vec3(0.7e-4, 1.0e-4, 2.1e-4);
+    vec3 colour = tone < 0.55 ? lamp : tone < 0.8 ? office : tone < 0.95 ? cool : screen;
+
+    // The room: a rounded rectangle inside the cell, and a soft glow past its
+    // edge, so that a lit window is a light and not a coloured square. The
+    // distance is in cell units; its edge is as soft as a pixel is wide, which
+    // is what keeps a small picture's windows from turning into stripes.
+    vec2 pixel = clamp(fwidth(grid), vec2(0.0), vec2(0.5));
+    vec2 halfSize = vec2(0.3, 0.3);
+    float distanceOut = length(max(abs(cell - vec2(0.5, 0.5)) - halfSize, 0.0) / max(pixel, vec2(1e-3)));
+    float distanceCells = length(max(abs(cell - vec2(0.5, 0.5)) - halfSize, 0.0));
+    float core = 1.0 - smoothstep(0.0, 1.0, distanceOut);
+    float glow = 0.22 * exp(-distanceCells * distanceCells * 60.0);
+    float room = max(core, glow);
+
+    // When a window is smaller than a pixel the pattern cannot be shown, and
+    // trying to shows aliasing. Fade to what it averages to instead.
+    float resolved = 1.0 - smoothstep(0.35, 0.9, max(pixel.x, pixel.y));
+    float average = uLights * busy * 0.2;
+    float shown = mix(average, on * room, resolved);
+
+    // The brightest thing in the frame, and still the colour of a lamp. The
+    // auto-exposure reaches 4000x at night, which is the whole reason the stars
+    // are visible; a window at the radiance this first used came to 220
+    // through that and clipped to flat white. These land near 0.8 instead.
+    body += colour * level * shown * uLights;
   }
 
   outColour = vec4(body, 0.0);
