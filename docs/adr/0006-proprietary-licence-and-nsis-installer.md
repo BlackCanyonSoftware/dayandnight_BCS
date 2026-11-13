@@ -146,7 +146,8 @@ packaging described here is verified rather than merely built.
 - The four `[[ ]]` placeholders are inherited, not resolved: publisher legal
   name and form, governing law and venue, support address, and whether any mark
   is registered. They do not block Milestone 2 and they do block a release. The
-  roadmap carries them.
+  roadmap carries them. _Supplied 2026-11-12; `licenses/README.md` records what
+  was decided._
 - **A build made today is not releasable**, for a reason unrelated to licensing:
   there is no icon. `app/brand/` is empty by design awaiting the owner's logo,
   so `win.icon` is deliberately absent from `electron-builder.yml` and a build

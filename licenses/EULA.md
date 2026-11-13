@@ -2,7 +2,7 @@
 
 **Day and Night**
 Version 1.0 of this agreement, October 2026
-Black Canyon Software [[ legal name and form of the publisher ]]
+Black Canyon Software
 
 This is the agreement between you and Black Canyon Software ("we", "us") for
 the Day and Night software, its presets, documentation and updates (the
@@ -145,9 +145,10 @@ pictures stay yours.
 
 ## 12. Governing law
 
-This agreement is governed by the law of [[ state or country ]], without regard
-to its conflict-of-law rules, and any dispute will be brought in the courts of
-[[ venue ]]. If you are a consumer, this does not take away the protection of
+This agreement is governed by the law of the State of Arizona, without regard
+to its conflict-of-law rules, and any dispute will be brought in the state and
+federal courts located in Maricopa County, Arizona. If you are a consumer, this
+does not take away the protection of
 the law of the country you live in, or your right to bring a claim where you
 live, where that law gives you those rights.
 
@@ -162,4 +163,4 @@ English version governs.
 
 ## 14. Contact
 
-[[ support address, set before the first release ]]
+Questions about this agreement: developer@blackcanyonsoftware.com

@@ -78,5 +78,4 @@ USE.
 
 ## 8. Contact
 
-Permission requests and questions: [[ support address, set before the first
-release ]].
+Permission requests and questions: developer@blackcanyonsoftware.com.

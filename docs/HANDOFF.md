@@ -124,10 +124,11 @@ Two things to know before changing any of it:
   built and defaults to dark with a three-way toggle.)
 - ~~**OQ-4** Licensing and installer shape.~~ **Decided 2026-10-19:**
   proprietary, PGS's document shape adapted, Windows NSIS installer. ADR 0006.
-  What is left is not a question but four `[[ ]]` placeholders only the owner can
-  fill - publisher legal name and form, governing law and venue, support address,
-  whether any mark is registered - plus a lawyer's single pass over `EULA.md` and
-  `DISCLAIMER.md`. None of it blocks Milestone 2; all of it blocks a release.
+  The four `[[ ]]` placeholders it left were filled on 2026-11-12 (publisher
+  named without a legal form, by the owner's choice; Arizona law and Maricopa
+  County courts; the support address; no mark registered). What is left is a
+  lawyer's single pass over `EULA.md` and `DISCLAIMER.md`, which blocks a
+  release and nothing before it.
 - **Brand last checked: 2026-11-06, kit 1.56.1.** `app/brand/` (app set) and
   `docs/brand/` (readme set) are `brandkit bundle`s of `daynnight`, both
   reporting `matches daynnight`. The brand's design standard is **Material
@@ -175,6 +176,24 @@ not the session, and not a different command. This was got wrong repeatedly on
 its browser tests are headless.
 
 ## Session log
+
+### 2026-11-12 - the repository's front door
+
+- **The EULA's four blanks are filled**, from the owner's answers: the
+  publisher is "Black Canyon Software" with no legal form and no personal name
+  (the owner's choice, and the licence README says it is worth raising with a
+  lawyer); Arizona law, state and federal courts in Maricopa County; the support
+  address is the one every commit already carries, now also in the EULA, the
+  privacy notice and the source licence; no mark is registered, so
+  `TRADEMARKS.md` says so. Nothing in the code or the tests reads the
+  placeholders, which was checked.
+- **The GitHub description and ten topics are set**, from the command line.
+  **Still to do by hand, and it can only be done by hand:** upload
+  `app/brand/social/og-dark.png` as the social preview (Settings, General,
+  Social preview). GitHub has no API for it. The dark cut, because the light one
+  is almost the colour of a white link card.
+- The README shows the product now - four looks across one day, and the editor.
+  Windows 11 is recorded as pending and held, in Next steps item 1.
 
 ### 2026-11-06 - the editor built to Material Design 3
 

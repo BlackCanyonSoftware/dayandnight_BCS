@@ -94,9 +94,8 @@ generated rather than catalogued, so the sky turns correctly and Orion is not
 in it; deep twilight is darker than it should be; the clock shows your time
 rather than the chosen place's. Nothing in there is presented as finished.
 
-Before a release: a code-signing certificate, a lawyer's pass over the EULA and
-the disclaimer, and four details only the owner can supply - all of them in
-[`licenses/README.md`](licenses/README.md). The GPU side of the performance
+Before a release: a code-signing certificate, and a lawyer's pass over the EULA
+and the disclaimer, which [`licenses/README.md`](licenses/README.md) describes. The GPU side of the performance
 budget has never been measured, because there is no way to read GPU time on
 Windows without a dependency this project will not take; that is written down
 rather than glossed.

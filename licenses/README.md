@@ -32,17 +32,22 @@ for why, and for what was changed rather than copied.
 
 ## Before the first release
 
-Four things in these documents are marked `[[ like this ]]` because only the
-owner can decide or supply them:
+Four things in these documents were marked `[[ like this ]]` because only the
+owner could decide or supply them. They were settled on 2026-11-12:
 
-1. The legal name and form of the publisher (sole trader, LLC, ...).
-2. Governing law and venue.
-3. The support address.
-4. Whether any mark is registered.
+1. **The publisher** is named as "Black Canyon Software" and nothing more: no
+   legal form and no personal name, by the owner's choice.
+2. **Governing law and venue** are the State of Arizona and the state and
+   federal courts located in Maricopa County.
+3. **The support address** is `developer@blackcanyonsoftware.com`, the one every commit in this
+   repository already carries. Somebody has to actually read it.
+4. **No mark is registered.** `TRADEMARKS.md` says so. Use the TM symbol and
+   never the registered one unless that changes.
 
-Then a lawyer reads `EULA.md` and `DISCLAIMER.md` once. They are written in
-plain language to be reviewed cheaply, not to replace the review. Nothing in
-this folder is legal advice.
+What is still open: a lawyer reads `EULA.md` and `DISCLAIMER.md` once. They are
+written in plain language to be reviewed cheaply, not to replace the review, and
+one thing worth raising with them is that the publisher line states no legal
+form. Nothing in this folder is legal advice.
 
 One more thing is deliberately absent until it is real:
 

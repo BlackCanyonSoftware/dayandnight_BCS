@@ -4,7 +4,7 @@
 
 **Day and Night**, **DAYnNIGHT**, **Black Canyon Software**, the Day and Night
 wordmarks and the Black Canyon cube are trademarks and trade dress of Black
-Canyon Software [[ registered or unregistered, per mark ]]. All rights reserved.
+Canyon Software. None of them is currently registered. All rights reserved.
 
 **Day and Night** and **DAYnNIGHT** are the same name. The product is called
 Day and Night in every sentence written about it - this licence, the EULA, the

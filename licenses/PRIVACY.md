@@ -76,4 +76,4 @@ the change is listed in the Software's changelog.
 
 ## Contact
 
-[[ support address, set before the first release ]]
+Questions about this notice: developer@blackcanyonsoftware.com
