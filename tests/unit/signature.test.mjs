@@ -129,26 +129,86 @@ test("a whole day redraws often enough to look continuous", () => {
   );
 });
 
-test("the night sky is nearly static, and sunrise is not", () => {
-  // The behaviour that makes this better than a fixed threshold: it follows
-  // the sky's own pace rather than one chosen by guesswork.
-  /** @param {string} iso @returns {number} */
-  function redrawsInTenMinutes(iso) {
-    const start = at(iso);
-    let count = 0;
-    let previous = null;
-    for (let second = 0; second < 600; second += 1) {
-      const signature = sign(request(start + second * 1000));
-      if (signature !== previous) count += 1;
-      previous = signature;
-    }
-    return count;
-  }
+// The test that stood here asserted that the middle of the night redraws less than
+// sunrise, and it was written to describe a sky that stood still after dark. That
+// was the bug, not the design: with nothing in the signature for the stars, the
+// moon or the shimmer, the night sky was drawn once and then frozen for hours, and
+// a host that skips an unchanged frame never drew it turn. It is replaced by tests
+// of what a night sky has to do, and of how much that is allowed to cost.
 
-  // Denver is near UTC-7: 08:00 UTC is the middle of the night in June.
-  const night = redrawsInTenMinutes("2026-06-21T08:00:00Z");
-  // and 11:30 UTC is around sunrise.
-  const sunrise = redrawsInTenMinutes("2026-06-21T11:30:00Z");
+/**
+ * How many distinct frames a stretch of time would draw.
+ *
+ * @param {string} iso where to start
+ * @param {number} seconds how long
+ * @param {number} everyMs how often a host would ask
+ * @param {import("../../app/engine/types.js").Preset} preset
+ * @returns {number}
+ */
+function distinctFrames(iso, seconds, everyMs, preset) {
+  const start = at(iso);
+  const seen = new Set();
+  let count = 0;
+  let previous = null;
+  for (let ms = 0; ms < seconds * 1000; ms += everyMs) {
+    const signature = sign(request(start + ms), preset);
+    if (signature !== previous) count += 1;
+    seen.add(signature);
+    previous = signature;
+  }
+  return count;
+}
+
+// Denver is near UTC-7: 08:00 UTC is the middle of the night in June, and 11:30
+// UTC is around sunrise.
+const NIGHT = "2026-06-21T08:00:00Z";
+const SUNRISE = "2026-06-21T11:30:00Z";
+const NOON = "2026-06-21T19:00:00Z";
+
+test("after dark the stars turn: the sky is redrawn as they move, though no colour changes", () => {
+  const still = { ...PRESET, twinkle: 0 };
+
+  // Ten minutes. The sky turns about two and a half degrees in that time, which
+  // is some fifty pixels of a hundred-degree view, so a redraw about every
+  // twelve seconds.
+  const redraws = distinctFrames(NIGHT, 600, 1000, still);
+
+  assert.ok(redraws > 20, `the stars moved fifty pixels and the frame changed ${redraws} times`);
+  assert.ok(redraws < 200, `${redraws} redraws in ten minutes is far more than they need`);
+});
+
+test("a night sky at twenty frames a second draws only what moved, not every frame", () => {
+  const still = { ...PRESET, twinkle: 0 };
+
+  // One minute at 20 fps is 1200 asks.
+  const redraws = distinctFrames(NIGHT, 60, 50, still);
+
+  assert.ok(redraws >= 2, `a minute of night should move the sky: ${redraws}`);
+  assert.ok(redraws < 30, `${redraws} of 1200 frames is not a resting night sky`);
+});
+
+test("the twinkle costs a few redraws a second and not every frame", () => {
+  const twinkling = { ...PRESET, twinkle: 0.6 };
+  const redraws = distinctFrames(NIGHT, 60, 50, twinkling);
+
+  // Four a second, plus the sky's own motion.
+  assert.ok(redraws > 200, `the shimmer should show: ${redraws} redraws in a minute`);
+  assert.ok(redraws < 300, `${redraws} redraws in a minute is more than the shimmer needs`);
+});
+
+test("by day the stars and the twinkle are not in the signature", () => {
+  const on = sign(request(at(NOON)), { ...PRESET, twinkle: 0.6 });
+  const off = sign(request(at(NOON)), { ...PRESET, twinkle: 0 });
+  assert.equal(on, off, "a shimmer nobody can see must not cost a redraw");
+
+  const later = sign(request(at(NOON) + 5000), { ...PRESET, twinkle: 0.6 });
+  assert.ok(typeof later === "string");
+});
+
+test("sunrise redraws faster than the resting night", () => {
+  const still = { ...PRESET, twinkle: 0 };
+  const night = distinctFrames(NIGHT, 600, 1000, still);
+  const sunrise = distinctFrames(SUNRISE, 600, 1000, still);
 
   assert.ok(
     sunrise > night,

@@ -861,6 +861,25 @@ Over 21 June at Denver, sampled at 20 fps:
 | Reduction                | 99.7 %    |
 | Average draws per second | 0.06      |
 
+> **Correction, 2026-11-17: that table described a bug.** The signature was built
+> from sky colours alone, and after dark no colour changes, so for the whole night
+> it was the same value and the host drew one frame and then stood still: the
+> stars did not turn, the moon did not climb, the twinkle did not shimmer, for
+> eight or nine hours a night. A test even asserted that "the night sky is nearly
+> static", describing the bug as a feature. It is fixed (`motionParts` in
+> `engine/signature.js`): the stars by the sidereal angle while it is dark enough
+> to see them, the moon and the sun by where they are, and the twinkle by four
+> steps a second, each quantised to about a pixel so it costs a redraw when a
+> person could see it move and not before.
+>
+> The honest figures, counted at 20 fps over 21 June at Denver: **134,828 frames
+> drawn, 1.56 a second on average, with the default twinkle**, of which the twinkle
+> is nearly nine tenths; **15,655, 0.18 a second, with the twinkle off**. At the
+> measured 0.09 % of a core per frame a second, that is roughly 0.14 % more than
+> the 0.44 % below, so about 0.6 %, which is inside the 2 % budget. **Estimated,
+> not measured**: it needs `tools/measure-cost.js`, which opens windows. Every
+> figure below that mentions a resting night sky was measured before this fix.
+
 ### Measurement, Milestones 3 and 4 (2026-11-04)
 
 **The budget is still met, with the clouds and the horizon in.** The

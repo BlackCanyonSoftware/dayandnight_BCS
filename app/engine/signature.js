@@ -37,6 +37,9 @@ import { cityActivity, lightsOn, skylineVisible, styleIndex } from "./sky/skylin
 import { weatherParts } from "./sky/weather.js";
 
 import { sunPosition } from "./astro/solar.js";
+import { moonPosition } from "./astro/lunar.js";
+import { toJulianDay } from "./astro/julian.js";
+import { localSiderealTime } from "./astro/sidereal.js";
 import { resolveBearing } from "./defaults.js";
 import { autoExposure, sampleSky } from "./sky/lut.js";
 import { tintFor } from "./sky/grade.js";
@@ -87,6 +90,72 @@ function cloudParts(preset, t, span, place, wind) {
     Math.round(preset.cloudScale * 1000),
     Math.round(preset.cloudSoftness * 1000)
   ];
+}
+
+/**
+ * How many redraws a second the stars' shimmer is worth. The flicker is a sine of
+ * about 0.8 Hz, so four a second is five samples a cycle: enough to read as a
+ * shimmer and not as steps, and a good deal cheaper than every frame. It is the
+ * one deliberate cost the night sky has beyond its own motion.
+ */
+const TWINKLE_STEPS_PER_SECOND = 4;
+
+/**
+ * What moves in the sky, and so what makes the frame differ though no colour has.
+ *
+ * The probes cannot see any of this, and for a long time nothing else did
+ * either: after dark every probe is the same colour for hours, so the signature
+ * was the same for hours, and a host that skips an unchanged frame drew one night
+ * sky and then stood still - stars that did not turn, a moon that did not climb,
+ * a shimmer that did not shimmer. Each moving thing is here now, quantised to
+ * about a pixel of the picture so that it costs a redraw when a person could see
+ * it move and not before:
+ *
+ * - **The stars**, by the sidereal angle, while it is dark enough to see them.
+ *   One pixel of a hundred-degree view across 1920 is about 0.05 degrees, and the
+ *   sky turns 0.004 a second: a redraw every twelve seconds or so.
+ * - **The moon and the sun**, by where they are, while above the horizon or near
+ *   it. They are slower than the stars and cost no more.
+ * - **The twinkle**, if there is any, while it is dark.
+ *
+ * Nothing here is in the signature in daylight but the sun, and nothing is when
+ * the sky is dark, there is no moon and the twinkle is off.
+ *
+ * @param {Preset} preset
+ * @param {{ altitude: number, azimuth: number }} sun
+ * @param {number} t
+ * @param {{ lat: number, lon: number }} place
+ * @param {{ w: number, h: number }} span
+ * @returns {number[]}
+ */
+function motionParts(preset, sun, t, place, span) {
+  /** @type {number[]} */
+  const parts = [];
+
+  // A pixel across the whole span, in degrees: the least a thing has to move to
+  // be seen to.
+  const pixel = preset.fieldOfView / Math.max(1, span.w);
+
+  if (sun.altitude > -2) {
+    parts.push(Math.round(sun.azimuth / pixel), Math.round(sun.altitude / pixel));
+  }
+
+  const moon = moonPosition(t, place);
+  if (moon.altitude > -2) {
+    parts.push(Math.round(moon.azimuth / pixel), Math.round(moon.altitude / pixel));
+  }
+
+  // Dark enough for stars to be seen at all. Earlier than that the sky's own
+  // colour is changing every frame and the probes are already doing the work.
+  if (sun.altitude < -4) {
+    parts.push(Math.round(localSiderealTime(toJulianDay(t), place.lon) / pixel));
+
+    if (preset.twinkle > 0.01) {
+      parts.push(Math.round((t / 1000) * TWINKLE_STEPS_PER_SECOND));
+    }
+  }
+
+  return parts;
 }
 
 /**
@@ -199,6 +268,8 @@ export function frameSignature(preset, request, bufferWidth, bufferHeight) {
     // happened. Without the last term the lights would come on only when
     // something else happened to force a draw.
     ...skylineParts(preset, sun.altitude, t, place.lon),
+    // Everything that moves on its own, which the probes cannot see.
+    ...motionParts(preset, sun, t, place, span),
     // Fog and what falls out of it. Fog is still, so its setting is all that is
     // needed; rain and snow move, so their phases are here, which is what
     // makes them redraw every frame while they fall and not otherwise.

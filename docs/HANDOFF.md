@@ -186,6 +186,26 @@ its browser tests are headless.
 
 ## Session log
 
+### 2026-11-17 (found while planning planets) - the night sky was frozen
+
+Looking at how planets would be redrawn I measured the frame signature over two
+night hours: **one distinct value**. After dark no sky colour changes, so a host
+that skips an unchanged frame drew one night sky and then stood still until
+morning. No stars turning, no moon climbing, no twinkle, in the live wallpaper,
+since the first version. The editor's preview never showed it because every
+test and the animation render frames directly. A test even asserted "the night
+sky is nearly static" as a virtue; I replaced it and said why in the file.
+
+- **Fix:** `motionParts` in `signature.js`: sidereal angle (stars, while dark),
+  sun and moon positions, twinkle at 4 steps a second; all quantised to a pixel.
+- **Cost, honestly:** 134,828 frames over a June day at the default (1.56/s, up
+  from 0.06), 15,655 with the twinkle off. Estimated +0.14 % of a core. **Not
+  measured** (opens windows). The 0.15 %/0.44 % figures in `ARCHITECTURE.md` were
+  taken on the frozen sky and carry a correction.
+- **Owner decision worth having:** the default twinkle is 0.6 and is nine tenths
+  of the new cost. If the budget matters more than the shimmer, the default could
+  be lower, or the steps fewer.
+
 ### 2026-11-17 - weather: fog, rain and snow
 
 The owner asked for more features and detail in the application and the

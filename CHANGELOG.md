@@ -97,6 +97,17 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   frame while they fall, so they cost more than any other setting; fog costs
   nothing extra.
 
+### Fixed
+
+- **The night sky now moves in the live wallpaper.** Since the first version the
+  wallpaper drew one night sky and then stood still until morning: the stars did
+  not turn, the moon did not climb and the stars did not twinkle, because after
+  dark nothing about the colours changes and the wallpaper only redraws when
+  something does. The stars now turn, the moon and sun move, and the stars
+  shimmer, each redrawn only when you could see it move. The shimmer is the
+  largest part of the cost: set **Twinkle** to zero if you would rather have the
+  cheapest sky.
+
 ### Changed
 
 - **Choosing a skyline from the list now saves and can be undone.** It did
