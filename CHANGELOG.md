@@ -86,6 +86,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A guide, and a welcome.** About has a Guide: what the application does, what
+  each panel is for, how the real weather works, the keyboard, and what to try if
+  something looks wrong. The first time the application runs, a short card above
+  the panels says the three things to do, with a button to the guide; it is not a
+  dialog, it takes nothing over, and it never comes back once you have pressed
+  Got it.
 - **The planets.** Venus, Mars, Jupiter, Saturn and Mercury are in the sky where
   they really are tonight and as bright as they really are: Venus a blaze before
   dawn or after dusk, Mars orange, Jupiter steady and white, drifting against the

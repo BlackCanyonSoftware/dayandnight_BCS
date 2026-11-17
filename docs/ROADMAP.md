@@ -439,8 +439,16 @@ WCAG 2.2 AA.
   other rather than with the hour. A proper radio group: one tab stop, arrows
   within it.
 
-**Still to do:** the guide and FAQ, and the first-run welcome. Both are writing
-rather than engineering, which is the only reason they are last.
+**The guide and the first-run welcome: done** (2026-11-17). `ui/guide.js` is the
+guide, one paragraph per panel plus the time bar, the real weather, the keyboard
+and what to try when something looks wrong; it opens in the same dialog the
+documents use, from About or from the welcome card. The welcome is a card above
+the panels, not a dialog, shown when there is no settings file and put away by
+"Got it", which writes one. A unit test holds the guide to the panels the page
+really has, in order, so a panel added without a paragraph fails.
+
+**Still to do:** a separate FAQ, if the guide's last section outgrows itself; and
+nobody who is not the author has read the guide yet.
 
 ## Later
 

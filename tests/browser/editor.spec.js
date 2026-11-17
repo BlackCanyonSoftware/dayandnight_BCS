@@ -3872,3 +3872,49 @@ test("the planets are drawn where they really are, and the control scales or rem
   // Three times as bright puts more light in; and with none there is none.
   expect(result.louder.total).toBeGreaterThan(result.real.total);
 });
+
+test("a first run is welcomed, once, and the guide is always in About", async ({ page }) => {
+  // No settings file: the welcome card is up, with its three steps.
+  await expect(page.locator("#welcome")).toBeVisible();
+  await expect(page.locator("#welcomeSteps li")).toHaveCount(3);
+
+  // It is not a dialog: nothing is covered, and the rest of the editor works.
+  await expect(page.locator("#reader")).toBeHidden();
+
+  // The guide opens from it, as the same dialog the documents use, and Escape
+  // closes it.
+  await page.locator("#welcomeGuide").click();
+  await expect(page.locator("#reader")).toBeVisible();
+  await expect(page.locator("#readerTitle")).toHaveText("Guide");
+  const text = await page.locator("#readerText").textContent();
+  expect(text).toContain("GETTING STARTED");
+  expect(text).toContain("THE PANELS");
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#reader")).toBeHidden();
+
+  // Got it puts it away and writes the settings, which is what remembers.
+  await page.locator("#welcomeClose").click();
+  await expect(page.locator("#welcome")).toBeHidden();
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("dayandnight.settings") !== null))
+    .toBe(true);
+
+  // The next start has settings, so no card; and the guide is in About.
+  await page.reload();
+  await page.waitForFunction(() => window.DayAndNight?.lastFrame() !== null);
+  await expect(page.locator("#welcome")).toBeHidden();
+
+  await openSection(page, "About");
+  await page.locator("#guideBtn").click();
+  await expect(page.locator("#readerTitle")).toHaveText("Guide");
+  await expect(page.locator("#readerText")).toContainText("IF SOMETHING LOOKS WRONG");
+});
+
+test("somebody who already has settings is not welcomed", async ({ page }) => {
+  const saved = await page.evaluate(() => window.DayAndNight.document());
+  await page.addInitScript(fakeShell(saved));
+  await page.goto("/index.html");
+  await page.waitForFunction(() => window.DayAndNight?.lastFrame() !== null);
+
+  await expect(page.locator("#welcome")).toBeHidden();
+});

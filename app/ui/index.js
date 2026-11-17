@@ -20,6 +20,7 @@ import { STYLES as SKYLINE_STYLES } from "../engine/sky/skyline.js";
 import { makeWindSeries } from "../engine/sky/wind.js";
 import { conditionsAt, makeConditions } from "../engine/sky/conditions.js";
 import { KINDS as PRECIPITATION_KINDS } from "../engine/sky/weather.js";
+import { WELCOME_STEPS, guideText } from "./guide.js";
 import { readDocument, writeDocument } from "./settings.js";
 import { decodeLook, encodeLook } from "./share-code.js";
 import * as history from "./history.js";
@@ -98,6 +99,7 @@ async function boot() {
   wireControls();
   wireHistory();
   void wireAbout();
+  wireWelcome();
   timeline.snapToNow(Date.now());
   paintFromState();
   syncClockControls();
@@ -153,6 +155,10 @@ async function loadSaved() {
   if (problem) notice(problem);
 
   if (!doc) {
+    // Nothing saved, so this is a first run - unless the file was there and
+    // unreadable, which is a different message and not a welcome.
+    firstRun = !problem;
+
     // Nothing saved, so this is a first run. Guess where we are rather than
     // opening on a default somebody else chose - a sky for the wrong
     // continent is the first thing a new user would see, and the worst
@@ -1025,16 +1031,49 @@ async function wireAbout() {
 /** What had focus before the reader opened, so it can be given back. */
 let readerReturn = /** @type {HTMLElement | null} */ (null);
 
-/**
- * @param {string} id
- * @param {string} title
- */
-async function openDocument(id, title) {
-  const text = await shell.readLegal(id);
+/** Whether this is the first time the application has run, from the missing settings. */
+let firstRun = false;
 
+/**
+ * The first-run card, and the guide button in About.
+ *
+ * The card is not a dialog: it sits above the panels and takes nothing over. It
+ * is shown when there was no settings file, and "Got it" saves one, which is
+ * what makes it a first run only once. Anyone who has settings already never
+ * sees it, and the guide is always one click away in About.
+ */
+function wireWelcome() {
+  const steps = $("#welcomeSteps");
+  steps.replaceChildren();
+  for (const text of WELCOME_STEPS) {
+    const item = document.createElement("li");
+    item.textContent = text;
+    steps.append(item);
+  }
+
+  const openGuide = () => openText("Guide", guideText());
+  $("#welcomeGuide").addEventListener("click", openGuide);
+  $("#guideBtn").addEventListener("click", openGuide);
+
+  $("#welcomeClose").addEventListener("click", () => {
+    $("#welcome").hidden = true;
+    // Writing the settings is what remembers that this has been seen.
+    save();
+  });
+
+  $("#welcome").hidden = !firstRun;
+}
+
+/**
+ * Show a text in the reader. The documents and the guide are both this: text,
+ * in a dialog that traps focus and closes on Escape.
+ *
+ * @param {string} title
+ * @param {string} text
+ */
+function openText(title, text) {
   $("#readerTitle").textContent = title;
-  $("#readerText").textContent =
-    text ?? "That document is missing from this build, which is a packaging fault.";
+  $("#readerText").textContent = text;
 
   readerReturn = /** @type {HTMLElement | null} */ (document.activeElement);
   $("#reader").hidden = false;
@@ -1043,6 +1082,15 @@ async function openDocument(id, title) {
   // editor to be keyboard operable throughout, and a modal that traps you is
   // the usual way that stops being true.
   /** @type {HTMLElement} */ ($("#readerClose")).focus();
+}
+
+/**
+ * @param {string} id
+ * @param {string} title
+ */
+async function openDocument(id, title) {
+  const text = await shell.readLegal(id);
+  openText(title, text ?? "That document is missing from this build, which is a packaging fault.");
 }
 
 function closeDocument() {

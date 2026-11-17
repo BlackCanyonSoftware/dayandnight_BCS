@@ -69,6 +69,16 @@
           </button>
         </div>
 
+        <section id="welcome" class="welcome" aria-labelledby="welcomeTitle" hidden>
+          <h2 id="welcomeTitle">Welcome</h2>
+          <p>The real sky for your place, behind your icons. Three things to do:</p>
+          <ol id="welcomeSteps"></ol>
+          <div class="welcomebuttons">
+            <button id="welcomeGuide" class="ghost" type="button">Read the guide</button>
+            <button id="welcomeClose" class="primary" type="button">Got it</button>
+          </div>
+        </section>
+
         <div id="panels">
           <details class="sec" open>
             <summary>Look</summary>
@@ -807,6 +817,21 @@
                   >
                   <span class="val" id="aboutVersion">&mdash;</span>
                 </label>
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Guide</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="What this application does, what each panel is for, how the real weather works and what to try when something looks wrong. It is part of the page, so it reads the same with no internet."
+                      >i</span
+                    ></span
+                  >
+                </label>
+                <button id="guideBtn" class="ghost" type="button">Open the guide</button>
               </div>
 
               <div class="row">

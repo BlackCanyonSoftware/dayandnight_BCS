@@ -186,6 +186,18 @@ its browser tests are headless.
 
 ## Session log
 
+### 2026-11-17 (and then) - the guide and the welcome
+
+Milestone 5's "guide and FAQ, first-run welcome", which the roadmap called writing
+rather than engineering. `ui/guide.js`, the Guide row in About, a welcome card
+above the panels. A unit test parses `index.html` and fails if the guide's panels
+differ from the page's, in order, or if it mentions a control that does not exist.
+The card is deliberately not a modal: a modal on every first run would have
+blocked half the browser tests and is more ceremony than three sentences need.
+Looked at in a screenshot (the first version took most of the sidebar and wrapped
+its buttons, and was tightened). **Not done:** the guide has not been read by
+anyone but me; the FAQ is a last section and not its own thing.
+
 ### 2026-11-17 (then) - the planets
 
 `astro/planets.js` (JPL approximate elements), drawn through the star program with
