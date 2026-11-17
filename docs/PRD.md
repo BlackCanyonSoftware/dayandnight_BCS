@@ -160,7 +160,8 @@ and from `ROADMAP.md`.
   sun direction.
 - **US-031 - Weather.** Haze, fog, rain and snow, optionally following the real
   local forecast with the user's consent. _Fog, rain and snow built 2026-11-17;
-  following the real forecast not yet._
+  following the real forecast (cloud, rain, snow, fog) built the same day, on the
+  real wind's consent (ADR 0008)._
 - **US-032 - Horizon.** A silhouette layer: a bundled skyline or mountain
   library, or the user's own PNG.
 - **US-033 - Share codes.** A look as a short string, as in Pixel Galaxy Studio.

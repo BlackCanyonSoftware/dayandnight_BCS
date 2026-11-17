@@ -3600,3 +3600,135 @@ test("the Weather controls change the look, and rain is one click from a look", 
   expect(rain.precipitationKind).toBe("rain");
   expect(rain.precipitation).toBeGreaterThan(0.3);
 });
+
+test("the engine follows the real weather, exactly as if those had been the settings (US-031)", async ({
+  page
+}) => {
+  const result = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset } = await import("/engine/index.js");
+    const { makeConditions } = await import("/engine/sky/conditions.js");
+
+    const W = 480;
+    const H = 270;
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = H;
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+
+    const t = Date.UTC(2026, 10, 17, 19);
+    const HOUR = 3_600_000;
+    const hold = (over) => [
+      { t: t - HOUR, cloud: 0, precip: 0, snow: 0, fog: 0, ...over },
+      { t: t + HOUR, cloud: 0, precip: 0, snow: 0, fog: 0, ...over }
+    ];
+    const frame = (preset, conditions, at = t) => {
+      engine.setPreset(preset);
+      engine.render({
+        t: at,
+        place: { lat: 39.74, lon: -104.99 },
+        crop: { x: 0, y: 0, w: W, h: H },
+        span: { w: W, h: H },
+        pixelRatio: 1,
+        conditions
+      });
+      const px = new Uint8Array(W * H * 4);
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      return px;
+    };
+    const same = (a, b) => {
+      for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false;
+      return true;
+    };
+
+    // The user's own sky is clear and dry. The forecast says otherwise.
+    const mine = { ...defaultPreset(), cloudCover: 0, skyline: "mountains", skylineHeight: 8 };
+    const forecast = makeConditions(hold({ cloud: 0.7, precip: 0.6, snow: 0, fog: 0.25 }));
+
+    // What those four numbers would be if they had been set by hand.
+    const byHand = {
+      ...mine,
+      cloudCover: 0.7,
+      precipitation: 0.6,
+      precipitationKind: "rain",
+      fog: 0.25
+    };
+
+    const followed = frame(mine, forecast);
+    const manual = frame(byHand, null);
+    const alone = frame(mine, null);
+
+    // Well past the forecast's end, it is the user's sky again.
+    const stale = frame(mine, forecast, t + 40 * HOUR);
+    const staleAlone = frame(mine, null, t + 40 * HOUR);
+
+    // The preset the engine holds is the one it was given, after the frame.
+    engine.setPreset(mine);
+    engine.render({
+      t,
+      place: { lat: 39.74, lon: -104.99 },
+      crop: { x: 0, y: 0, w: W, h: H },
+      span: { w: W, h: H },
+      pixelRatio: 1,
+      conditions: forecast
+    });
+    const kept = engine.preset.cloudCover === 0 && engine.preset.precipitation === 0;
+
+    return {
+      followedIsManual: same(followed, manual),
+      followedIsNotMine: !same(followed, alone),
+      staleIsMine: same(stale, staleAlone),
+      kept
+    };
+  });
+
+  expect(result.followedIsNotMine, "the forecast should change the sky").toBe(true);
+  expect(result.followedIsManual, "following is the same as setting those by hand").toBe(true);
+  expect(result.staleIsMine, "far past the forecast the sky is the user's again").toBe(true);
+  expect(result.kept, "and the engine's own preset is put back after a frame").toBe(true);
+});
+
+test("while the forecast is in use the controls it sets are dimmed, and say so", async ({
+  page
+}) => {
+  await page.addInitScript(fakeShell(null));
+  await page.goto("/index.html");
+  await page.waitForFunction(() => window.DayAndNight?.lastFrame() !== null);
+
+  await openSection(page, "Clouds");
+  await openSection(page, "Weather");
+  await page.locator("#realWind").check();
+
+  await expect(page.locator("#cloudCover")).toBeEnabled();
+
+  const note = await page.evaluate(() => {
+    const t0 = Math.floor(Date.now() / 3_600_000) * 3_600_000;
+    const hours = [0, 1, 2, 3, 4, 5, 6].map((h) => t0 + (h - 1) * 3_600_000);
+    window.__wind.cb({
+      wind: {
+        samples: hours.map((t) => ({ t, east: 10, north: 0 })),
+        origin: { east: 0, north: 0 },
+        conditions: hours.map((t) => ({ t, cloud: 0.4, precip: 0.5, snow: 0, fog: 0.4 }))
+      },
+      status: { state: "live", fetchedAt: Date.now() }
+    });
+    return document.querySelector("#realWindNote").textContent;
+  });
+
+  // It says what it is like out there, and whose it is.
+  expect(note).toContain("40% cloud");
+  expect(note).toContain("steady rain");
+  expect(note).toContain("fog");
+  expect(note).toContain("MET Norway");
+
+  for (const id of ["cloudCover", "fog", "precipitation", "precipitationKind"]) {
+    await expect(page.locator(`#${id}`), `${id} is being set by the forecast`).toBeDisabled();
+  }
+  await expect(page.locator("#cloudCover")).toHaveAttribute("title", /real weather/);
+
+  // Untick it and they are the user's again.
+  await page.locator("#realWind").uncheck();
+  for (const id of ["cloudCover", "fog", "precipitation", "precipitationKind"]) {
+    await expect(page.locator(`#${id}`)).toBeEnabled();
+  }
+});

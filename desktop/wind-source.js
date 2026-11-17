@@ -53,7 +53,7 @@ const CONTACT = "developer@blackcanyonsoftware.com";
  */
 const ATTRIBUTION =
   "Weather data from MET Norway, licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). " +
-  "Changed: reduced to a wind estimate for the clouds.";
+  "Changed: reduced to a wind estimate and to cloud, rain and fog for the sky.";
 
 /**
  * How much stronger the wind is at the middle cloud layer than at ten metres.
@@ -65,6 +65,9 @@ const ATTRIBUTION =
  * have (`LAYERS` in `engine/sky/clouds.js`).
  */
 const SURFACE_TO_CLOUD_LEVEL = 2.5;
+
+/** How thick the fog is when the forecast's symbol says there is some. */
+const FOG_FROM_SYMBOL = 0.65;
 
 /** Kilometres an hour in a metre a second. */
 const KMH_PER_MS = 3.6;
@@ -150,6 +153,84 @@ function parseSamples(json, factor = SURFACE_TO_CLOUD_LEVEL) {
 }
 
 /**
+ * How hard a rate of rainfall looks, 0 to 1: the same curve the engine uses
+ * (`precipitationIntensity` in `engine/sky/conditions.js`), written out here
+ * because this file is CommonJS and the engine's is an ES module. A test holds
+ * the two together.
+ *
+ * @param {number} mmPerHour
+ * @returns {number}
+ */
+function precipitationIntensity(mmPerHour) {
+  if (!(mmPerHour > 0.05)) return 0;
+  return 1 - Math.exp(-mmPerHour / 2.5);
+}
+
+/**
+ * Read a forecast into samples of the weather: how cloudy, how hard it falls and
+ * as what, how foggy.
+ *
+ * From the same response as the wind, so reading it asks for nothing more and
+ * sends nothing more. A step without a cloud cover is skipped, as a step without
+ * a wind is; rain, snow and fog come from the step's own summary where it has
+ * one, and a missing one is "none" rather than a guess.
+ *
+ * - **Cloud** is the instant's `cloud_area_fraction`, a percentage.
+ * - **Rain** is the hour's `precipitation_amount` in millimetres, or a sixth of
+ *   the six-hour amount where only that is given, turned into how it looks.
+ * - **Snow** is a symbol that says snow or sleet, or any rain at or below
+ *   freezing.
+ * - **Fog** is a symbol that says fog. The forecast has no fog amount, only the
+ *   symbol, so it is a fixed thick-ish fog or none.
+ *
+ * Steps are kept strictly increasing in time.
+ *
+ * @param {unknown} json the parsed response body
+ * @returns {{ t: number, cloud: number, precip: number, snow: number, fog: number }[]}
+ */
+function parseConditions(json) {
+  /** @type {{ t: number, cloud: number, precip: number, snow: number, fog: number }[]} */
+  const samples = [];
+
+  const steps = /** @type {any} */ (json)?.properties?.timeseries;
+  if (!Array.isArray(steps)) return samples;
+
+  for (const step of steps) {
+    const t = Date.parse(step?.time);
+    const details = step?.data?.instant?.details;
+    const cloud = details?.cloud_area_fraction;
+
+    if (!Number.isFinite(t) || !Number.isFinite(cloud)) continue;
+    if (samples.length > 0 && !(t > samples[samples.length - 1].t)) continue;
+
+    const hour = step?.data?.next_1_hours;
+    const six = step?.data?.next_6_hours;
+
+    const amount = Number.isFinite(hour?.details?.precipitation_amount)
+      ? hour.details.precipitation_amount
+      : Number.isFinite(six?.details?.precipitation_amount)
+        ? six.details.precipitation_amount / 6
+        : 0;
+
+    const symbol = String(hour?.summary?.symbol_code ?? six?.summary?.symbol_code ?? "");
+    const precip = precipitationIntensity(amount);
+
+    const cold = Number.isFinite(details?.air_temperature) && details.air_temperature <= 0.5;
+    const snow = /snow|sleet/.test(symbol) || (precip > 0 && cold) ? 1 : 0;
+
+    samples.push({
+      t,
+      cloud: Math.max(0, Math.min(1, cloud / 100)),
+      precip,
+      snow,
+      fog: /fog/.test(symbol) ? FOG_FROM_SYMBOL : 0
+    });
+  }
+
+  return samples;
+}
+
+/**
  * When to ask again: not before the server's `Expires`, never sooner than the
  * minimum interval, and a little later at random.
  *
@@ -193,7 +274,9 @@ module.exports = {
   MIN_INTERVAL_MS,
   SURFACE_TO_CLOUD_LEVEL,
   nextFetchAt,
+  parseConditions,
   parseSamples,
+  precipitationIntensity,
   requestFor,
   truncate
 };

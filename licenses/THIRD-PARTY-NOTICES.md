@@ -112,16 +112,17 @@ reaches every customer.
 
 ## Data the product can fetch
 
-Only if the user turns on **Use the real wind**, which is off until they do.
+Only if the user turns on **Use the real weather**, which is off until they do.
 
-| Data                                          | From                                                              | Licence                                                                   | How it is used                                                                                                                                |
-| --------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Wind forecast (Locationforecast 2.0, compact) | MET Norway (the Norwegian Meteorological Institute), `api.met.no` | CC BY 4.0 ([text](https://creativecommons.org/licenses/by/4.0/legalcode)) | Wind speed and direction at ten metres, read into a velocity, scaled to the height of the clouds, and used to move them. Held in memory only. |
+| Data                                             | From                                                              | Licence                                                                   | How it is used                                                                                                                                                                                                    |
+| ------------------------------------------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Weather forecast (Locationforecast 2.0, compact) | MET Norway (the Norwegian Meteorological Institute), `api.met.no` | CC BY 4.0 ([text](https://creativecommons.org/licenses/by/4.0/legalcode)) | Wind speed and direction at ten metres, read into a velocity, scaled to the height of the clouds, and used to move them; cloud cover, rain or snow and fog by the hour, used to set the sky. Held in memory only. |
 
 The credit CC BY 4.0 asks for - who, which licence, a link, and that the data
 was changed - is shown in the editor's Clouds panel whenever the data is in use:
 "Weather data from MET Norway, licensed CC BY 4.0. Changed: reduced to a wind
-estimate for the clouds." (`ATTRIBUTION` in `desktop/wind-source.js`.) MET
+estimate and to cloud, rain and fog for the sky." (`ATTRIBUTION` in
+`desktop/wind-source.js`.) MET
 Norway's service terms are at <https://api.met.no/doc/TermsOfService>.
 
 ## The city list

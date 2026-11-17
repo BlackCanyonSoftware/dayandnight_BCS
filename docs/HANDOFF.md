@@ -206,9 +206,16 @@ wallpapers; I chose US-031, the biggest unbuilt piece of the real sky.
   one frame down another, both at 1920 wide where a streak is a streak.
 - **Also fixed:** the skyline select neither saved nor recorded an undo step; the
   gallery test had its count hard-coded (it derives it now).
-- **Not done:** following the real forecast (the roadmap says what it needs); a
-  GPU measurement; lightning; the sun or moon dimming in rain beyond what the
-  clouds do.
+- **Then, the same day: following the real forecast.** `conditions.js`,
+  `parseConditions`, the payload carrying both, the effective-preset swap, the box
+  renamed Use the real weather with its legal text, ADR addendum and a dimming
+  of the four controls it sets (they show the forecast's values while it is on).
+  Verified against one real MET Norway response (92 hours; fields are where the
+  parser expects them) and by a byte-identical-to-manual browser test. The
+  settings key is still `realWind` on purpose (a rename is a migration).
+- **Not done:** a GPU measurement; lightning; the sun or moon dimming in rain
+  beyond what the clouds do; running the real thing in the application, which
+  opens windows.
 
 ### 2026-11-13 (after that) - the city has hours
 

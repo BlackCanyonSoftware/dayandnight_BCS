@@ -10,8 +10,8 @@ telemetry and no advertising. As installed it makes no network connections at
 all: it runs entirely on your computer, and the only thing it writes is your own
 settings, on your own disk.
 
-There is one optional feature that goes online, **Use the real wind**. It is
-off until you turn it on, and [what it sends](#the-real-wind-optional-off-by-default)
+There is one optional feature that goes online, **Use the real weather**. It is
+off until you turn it on, and [what it sends](#the-real-weather-optional-off-by-default)
 is described below in full.
 
 Where you are is the one piece of personal information the Software needs. It
@@ -30,14 +30,19 @@ a tenth of a degree (about 11 kilometres) and only if you turn it on.
   settings, and no location.
 
 That is the complete list. Uninstalling the Software and deleting those files
-removes everything it ever stored. The wind data the real-wind feature fetches
-is kept in memory only and is discarded when you turn the feature off or quit.
+removes everything it ever stored. The weather data the real-weather feature
+fetches is kept in memory only and is discarded when you turn the feature off or
+quit.
 
-## The real wind (optional, off by default)
+## The real weather (optional, off by default)
 
-In the Clouds panel, **Use the real wind** moves the clouds with the real wind
-for your place, taken from the forecast of MET Norway (the Norwegian
-Meteorological Institute), instead of the Software's simulated weather.
+In the Clouds panel, **Use the real weather** follows the real weather for your
+place, taken from the forecast of MET Norway (the Norwegian Meteorological
+Institute), instead of the Software's simulated weather: the clouds move with the
+real wind, and cloud cover, rain, snow and fog follow the forecast hour by hour
+for as long as it lasts. (This box was called **Use the real wind** in an earlier
+version, when it did only the first of those; it sends the same things, and
+asks for no more.)
 
 **Nothing is sent until you tick it, and nothing is sent while it is unticked.**
 It is saved with your settings, so if you ticked it it starts again with the
@@ -65,8 +70,10 @@ different. Not when neither is open. If MET Norway cannot be reached, the
 Software tries again later, more slowly each time, and the simulated weather
 carries on.
 
-**What comes back** is a wind forecast, kept in memory, shown to the screens, and
-discarded when you untick the box or quit.
+**What comes back** is a weather forecast for that place - wind, cloud cover,
+rain and snow, and a note of fog - kept in memory, shown to the screens, and
+discarded when you untick the box or quit. It is one response; reading more of it
+sends nothing more.
 
 MET Norway's handling of a request is described by MET Norway, at
 [api.met.no](https://api.met.no/doc/TermsOfService). Their data is licensed under

@@ -70,6 +70,21 @@ samples instead of a formula.
 - It is the only thing in the application that uses the internet, which the
   hint says.
 
+## Addendum, 2026-11-17: the same consent now covers the weather
+
+The control became **Use the real weather**. The forecast response that carries
+the wind also carries cloud cover, rain or snow and a fog symbol, so following
+those costs no new request and sends nothing more: the privacy notice, EULA,
+notices, hint and credit were reworded in the same commit, and the notice says so
+in a sentence. While a forecast covers the moment, `cloudCover`, `fog`,
+`precipitation` and `precipitationKind` come from it (`engine/sky/conditions.js`)
+and their controls are dimmed; the rest of the look is the user's. A fixed Wind
+from direction still wins over the real wind.
+
+The settings key is still `realWind`: renaming it would be a settings migration
+for no change of meaning to the file, and a name that is a little out of date
+costs less than a version step. Recorded here so it is not a surprise.
+
 ## Alternatives rejected
 
 - **Open-Meteo.** Its free tier is for non-commercial use; this product is

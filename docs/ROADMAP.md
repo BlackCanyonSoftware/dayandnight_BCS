@@ -489,17 +489,16 @@ rather than engineering, which is the only reason they are last.
   setting - which by invariant 6 means a default in `engine/defaults.js`, a
   schema row and a hint.
 
-- **US-031 weather: fog, rain and snow are built** (2026-11-17; see
-  `ARCHITECTURE.md`, Weather). Three settings (`fog`, `precipitation`,
-  `precipitationKind`), a Weather section in the panel, and three looks (City in
-  the rain, Snowfall, Morning mist). **Still to do: following the real forecast.**
-  The MET Norway feed already carries what is needed (`cloud_area_fraction`,
-  `precipitation_amount`, `fog_area_fraction`), and the consent, the privacy
-  notice and the schedule are already in place from the real wind (ADR 0008), so
-  it is parsing more fields and a mode that follows them. Open: what the setting
-  should say when the forecast and the user's own sliders disagree, and the
-  privacy notice's list of what comes back. **Not measured:** the cost of a
-  falling sky on a real GPU, and NFR-1 with it on.
+- **US-031 weather is built** (2026-11-17; `ARCHITECTURE.md`, Weather and
+  Following the real forecast). Fog, rain and snow: three settings (`fog`,
+  `precipitation`, `precipitationKind`), a Weather section, and three looks (City
+  in the rain, Snowfall, Morning mist). And it can follow the real forecast: the
+  "Use the real wind" box became **Use the real weather** and, while MET Norway's
+  forecast covers the moment, cloud cover, rain or snow and fog come from it and
+  their controls are dimmed (ADR 0008, addendum). **Not measured:** the cost of a
+  falling sky on a real GPU, and NFR-1 with it on. **Not done:** lightning, hail,
+  and a fog amount (the forecast gives only a fog symbol); a user who wants the
+  real wind but their own clouds cannot have that, since one box does both.
 - **US-034 HDR** - scRGB output on Windows 11 HDR displays. The engine already
   works in linear light, so this is an output-stage change.
 - **macOS** - a host swap (`NSWindow` at desktop level, or a wallpaper

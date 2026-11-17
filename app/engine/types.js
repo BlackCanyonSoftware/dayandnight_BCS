@@ -100,6 +100,9 @@
  * @property {Rect} crop this surface's rectangle within the span
  * @property {Span} span
  * @property {number} pixelRatio this monitor's device-pixel ratio
+ * @property {import("./sky/conditions.js").Conditions | null} [conditions] the real
+ *   weather, handed in by the host the way the wind is: while there is a forecast
+ *   for `t`, cloud cover, precipitation and fog are taken from it
  * @property {import("./sky/wind.js").WindSeries | null} [wind] a real wind, handed in by the
  *   host the way a place is; absent, the clouds are carried by the simulated weather
  */

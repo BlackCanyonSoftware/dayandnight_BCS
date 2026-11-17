@@ -44,7 +44,7 @@
  * from, or null for none, with what it is doing about getting them.
  *
  * @typedef {object} WindUpdate
- * @property {{ samples: { t: number, east: number, north: number }[], origin: { east: number, north: number } } | null} wind
+ * @property {{ samples: { t: number, east: number, north: number }[], origin: { east: number, north: number }, conditions?: { t: number, cloud: number, precip: number, snow: number, fog: number }[] } | null} wind
  * @property {{ state: "off" | "waiting" | "live" | "offline", fetchedAt: number | null }} status
  */
 

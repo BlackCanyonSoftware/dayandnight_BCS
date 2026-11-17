@@ -49,12 +49,15 @@ const RETRY_MAX_MS = 3 * 60 * 60_000;
 const REFUSED_MS = 60 * 60_000;
 
 /**
- * What every surface is given: samples, and where the clouds are at the first
- * of them (see `continueSeries` in the engine).
+ * What every surface is given: wind samples and where the clouds are at the
+ * first of them (see `continueSeries` in the engine), and the weather at each
+ * hour of the same forecast. Both come from one response; the name is older than
+ * the second half.
  *
  * @typedef {object} WindPayload
  * @property {{ t: number, east: number, north: number }[]} samples
  * @property {{ east: number, north: number }} origin
+ * @property {{ t: number, cloud: number, precip: number, snow: number, fog: number }[]} conditions
  */
 
 /**
@@ -77,7 +80,7 @@ const REFUSED_MS = 60 * 60_000;
  *   Electron's `net.fetch` in the shell
  * @property {string} version the application's version, for the User-Agent
  * @property {(payload: WindPayload | null, status: WindStatus) => void} onChange
- * @property {(previous: WindPayload | null, samples: WindPayload["samples"], now: number, place: { lat: number, lon: number }) => WindPayload | null} anchor
+ * @property {(previous: WindPayload | null, samples: WindPayload["samples"], now: number, place: { lat: number, lon: number }) => Omit<WindPayload, "conditions"> | null} anchor
  *   Positions a new forecast so the clouds do not jump; the engine's
  *   `continueSeries`, which this module cannot import because it is not CommonJS
  * @property {() => number} [now]
@@ -270,10 +273,11 @@ class WindFeed {
 
     if (!failed && response && response.ok) {
       const samples = source.parseSamples(body);
-      const payload = samples.length >= 2 ? this.anchor(this.payload, samples, now, place) : null;
+      const anchored = samples.length >= 2 ? this.anchor(this.payload, samples, now, place) : null;
 
-      if (payload) {
-        this.payload = payload;
+      if (anchored) {
+        // The weather rides along: the same response, read for more.
+        this.payload = { ...anchored, conditions: source.parseConditions(body) };
         this.fetchedAt = now;
         this.lastModified = headerOf(response.headers, "last-modified");
         this.succeeded(response.headers, now);

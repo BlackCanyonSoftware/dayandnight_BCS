@@ -95,7 +95,7 @@ The Software collects no personal data. As installed it makes no network
 connections. Your location - whether you typed it, chose a city, or let the
 Software guess it from your computer's time zone - stays in a settings file on
 your own computer, with one exception that you control: if you turn on **Use the
-real wind**, the Software sends your location, rounded to a tenth of a degree,
+real weather**, the Software sends your location, rounded to a tenth of a degree,
 and your IP address to MET Norway about once an hour, and uses MET Norway's data
 under its licence (CC BY 4.0). It is off until you turn it on. `PRIVACY.md` says
 exactly what is sent, and what is stored and where.

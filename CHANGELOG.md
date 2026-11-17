@@ -113,9 +113,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lamp to whiter office to the odd blue screen, far fewer are lit, and each has
   a soft glow. Through the night the city thins out - most lights are off by
   two - and some come back before dawn.
-- **Optionally, the real wind.** **Use the real wind** in the Clouds panel moves
-  the clouds with the wind where you are, from MET Norway's forecast, instead of
-  the simulated weather. It is off until you tick it, and it is the one thing in
+- **Optionally, the real weather.** **Use the real weather** in the Clouds panel
+  follows the weather where you are, from MET Norway's forecast, instead of the
+  simulated one: the clouds move with the real wind, and cloud cover, rain, snow
+  and fog follow the forecast hour by hour. The controls it sets are dimmed and
+  show what it says while it is on, and your own come back when it is off. (It was
+  called Use the real wind, and did only the first part.) It is off until you tick it, and it is the one thing in
   the application that uses the internet: it sends your location rounded to a
   tenth of a degree (about 11 km) and your IP address, about once an hour, and
   nothing else. If it cannot be reached the simulated weather carries on. A

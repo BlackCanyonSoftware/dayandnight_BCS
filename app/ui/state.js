@@ -104,6 +104,14 @@ export let realWind = false;
  */
 export let wind = null;
 
+/**
+ * The real weather the shell has fetched, prepared for the engine, or null.
+ * The shell's fact, mirrored here for the preview, like `wind`.
+ *
+ * @type {import("../engine/sky/conditions.js").Conditions | null}
+ */
+export let conditions = null;
+
 /** @type {Monitor[]} */
 export let monitors = [];
 
@@ -152,6 +160,11 @@ export function setRealWind(next) {
 /** @param {import("../engine/sky/wind.js").WindSeries | null} next */
 export function setWind(next) {
   wind = next;
+}
+
+/** @param {import("../engine/sky/conditions.js").Conditions | null} next */
+export function setConditions(next) {
+  conditions = next;
 }
 
 /** @param {Monitor[]} next */

@@ -364,3 +364,49 @@ test("never two requests at once, and never more than one a minute", async () =>
     assert.ok(r.calls[i].at - r.calls[i - 1].at >= MIN_GAP_MS, `request ${i} came too soon`);
   }
 });
+
+test("the weather rides along with the wind, from the same response", async () => {
+  const steps = [];
+  for (let h = 0; h < 6; h += 1) {
+    steps.push({
+      time: new Date(START + h * HOUR).toISOString(),
+      data: {
+        instant: {
+          details: {
+            wind_speed: 4,
+            wind_from_direction: 270,
+            cloud_area_fraction: 20 * h,
+            air_temperature: 6
+          }
+        },
+        next_1_hours: {
+          summary: { symbol_code: "lightrain" },
+          details: { precipitation_amount: 1 }
+        }
+      }
+    });
+  }
+
+  const r = rig([answer({ properties: { timeseries: steps } }, {})]);
+  r.feed.configure(on());
+  await r.advance(0);
+
+  const payload = r.feed.current();
+  assert.equal(payload.samples.length, 6, "the wind");
+  assert.equal(payload.conditions.length, 6, "and the weather");
+  assert.equal(payload.conditions[3].cloud, 0.6);
+  assert.ok(payload.conditions[0].precip > 0, "an hour of light rain");
+  assert.equal(r.calls.length, 1, "from one request, not two");
+});
+
+test("a response with a wind and no weather still gives the wind", async () => {
+  // The first test's forecast has no cloud cover at all: the wind is what it is
+  // for, and the weather is simply empty rather than an error.
+  const r = rig([answer(forecast(), {})]);
+  r.feed.configure(on());
+  await r.advance(0);
+
+  assert.equal(r.feed.status().state, "live");
+  assert.equal(r.feed.current().samples.length, 6);
+  assert.deepEqual(r.feed.current().conditions, []);
+});

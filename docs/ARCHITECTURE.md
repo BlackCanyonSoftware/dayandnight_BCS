@@ -639,6 +639,31 @@ comparable to the clouds' pass, at twenty frames a second instead of three.
 **Rain leans with the wind that carries the clouds**, the component across the
 view, capped; snow leans less.
 
+### Following the real forecast
+
+`engine/sky/conditions.js`. The host hands the engine a series of the weather at
+each hour of the forecast (`FrameRequest.conditions`), the way it hands over the
+wind, and while there is one for the instant being drawn four settings -
+`cloudCover`, `fog`, `precipitation`, `precipitationKind` - are taken from it
+instead of from the preset. Linear between hours, so a pure function of the
+clock; believed for an hour past its ends and then the user's own sky again, so a
+stale forecast does not hold the sky and an unreachable provider changes nothing.
+
+It is done by swapping the effective preset in for the length of one frame
+(`DayNightEngine.render`) and in `signature()`, and putting the user's back, so
+nothing is remembered between frames. When there is nothing to follow,
+`effectivePreset` returns the very same object, so a day without it is on the old
+path exactly. A browser test asserts that a forecast gives byte-for-byte the frame
+the same four numbers set by hand give.
+
+The weather comes out of the same response as the wind (`parseConditions` in
+`desktop/wind-source.js`): cloud from `cloud_area_fraction`, rain from the hour's
+`precipitation_amount` through a saturating curve, snow from the symbol or from
+rain at freezing, fog from a fog symbol (the forecast has no fog amount, only the
+symbol). Verified against a real response. The curve is written twice, in the
+engine and in the CommonJS source, because one cannot import the other; a test
+holds them equal.
+
 ## The horizon
 
 US-032 asks for "a bundled skyline or mountain library, or the user's own PNG".

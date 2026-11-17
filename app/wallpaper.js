@@ -19,6 +19,7 @@
 import { DayNightEngine, defaultPreset } from "./engine/index.js";
 import { createContext, resizeToSurface } from "./engine/gl/context.js";
 import { makeWindSeries } from "./engine/sky/wind.js";
+import { makeConditions } from "./engine/sky/conditions.js";
 
 /** @typedef {import("./engine/types.js").Place} Place */
 /** @typedef {import("./engine/types.js").Preset} Preset */
@@ -51,6 +52,8 @@ import { makeWindSeries } from "./engine/sky/wind.js";
  * @typedef {object} WindPayload
  * @property {{ t: number, east: number, north: number }[]} samples
  * @property {{ east: number, north: number }} origin
+ * @property {{ t: number, cloud: number, precip: number, snow: number, fog: number }[]} [conditions]
+ *   the weather at each hour of the same forecast
  */
 
 const api = /** @type {{ wallpaper?: WallpaperApi }} */ (/** @type {unknown} */ (globalThis))
@@ -85,9 +88,18 @@ let fps = 20;
  */
 let wind = null;
 
+/**
+ * The real weather, or null. Cloud cover, rain and fog follow it for as long as
+ * it covers the moment; the surface only ever receives it.
+ *
+ * @type {import("./engine/sky/conditions.js").Conditions | null}
+ */
+let conditions = null;
+
 /** @param {WindPayload | null} payload */
 function takeWind(payload) {
   wind = payload ? makeWindSeries(payload.samples, payload.origin) : null;
+  conditions = payload ? makeConditions(payload.conditions ?? []) : null;
   shown = null;
 }
 
@@ -139,7 +151,8 @@ function frame() {
     crop: geometry.crop,
     span: geometry.span,
     pixelRatio: geometry.pixelRatio,
-    wind
+    wind,
+    conditions
   };
 
   const signature = engine.signature(request);

@@ -18,6 +18,7 @@ import { guessPlace, labelFor, nearestCity, resolveCity, suggest } from "./place
 import { LOOKS, lookIdFor, presetFor } from "./presets.js";
 import { STYLES as SKYLINE_STYLES } from "../engine/sky/skyline.js";
 import { makeWindSeries } from "../engine/sky/wind.js";
+import { conditionsAt, makeConditions } from "../engine/sky/conditions.js";
 import { KINDS as PRECIPITATION_KINDS } from "../engine/sky/weather.js";
 import { readDocument, writeDocument } from "./settings.js";
 import { decodeLook, encodeLook } from "./share-code.js";
@@ -31,10 +32,12 @@ import {
   fps,
   monitors,
   place,
+  conditions,
   preset,
   realWind,
   replacePreset,
   setAwaySeconds,
+  setConditions,
   setFps,
   setMonitors,
   setPlace,
@@ -127,8 +130,11 @@ async function boot() {
   /** @param {import("./desktop.js").WindUpdate} update */
   const takeWind = (update) => {
     setWind(update.wind ? makeWindSeries(update.wind.samples, update.wind.origin) : null);
+    setConditions(update.wind ? makeConditions(update.wind.conditions ?? []) : null);
     windStatus = update.status;
-    paintWindNote();
+    // The whole panel, so that the dimmed controls show what the forecast says
+    // and go back to the user's own values when it is gone.
+    paintFromState();
   };
   shell.onWind(takeWind);
   takeWind(await shell.getWind());
@@ -687,6 +693,7 @@ function paintFromState() {
   input("away").value = String(Math.round(awaySeconds / 60));
   input("realWind").checked = realWind;
   paintWindNote();
+  paintFollowing();
 
   $("#latVal").textContent = fmtDegrees(place.lat);
   $("#lonVal").textContent = fmtDegrees(place.lon);
@@ -1176,14 +1183,77 @@ function paintWindNote() {
   }
 
   switch (windStatus.state) {
-    case "live":
-      note.textContent = `Wind data from MET Norway (CC BY 4.0), updated ${fmtTime(windStatus.fetchedAt ?? Date.now())}.`;
+    case "live": {
+      const now = describeConditions();
+      note.textContent =
+        `Weather data from MET Norway (CC BY 4.0), updated ${fmtTime(windStatus.fetchedAt ?? Date.now())}.` +
+        (now ? ` Now: ${now}.` : "");
       break;
+    }
     case "offline":
       note.textContent = "Could not reach MET Norway. The simulated weather carries on.";
       break;
     default:
-      note.textContent = "Asking MET Norway for the wind\u2026";
+      note.textContent = "Asking MET Norway for the weather\u2026";
+  }
+}
+
+/**
+ * Whether the forecast is standing in for the sliders right now. While it is,
+ * cloud cover, fog and what is falling come from it, and the controls that would
+ * say otherwise are dimmed so that they do not seem to be listened to.
+ *
+ * @returns {boolean}
+ */
+function followingForecast() {
+  return realWind && conditionsAt(conditions, Date.now()) !== null;
+}
+
+/** What the forecast says it is like now, in a few words, or an empty string. */
+function describeConditions() {
+  const now = conditionsAt(conditions, Date.now());
+  if (!now) return "";
+
+  const parts = [`${Math.round(now.cloud * 100)}% cloud`];
+
+  if (now.precip > 0.02) {
+    const strength = now.precip < 0.3 ? "light" : now.precip < 0.65 ? "steady" : "heavy";
+    parts.push(`${strength} ${now.snow >= 0.5 ? "snow" : "rain"}`);
+  }
+  if (now.fog > 0.05) parts.push("fog");
+
+  return parts.join(", ");
+}
+
+/**
+ * Dim the four controls the forecast is overriding, say why, and show what it
+ * says in them - the sliders move to the forecast's values for as long as it is
+ * in use, and the user's own are untouched underneath and come back with it.
+ */
+function paintFollowing() {
+  const following = followingForecast();
+  const now = following ? conditionsAt(conditions, Date.now()) : null;
+
+  if (now) {
+    input("cloudCover").value = String(now.cloud);
+    input("fog").value = String(now.fog);
+    input("precipitation").value = String(now.precip);
+    select("precipitationKind").value = now.snow >= 0.5 ? "snow" : "rain";
+    $("#cloudCoverVal").textContent = `${Math.round(now.cloud * 100)}%`;
+    $("#fogVal").textContent = `${Math.round(now.fog * 100)}%`;
+    $("#precipitationVal").textContent = `${Math.round(now.precip * 100)}%`;
+  }
+
+  const why =
+    "The real weather is on and is setting this. Turn it off in the Clouds panel to set it yourself.";
+
+  for (const id of ["cloudCover", "fog", "precipitation", "precipitationKind"]) {
+    const control = $(`#${id}`);
+    if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement) {
+      control.disabled = following;
+      if (following) control.title = why;
+      else control.removeAttribute("title");
+    }
   }
 }
 

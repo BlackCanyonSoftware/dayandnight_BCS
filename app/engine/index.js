@@ -49,6 +49,7 @@ import { verticalDegrees } from "./view.js";
 import { CLOUD_SUNLIGHT, cloudsVisible, driftCells, evolution } from "./sky/clouds.js";
 import { cityActivity, lightsOn, skylineVisible, styleIndex } from "./sky/skyline.js";
 import { kindIndex, phases, slant, weatherVisible } from "./sky/weather.js";
+import { effectivePreset } from "./sky/conditions.js";
 
 /** @typedef {import("./types.js").FrameInfo} FrameInfo */
 /** @typedef {import("./types.js").FrameRequest} FrameRequest */
@@ -250,7 +251,7 @@ export class DayNightEngine {
    */
   signature(request) {
     return frameSignature(
-      this.preset,
+      effectivePreset(this.preset, request.conditions, request.t),
       request,
       this.gl.drawingBufferWidth,
       this.gl.drawingBufferHeight
@@ -283,6 +284,29 @@ export class DayNightEngine {
    * @returns {FrameInfo}
    */
   render(request) {
+    // The real weather, where there is a forecast for this instant, stands in
+    // for four of the preset's settings for the length of this one frame. The
+    // preset the user holds is put back, so nothing is remembered between
+    // frames (invariant 1), and this swap is the only place it is done.
+    const own = this.preset;
+    const followed = effectivePreset(own, request.conditions, request.t);
+    if (followed === own) return this.draw(request);
+
+    this.preset = followed;
+    try {
+      return this.draw(request);
+    } finally {
+      this.preset = own;
+    }
+  }
+
+  /**
+   * One frame, with `this.preset` already being what is to be drawn.
+   *
+   * @param {FrameRequest} request
+   * @returns {FrameInfo}
+   */
+  draw(request) {
     const { t, place, crop, span } = request;
     const gl = this.gl;
 
