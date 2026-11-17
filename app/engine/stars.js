@@ -59,7 +59,7 @@ const FAINTEST_MAGNITUDE = 6.5;
  * late civil twilight and the faintest only in full darkness - and that is
  * what this is set by.
  */
-const MAGNITUDE_ZERO_RADIANCE = 7.2e-4;
+export const MAGNITUDE_ZERO_RADIANCE = 7.2e-4;
 
 /**
  * @typedef {object} StarCatalogue
@@ -108,6 +108,56 @@ export function buildStarCatalogue(seed = 0x5eed1e) {
   }
 
   return { data, count: STAR_COUNT };
+}
+
+/**
+ * The planets' buffer: a handful of points drawn by the same program as the
+ * stars, with one more attribute, a colour. A star takes its colour from its
+ * hash; a planet has a colour of its own, and a nonzero tint is what tells the
+ * shader which it is.
+ *
+ * Dynamic, unlike the stars': the planets are the one part of the sky that is
+ * worked out on the CPU every frame, which is nothing at all for five of them.
+ *
+ * @param {WebGL2RenderingContext} gl
+ * @returns {{ update: (data: Float32Array, count: number) => void, bind: () => void, draw: () => void, dispose: () => void }}
+ */
+export function createPlanetBuffer(gl) {
+  const vao = gl.createVertexArray();
+  const buffer = gl.createBuffer();
+  let count = 0;
+
+  // Seven floats a planet: right ascension, declination, radiance, hash, and
+  // the colour.
+  const STRIDE = 7 * 4;
+
+  gl.bindVertexArray(vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, 16 * STRIDE, gl.DYNAMIC_DRAW);
+
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 4, gl.FLOAT, false, STRIDE, 0);
+  gl.enableVertexAttribArray(1);
+  gl.vertexAttribPointer(1, 3, gl.FLOAT, false, STRIDE, 16);
+  gl.bindVertexArray(null);
+
+  return {
+    update(data, n) {
+      count = n;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
+    },
+    bind() {
+      gl.bindVertexArray(vao);
+    },
+    draw() {
+      gl.drawArrays(gl.POINTS, 0, count);
+    },
+    dispose() {
+      gl.deleteBuffer(buffer);
+      gl.deleteVertexArray(vao);
+    }
+  };
 }
 
 /**

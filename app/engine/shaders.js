@@ -256,6 +256,10 @@ ${VIEW}
 // right ascension, declination, radiance, per-star hash
 layout(location = 0) in vec4 aStar;
 
+// A planet's own colour. Zero, which is what a star's attribute is left at,
+// means "colour it from the hash".
+layout(location = 1) in vec3 aTint;
+
 uniform vec4 uCrop;
 uniform vec2 uSpan;
 
@@ -334,12 +338,18 @@ void main() {
   // horizon where the light has come through most of it, and almost absent
   // overhead. Faking it evenly across the sky is the usual mistake and reads
   // as flickering rather than as stars.
+  //
+  // A planet twinkles much less than a star, and that is a fact about the sky
+  // and not a style choice: a star is a point and a planet is a small disc, so
+  // the air's shimmer averages out across it. The old advice that the ones that
+  // do not twinkle are planets is true.
+  bool planet = dot(aTint, vec3(1.0)) > 0.0;
   float nearHorizon = 1.0 - smoothstep(0.0, 40.0, altitude);
-  float flicker = 1.0 + uTwinkle * nearHorizon * 0.55 *
+  float flicker = 1.0 + uTwinkle * (planet ? 0.3 : 1.0) * nearHorizon * 0.55 *
     sin((uTwinklePhase + hash) * 2.0 * PI * 7.0 + hash * 31.0);
 
   vRadiance = radiance * uBrightness * max(flicker, 0.0);
-  vColour = starColour(hash);
+  vColour = planet ? aTint : starColour(hash);
 
   // Brighter stars are drawn larger as well as more intensely, which is how
   // both a camera and an eye behave. Without it the bright stars clip to
@@ -354,6 +364,11 @@ void main() {
   // brightest were still moons in a small picture, where a single pixel is
   // already half the moon's width.)
   float size = max(MIN_STAR_PX, uSize * (1.0 + 0.6 * sqrt(clamp(radiance * 3200.0, 0.0, 1.0))));
+
+  // The brightest planets are a good deal brighter than any star, and a
+  // camera's glare on them is wider: Venus is a small blaze and not a bigger
+  // dot. Up to a little over half as large again, for the very brightest.
+  if (planet) size *= 1.0 + 0.5 * clamp(log(radiance / 2.7e-3) / 2.3026, 0.0, 1.2);
   gl_PointSize = size;
   vSize = size;
 }

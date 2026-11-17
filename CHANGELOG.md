@@ -86,6 +86,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The planets.** Venus, Mars, Jupiter, Saturn and Mercury are in the sky where
+  they really are tonight and as bright as they really are: Venus a blaze before
+  dawn or after dusk, Mars orange, Jupiter steady and white, drifting against the
+  stars from night to night and rising and setting with them. A **Planets** slider
+  in the Stars panel scales their brightness, and zero leaves them out.
 - **Weather: fog, rain and snow.** A new Weather section in the panel, with fog,
   what is falling and how hard. Fog is thickest at the ground and flattens the
   whole picture as it thickens, and a city's lights bloom in it after dark. Rain

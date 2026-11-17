@@ -70,6 +70,13 @@ export function defaultPreset() {
     // the stars drift across the grid.
     starSize: 2.6,
 
+    // How bright the planets are, as a multiple of their real brightness; zero
+    // leaves them out. They are real: where Venus, Mars, Jupiter, Saturn and
+    // Mercury actually are tonight, as bright as they actually are. One by
+    // default because the sky is meant to be true, and zero for somebody who
+    // would rather have only the fictional stars.
+    planets: 1,
+
     // How much the stars twinkle, 0 to 1. Real twinkling is refraction in
     // moving air, so the shader concentrates it near the horizon whatever
     // this is set to.

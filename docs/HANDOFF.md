@@ -186,6 +186,24 @@ its browser tests are headless.
 
 ## Session log
 
+### 2026-11-17 (then) - the planets
+
+`astro/planets.js` (JPL approximate elements), drawn through the star program with
+a colour attribute, a `planets` setting and slider. 9 unit tests against a
+textbook example, oppositions, elongations and a famous distance; one browser test
+that the brightest thing they add is Venus at the pixel the astronomy gives.
+
+- **My test reference was wrong, not the code:** I remembered Jupiter at its
+  December 2024 opposition as 4.2 AU; the code said 4.09. The well-known figure is
+  the 2022 closest approach, 3.95 AU, which the code gives to 0.004.
+- **The banding test now turns planets off with the stars**, for the reason it
+  gives about stars: Venus is a legitimate many-level step in one pixel.
+- **Looked at:** a dawn frame with Venus bright and low and Mars and Jupiter a
+  close orange and white pair. The dates are real: Venus is the morning star in
+  late November 2026, and Saturn is well placed in the evening.
+- **Not done:** meteors, the Milky Way, aurora; no real star catalogue (still a
+  licence decision); planets are not in the README animation.
+
 ### 2026-11-17 (found while planning planets) - the night sky was frozen
 
 Looking at how planets would be redrawn I measured the frame signature over two

@@ -453,6 +453,11 @@ rather than engineering, which is the only reason they are last.
   release asset. If a viewer does not animate WebP, a GIF or an APNG is the
   fallback.
 
+- **The planets are built** (2026-11-17, `ARCHITECTURE.md`, Planets): the five
+  bright ones, real positions and brightness. What is left of the real sky is the
+  star catalogue below, constellation lines, the Milky Way, meteors and the
+  aurora; none is started.
+
 - **A real star catalogue** - the one cheap piece of realism still missing.
   `engine/stars.js` already stores four floats per star (right ascension and
   declination in degrees, radiance, a hash) and the shader already turns

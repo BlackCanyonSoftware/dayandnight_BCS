@@ -1908,7 +1908,12 @@ test("a whole day at four latitudes shows no banding and no mud (NFR-3)", async 
     // Turning them off isolates the thing being measured, and makes the
     // assertion far stronger - the sky alone may not step by more than one.
     // The stars have their own tests.
-    engine.setPreset({ ...defaultPreset(), starBrightness: 0 });
+    //
+    // The planets are the same thing for the same reason - each is a point of
+    // light that is legitimately a step of many levels in a pixel, and Venus is
+    // brighter than any star - so they are off too, with their own control. They
+    // arrived after this test and it reported Venus as a band at one latitude.
+    engine.setPreset({ ...defaultPreset(), starBrightness: 0, planets: 0 });
 
     const latitudes = [-33.87, 1.35, 51.48, 69.65];
     const dates = [
@@ -3731,4 +3736,139 @@ test("while the forecast is in use the controls it sets are dimmed, and say so",
   for (const id of ["cloudCover", "fog", "precipitation", "precipitationKind"]) {
     await expect(page.locator(`#${id}`)).toBeEnabled();
   }
+});
+
+test("the planets are drawn where they really are, and the control scales or removes them", async ({
+  page
+}) => {
+  const result = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset } = await import("/engine/index.js");
+    const { planetPositions } = await import("/engine/astro/planets.js");
+    const { equatorialToHorizontal } = await import("/engine/astro/coords.js");
+    const { localSiderealTime } = await import("/engine/astro/sidereal.js");
+    const { toJulianDay } = await import("/engine/astro/julian.js");
+    const { verticalDegrees } = await import("/engine/view.js");
+
+    const W = 1600;
+    const H = 900;
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = H;
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+
+    // A morning in November 2026, when Venus is the morning star: very bright, low
+    // in the east-south-east.
+    const t = Date.UTC(2026, 10, 17, 12, 30);
+    const place = { lat: 39.74, lon: -104.99 };
+    const look = {
+      ...defaultPreset(),
+      fieldOfView: 190,
+      horizon: 0.86,
+      twinkle: 0,
+      starBrightness: 0
+    };
+
+    const draw = (planets) => {
+      engine.setPreset({ ...look, planets });
+      engine.render({
+        t,
+        place,
+        crop: { x: 0, y: 0, w: W, h: H },
+        span: { w: W, h: H },
+        pixelRatio: 1
+      });
+      const px = new Uint8Array(W * H * 4);
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      return px;
+    };
+
+    const none = draw(0);
+    const real = draw(1);
+    const bright = draw(3);
+
+    // Where the planets added the most light: the centre of the 15-pixel square
+    // holding the most of it, found with a summed-area table. Not the brightest
+    // single pixel, because Venus, Jupiter and Mars all clip to white and the
+    // first of several equal pixels says nothing about which blob it is in.
+    const brightest = (a, b) => {
+      const added = new Float64Array(W * H);
+      let total = 0;
+      let best = 0;
+      for (let row = 0; row < H; row += 1) {
+        for (let x = 0; x < W; x += 1) {
+          const i = ((H - 1 - row) * W + x) * 4;
+          const d = Math.max(0, b[i] + b[i + 1] + b[i + 2] - (a[i] + a[i + 1] + a[i + 2]));
+          added[row * W + x] = d;
+          total += d;
+          best = Math.max(best, d);
+        }
+      }
+
+      // Summed-area table, one row and column larger than the picture.
+      const stride = W + 1;
+      const table = new Float64Array(stride * (H + 1));
+      for (let y = 1; y <= H; y += 1) {
+        let run = 0;
+        for (let x = 1; x <= W; x += 1) {
+          run += added[(y - 1) * W + (x - 1)];
+          table[y * stride + x] = table[(y - 1) * stride + x] + run;
+        }
+      }
+
+      const half = 7;
+      let bestSum = -1;
+      let at = [0, 0];
+      for (let y = half; y < H - half; y += 1) {
+        for (let x = half; x < W - half; x += 1) {
+          const sum =
+            table[(y + half + 1) * stride + (x + half + 1)] -
+            table[(y - half) * stride + (x + half + 1)] -
+            table[(y + half + 1) * stride + (x - half)] +
+            table[(y - half) * stride + (x - half)];
+          if (sum > bestSum) {
+            bestSum = sum;
+            at = [x, y];
+          }
+        }
+      }
+      return { best, at, total };
+    };
+
+    // Where Venus should be, from the same astronomy and the same projection.
+    const venus = planetPositions(t).find((p) => p.id === "venus");
+    const lst = localSiderealTime(toJulianDay(t), place.lon);
+    const h = equatorialToHorizontal(
+      { rightAscension: venus.rightAscension, declination: venus.declination },
+      lst,
+      place.lat
+    );
+    const bearing = 180;
+    const perY = verticalDegrees(look.fieldOfView, look.horizon, { w: W, h: H });
+    const wrap = (d) => ((((d + 180) % 360) + 360) % 360) - 180;
+    const expected = [
+      (wrap(h.azimuth - bearing) / look.fieldOfView + 0.5) * W,
+      (look.horizon - h.altitude / perY) * H
+    ];
+
+    return {
+      real: brightest(none, real),
+      louder: brightest(none, bright),
+      expected,
+      venusAltitude: h.altitude,
+      venusMagnitude: venus.magnitude
+    };
+  });
+
+  expect(result.venusAltitude, "Venus is up at this hour").toBeGreaterThan(5);
+  expect(result.real.best, "the planets add light").toBeGreaterThan(100);
+
+  // The brightest thing they added is Venus, and it is where the astronomy puts it:
+  // to within a blob, which is about seven pixels across and clipped flat, so the
+  // square holding most of its light has no single centre to find.
+  expect(Math.abs(result.real.at[0] - result.expected[0])).toBeLessThan(8);
+  expect(Math.abs(result.real.at[1] - result.expected[1])).toBeLessThan(8);
+
+  // Three times as bright puts more light in; and with none there is none.
+  expect(result.louder.total).toBeGreaterThan(result.real.total);
 });

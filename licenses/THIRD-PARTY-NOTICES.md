@@ -73,6 +73,12 @@ where a formula came from is how the next person checks it.
   Sun's follow the reduction of **VSOP87** (Bretagnon and Francou), in both
   cases published scientific data reproduced as the numerical facts they are.
   The ΔT polynomial is the fit by **Espenak and Meeus**.
+- **The planets' orbital elements**: E. M. Standish, "Keplerian Elements for
+  Approximate Positions of the Major Planets", Jet Propulsion Laboratory Solar
+  System Dynamics (Table 1, 1800 to 2050 AD), published constants of the orbits
+  of Mercury, Venus, the Earth-Moon barycentre, Mars, Jupiter and Saturn in
+  `engine/astro/planets.js`. Their apparent magnitudes are the Astronomical
+  Almanac's formulae as given in Meeus, chapter 41.
 - **Oklab**: Björn Ottosson, 2020. The matrices in `engine/sky/oklab.js` and in
   the composite shader are his, from his published description, which he placed
   in the public domain.

@@ -595,6 +595,36 @@ of the way through itself. Measured at the time: one step of 8.2 levels where
 its neighbours moved 0.45. The conversion now happens before the wrap, so the
 shader is handed an offset already counted in lattice cells.
 
+## Planets
+
+`engine/astro/planets.js` and the star pass. Mercury, Venus, Mars, Jupiter and
+Saturn from the JPL approximate Keplerian elements (Table 1, 1800 to 2050, good
+to a few arcminutes), as geocentric right ascension and declination of date, so
+they go into the same sidereal-time arithmetic the stars use and rise, set and
+turn with them. Distance and phase angle fall out of the same triangle and, with
+the almanac's magnitude formulae, give each planet its real brightness: Venus
+brilliant as a morning or evening star, Mars swelling and fading over two years.
+
+They are drawn by the **star program** with one more attribute, a colour: a
+nonzero tint is what says "this is a planet, not a star", and a planet twinkles
+less (a disc averages out the air's shimmer, which is true), is a little larger
+for the brightest, and is scaled by its own `planets` setting rather than the
+stars' brightness, because a planet's brightness is a fact and a star's is a
+look. Worked out on the CPU each frame into a small dynamic buffer, which is
+five points.
+
+**Checked against** one worked example in a textbook (Venus on 20 December 1992,
+to a tenth of a degree and a thousandth of an AU), the oppositions and greatest
+elongations everybody agrees on, and the distances in the news (Jupiter at 3.95
+AU on 26 September 2022), over fifty years of elongations and the whole 1900 to
+2100 range. In the editor they are checked at the pixel: the brightest thing the
+planets add is Venus, where the same astronomy and projection put it.
+
+**Not modelled:** light-time, aberration and nutation (arcseconds), the Earth's
+offset from the barycentre (thousandths of a degree), Saturn's rings in its
+brightness, and Uranus and Neptune. A planet's motion costs no extra redraws: it
+is slower than the sidereal rotation the frame signature already follows.
+
 ## Weather
 
 US-031, in `engine/sky/weather.js` and `WEATHER_FRAG`: fog, and rain or snow

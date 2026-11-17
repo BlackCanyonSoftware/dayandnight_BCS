@@ -257,6 +257,7 @@ function wireControls() {
   bindRange("bodyScale", (v) => setPreset({ bodyScale: v }));
   bindRange("starBrightness", (v) => setPreset({ starBrightness: v }));
   bindRange("starSize", (v) => setPreset({ starSize: v }));
+  bindRange("planets", (v) => setPreset({ planets: v }));
   bindRange("twinkle", (v) => setPreset({ twinkle: v }));
   // The slider is in units of 1e-6 radiance, because a control whose numbers
   // run from 0 to 0.0000066 tells the user nothing.
@@ -687,6 +688,7 @@ function paintFromState() {
   input("bodyScale").value = String(preset.bodyScale);
   input("starBrightness").value = String(preset.starBrightness);
   input("starSize").value = String(preset.starSize);
+  input("planets").value = String(preset.planets);
   input("twinkle").value = String(preset.twinkle);
   input("airglow").value = String(preset.airglow * 1e6);
   input("fps").value = String(fps);
@@ -742,6 +744,7 @@ function paintFromState() {
   $("#bodyScaleVal").textContent = `${preset.bodyScale.toFixed(1)}×`;
   $("#starBrightnessVal").textContent = `${preset.starBrightness.toFixed(1)}×`;
   $("#starSizeVal").textContent = `${preset.starSize.toFixed(1)} px`;
+  $("#planetsVal").textContent = `${Math.round(preset.planets * 100)}%`;
   $("#twinkleVal").textContent = `${Math.round(preset.twinkle * 100)}%`;
   $("#airglowVal").textContent = (preset.airglow * 1e6).toFixed(1);
   $("#fpsVal").textContent = `${fps} fps`;

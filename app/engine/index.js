@@ -39,7 +39,13 @@ import {
   WEATHER_FRAG
 } from "./shaders.js";
 import { moonBody, sunBody } from "./bodies.js";
-import { buildStarCatalogue, createStarBuffer } from "./stars.js";
+import {
+  MAGNITUDE_ZERO_RADIANCE,
+  buildStarCatalogue,
+  createPlanetBuffer,
+  createStarBuffer
+} from "./stars.js";
+import { planetPositions } from "./astro/planets.js";
 import { LUT_AZIMUTH, LUT_SUN, LUT_VIEW, ambientFor } from "./sky/atmosphere.js";
 import { autoExposure, sampleSky, skyLut, transmittanceFor } from "./sky/lut.js";
 import { tintFor } from "./sky/grade.js";
@@ -182,6 +188,7 @@ export class DayNightEngine {
     this.quad = createFullScreenTriangle(gl);
     this.skyTexture = createSkyTexture(gl, skyLut().data, LUT_SUN, LUT_VIEW, LUT_AZIMUTH);
     this.starBuffer = createStarBuffer(gl, buildStarCatalogue());
+    this.planetBuffer = createPlanetBuffer(gl);
 
     this.scene = createRenderTarget(
       gl,
@@ -205,6 +212,8 @@ export class DayNightEngine {
     this.quad?.dispose();
     this.skyTexture?.dispose();
     this.starBuffer?.dispose();
+    this.planetBuffer?.dispose();
+    this.planetBuffer = null;
     this.scene?.dispose();
 
     this.sky = null;
@@ -426,8 +435,38 @@ export class DayNightEngine {
     // milliseconds at single precision.
     gl.uniform1f(stars.uniform("uTwinklePhase"), twinklePhase(t));
 
+    // A star's tint attribute is not an array, so it takes this value: zero, which
+    // is what says "colour it from the hash".
+    gl.vertexAttrib4f(1, 0, 0, 0, 1);
+
     starBuffer.bind();
     starBuffer.draw();
+
+    /* the planets, which are real: the same program, a colour of their own */
+    const planetBuffer = this.planetBuffer;
+    if (planetBuffer && this.preset.planets > 0) {
+      const sightings = planetPositions(t);
+      const data = new Float32Array(sightings.length * 7);
+
+      sightings.forEach((p, i) => {
+        const o = i * 7;
+        data[o] = p.rightAscension;
+        data[o + 1] = p.declination;
+        data[o + 2] = MAGNITUDE_ZERO_RADIANCE * Math.pow(10, -0.4 * p.magnitude);
+        data[o + 3] = 0.5;
+        data[o + 4] = p.colour[0];
+        data[o + 5] = p.colour[1];
+        data[o + 6] = p.colour[2];
+      });
+
+      // The planets' own multiple stands where the stars' does, since a planet's
+      // brightness is a fact and the stars' is a look.
+      gl.uniform1f(stars.uniform("uBrightness"), this.preset.planets);
+
+      planetBuffer.update(data, sightings.length);
+      planetBuffer.bind();
+      planetBuffer.draw();
+    }
 
     /* ------------------------- 3. the sun and the moon, added as more light */
 

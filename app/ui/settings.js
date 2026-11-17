@@ -160,6 +160,7 @@ function normaliseCfg(raw) {
       groundAlbedo: num(presetRaw["groundAlbedo"], defaults.groundAlbedo, 0, 1),
       starBrightness: num(presetRaw["starBrightness"], defaults.starBrightness, 0, 8),
       starSize: num(presetRaw["starSize"], defaults.starSize, 0.5, 6),
+      planets: num(presetRaw["planets"], defaults.planets, 0, 4),
       twinkle: num(presetRaw["twinkle"], defaults.twinkle, 0, 1),
       airglow: num(presetRaw["airglow"], defaults.airglow, 0, 1e-4),
       glare: num(presetRaw["glare"], defaults.glare, 0, 4),
