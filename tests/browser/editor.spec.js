@@ -3217,6 +3217,210 @@ test("a city's outline has towers, setbacks and spires, not a row of boxes", asy
   ).toBeGreaterThan(60);
 });
 
+/**
+ * Renders the town look at a fixed instant and returns what the tests below
+ * measure. One harness so each test says what it checks and not how it reads
+ * pixels.
+ */
+async function cityHarness(page) {
+  await page.evaluate(async () => {
+    const { DayNightEngine } = await import("/engine/index.js");
+    const { presetFor } = await import("/ui/presets.js");
+    const W = 1920;
+    const H = 1080;
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = H;
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+
+    window.__city = {
+      W,
+      H,
+      noon: Date.UTC(2026, 10, 10, 19, 0),
+      night: Date.UTC(2026, 10, 10, 6, 30),
+      draw(over, t) {
+        engine.setPreset({ ...presetFor("town"), cloudCover: 0, planets: 0, ...over });
+        engine.render({
+          t,
+          place: { lat: 39.74, lon: -104.99 },
+          crop: { x: 0, y: 0, w: W, h: H },
+          span: { w: W, h: H },
+          pixelRatio: 1
+        });
+        const px = new Uint8Array(W * H * 4);
+        gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        return px;
+      },
+      luma(px, x, row) {
+        const i = ((H - 1 - row) * W + x) * 4;
+        return 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+      }
+    };
+  });
+}
+
+test("buildings are of every width, not a grid of equal slots", async ({ page }) => {
+  await cityHarness(page);
+  const widths = await page.evaluate(() => {
+    const c = window.__city;
+    const city = c.draw({ bearing: 0 }, c.noon);
+    const sky = c.draw({ bearing: 0, skyline: "none" }, c.noon);
+
+    // The top of the outline in each column, as in the outline test.
+    const tops = new Int32Array(c.W).fill(c.H);
+    for (let x = 0; x < c.W; x += 1) {
+      let run = 0;
+      for (let row = 0; row < c.H; row += 1) {
+        const i = ((c.H - 1 - row) * c.W + x) * 4;
+        const d =
+          Math.abs(city[i] - sky[i]) +
+          Math.abs(city[i + 1] - sky[i + 1]) +
+          Math.abs(city[i + 2] - sky[i + 2]);
+        run = d > 12 ? run + 1 : 0;
+        if (run === 4) {
+          tops[x] = row - 3;
+          break;
+        }
+      }
+    }
+
+    // The stretches of constant roofline between steps: one per building, or
+    // per tier of one.
+    const runs = [];
+    let start = 0;
+    for (let x = 1; x < c.W; x += 1) {
+      if (Math.abs(tops[x] - tops[x - 1]) >= 3) {
+        runs.push(x - start);
+        start = x;
+      }
+    }
+    const real = runs.filter((w) => w >= 4).sort((a, b) => a - b);
+    const mean = real.reduce((a, b) => a + b, 0) / real.length;
+    const sd = Math.sqrt(real.reduce((a, b) => a + (b - mean) ** 2, 0) / real.length);
+    return {
+      count: real.length,
+      cv: sd / mean,
+      p10: real[Math.floor(real.length * 0.1)],
+      p90: real[Math.floor(real.length * 0.9)]
+    };
+  });
+
+  expect(widths.count, "plenty of separate buildings").toBeGreaterThan(50);
+  // A grid of equal slots has a spread of nothing; this one is wide.
+  expect(widths.cv, `spread of widths ${widths.cv.toFixed(2)}`).toBeGreaterThan(0.8);
+  expect(widths.p90 / widths.p10, "slender and broad buildings both").toBeGreaterThan(4);
+});
+
+test("by day a facade has floors and windows, which the sky beside it does not", async ({
+  page
+}) => {
+  await cityHarness(page);
+  const detail = await page.evaluate(() => {
+    const c = window.__city;
+    const city = c.draw({ bearing: 0 }, c.noon);
+    const sky = c.draw({ bearing: 0, skyline: "none" }, c.noon);
+
+    // Vertical change over two rows: a floor line is one, a smooth sky is not.
+    const fraction = (px, from, to) => {
+      let changed = 0;
+      let total = 0;
+      for (let row = Math.floor(c.H * from); row < Math.floor(c.H * to); row += 1) {
+        for (let x = 0; x < c.W; x += 1) {
+          total += 1;
+          if (Math.abs(c.luma(px, x, row) - c.luma(px, x, row + 2)) > 5) changed += 1;
+        }
+      }
+      return changed / total;
+    };
+    return { facade: fraction(city, 0.8, 0.86), sky: fraction(sky, 0.3, 0.4) };
+  });
+
+  expect(detail.sky, "a clear sky is smooth").toBeLessThan(0.01);
+  expect(detail.facade, "a facade is not a flat tone").toBeGreaterThan(0.15);
+});
+
+test("a wall the sun reaches is brighter than one it does not, so the city follows the sun", async ({
+  page
+}) => {
+  await cityHarness(page);
+  const darkness = await page.evaluate(() => {
+    const c = window.__city;
+
+    // How much darker than its own sky the city band is, which removes the
+    // difference between looking at the sun and away from it.
+    const band = (px) => {
+      let sum = 0;
+      let n = 0;
+      for (let row = Math.floor(c.H * 0.78); row < Math.floor(c.H * 0.84); row += 1) {
+        for (let x = 0; x < c.W; x += 1) {
+          sum += c.luma(px, x, row);
+          n += 1;
+        }
+      }
+      return sum / n;
+    };
+    const gap = (bearing) =>
+      band(c.draw({ bearing, skyline: "none" }, c.noon)) - band(c.draw({ bearing }, c.noon));
+
+    // Noon in the northern hemisphere: the sun is in the south. Facing north the
+    // walls we see are the ones it is shining on; facing south, the ones it is
+    // behind.
+    return { facingAway: gap(0), facingSun: gap(180) };
+  });
+
+  expect(darkness.facingAway, "the city is darker than the sky either way").toBeGreaterThan(0);
+  expect(
+    darkness.facingAway,
+    `lit walls: ${darkness.facingAway.toFixed(1)} against ${darkness.facingSun.toFixed(1)} in shade`
+  ).toBeLessThan(0.7 * darkness.facingSun);
+});
+
+test("the tallest masts carry a red light at night and not by day", async ({ page }) => {
+  await cityHarness(page);
+  const lights = await page.evaluate(() => {
+    const c = window.__city;
+    // Saturated red: a lamp in a window is orange, which has a third of that.
+    const red = (px) => {
+      let n = 0;
+      for (let i = 0; i < px.length; i += 4) {
+        if (px[i] > 100 && px[i + 1] < 0.35 * px[i] && px[i + 2] < 0.35 * px[i]) n += 1;
+      }
+      return n;
+    };
+    // The towers are in some directions and not others, so look all round.
+    const bearings = [0, 90, 180, 270];
+    return {
+      night: bearings.map((bearing) => red(c.draw({ bearing }, c.night))).reduce((a, b) => a + b),
+      day: bearings.map((bearing) => red(c.draw({ bearing }, c.noon))).reduce((a, b) => a + b)
+    };
+  });
+
+  expect(lights.night, "red lights on the masts").toBeGreaterThan(20);
+  expect(lights.night, "points of light and not a red wash").toBeLessThan(800);
+  expect(lights.day).toBe(0);
+});
+
+test("the city is the same on either side of north, with no seam", async ({ page }) => {
+  await cityHarness(page);
+  const seam = await page.evaluate(() => {
+    const c = window.__city;
+    // One full turn apart: a city that is a function of azimuth alone is the
+    // same picture.
+    const a = c.draw({ bearing: 359.5 }, c.night);
+    const b = c.draw({ bearing: -0.5 }, c.night);
+    let big = 0;
+    for (let i = 0; i < a.length; i += 4) {
+      const d =
+        Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+      if (d > 30) big += 1;
+    }
+    return big;
+  });
+
+  expect(seam, "pixels that differ visibly").toBeLessThan(50);
+});
+
 test("far fewer windows are lit at two in the morning than at nine in the evening", async ({
   page
 }) => {

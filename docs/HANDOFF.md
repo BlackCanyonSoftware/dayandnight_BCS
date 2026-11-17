@@ -186,6 +186,31 @@ its browser tests are headless.
 
 ## Session log
 
+### 2026-11-17 (and again) - the city, properly
+
+The owner said the skyline still looked like rectangles on rectangles with
+nothing realistic about it, after the windows and the shapes had each been
+improved. They were right, and the reason was structural: equal-width slots made
+a barcode whatever the heights did, every face was one flat tone, and by day
+there was nothing on a facade at all. Rewritten rather than tuned: jittered
+building edges, podium and tower and crown with setbacks, roofs of seven kinds,
+turned buildings with a sunlit face and a shaded one that follow the sun, four
+materials with floors and windows drawn by day, a low belt row, the foot sinking
+into the dark below the horizon, floodlit crowns and red mast lights at night.
+`ARCHITECTURE.md` "The city, as it is now" has the reasoning. Five new browser
+tests (spread of widths, daytime facade detail, walls follow the sun, red masts,
+no seam at north); the seam test would have failed on every earlier version. The
+whole suite passes. Looked at in renders at noon facing both ways, golden hour,
+dusk and the small hours, at full size and zoomed to the pixel.
+
+**Not done:** not run in the real application and not measured on a GPU (about
+five times the per-pixel work of the old shader over the bottom quarter of the
+frame). The README animation (`a-day.webp`) still shows the previous city.
+Tone and colour choices (the albedos, `K = 0.13` for how hard the sun lights a
+wall, the brick) are judgement, tuned by eye against the sky, and are where to
+look if it reads wrong on a real monitor. Rooftop clutter (water tanks, cranes),
+a river or park, and a skyline that is not this one are all still open.
+
 ### 2026-11-17 (and then) - the guide and the welcome
 
 Milestone 5's "guide and FAQ, first-run welcome", which the roadmap called writing

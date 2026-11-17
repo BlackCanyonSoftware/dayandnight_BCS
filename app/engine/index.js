@@ -627,6 +627,18 @@ export class DayNightEngine {
       gl.uniform3f(skyline.uniform("uHazeToSun"), toSun[0], toSun[1], toSun[2]);
       gl.uniform3f(skyline.uniform("uHazeAway"), away[0], away[1], away[2]);
 
+      // A wall takes the sun as a cloud does, in the same colour: so a face the
+      // sun reaches is warm at the ends of the day and white at noon, and one
+      // it does not reach has only the sky.
+      const wallSun = transmittanceFor(sun.altitude, this.preset.turbidity);
+      gl.uniform3f(
+        skyline.uniform("uSunColour"),
+        wallSun[0] * CLOUD_SUNLIGHT,
+        wallSun[1] * CLOUD_SUNLIGHT,
+        wallSun[2] * CLOUD_SUNLIGHT
+      );
+      gl.uniform1f(skyline.uniform("uSunAltitude"), sun.altitude);
+
       quad.bind();
       quad.draw();
     }

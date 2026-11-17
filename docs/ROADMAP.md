@@ -229,6 +229,10 @@ paperwork.
   person still has to do is the one nothing can fake: launch a full-screen
   game and watch it stop.
 - NFR-1 re-measured with three monitors active.
+- NFR-1 and GPU time re-measured with the real city, the weather and the night
+  motion all on. The city shader is about five times the per-pixel work it was,
+  over the bottom quarter of the frame, and none of it has been measured on a
+  GPU (`tools/measure-cost.js` opens windows; ask first).
 - The build from the installer - not the one run from source - puts a sky on the
   desktop on a machine that has never had the project. **Half done:**
   `node tools/verify-package.js` confirms the packaged application works, and

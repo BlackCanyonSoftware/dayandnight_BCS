@@ -123,18 +123,23 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Choosing a skyline from the list now saves and can be undone.** It did
   neither until you touched another control.
-- **A city that looks like a city.** It was rectangles on rectangles. It is
-  now three rows deep, the farther ones paler with the air in front of them, with
-  a downtown where the towers gather and a low sprawl around it. Buildings have
-  flat roofs with plant rooms, wedge roofs, stepped setbacks, a lower wing, and
-  crowned towers with spires and the occasional mast. Some touch their
-  neighbours, each has its own tone, the side facing the sun catches the light,
-  and every edge is smoothed so a thin spire is a fine line. Its windows are lit
-  rooms and not a grid of orange dashes: some buildings are dark and others
-  busy, a floor tends to be lit or dark as a whole, the light varies from warm
-  lamp to whiter office to the odd blue screen, far fewer are lit, and each has
-  a soft glow. Through the night the city thins out - most lights are off by
-  two - and some come back before dawn.
+- **A city that looks like a city.** It was rectangles on rectangles, and then
+  better rectangles. It is now four rows deep, the farther ones paler with the
+  air in front of them, with a downtown where the towers gather and a low belt
+  of dense buildings hiding the feet of the rest. Buildings are every width
+  from slender to broad, and each is a podium and a tower and a crown: setbacks
+  that step in as it climbs, roofs that are flat with a plant room, slanted,
+  gabled, domed or spired, the occasional mast, and some towers are round.
+  Buildings are turned a little to you, a district at a time as streets are, so
+  you see a broad wall and a narrow side, and the sun reaches one and not the
+  other: which wall is bright follows the sun through the day, and glass flashes
+  it when the sun is low. Facades are glass, stone, brick or dark glass, with
+  floors and windows you can see by day. At night the windows are lit rooms
+  (some buildings dark, others busy, a floor on or off together, warm lamps and
+  whiter offices and the odd blue screen), the foot of the city glows from the
+  street, some towers are floodlit at the top, and the tallest masts carry a red
+  light. Through the night the city thins out - most lights are off by two - and
+  some come back before dawn.
 - **Optionally, the real weather.** **Use the real weather** in the Clouds panel
   follows the weather where you are, from MET Norway's forecast, instead of the
   simulated one: the clouds move with the real wind, and cloud cover, rain, snow

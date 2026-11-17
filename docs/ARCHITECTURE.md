@@ -737,7 +737,7 @@ Two things the first version got wrong, both visible:
 - **The city was a comb.** Twenty-six slots around the whole horizon made each
   building fourteen degrees wide, so a default field of view held eleven of
   them. Seventy-two slots holds thirty, which is what a skyline looks like from
-  across a river.
+  across a river. (Since replaced; see below.)
 
 The windows are the one part that changes through the day: a hash per window
 decides both whether it is lit and how late it stays on, compared against a
@@ -749,6 +749,59 @@ something else forced a redraw.
 
 The shape never moves, so unlike the clouds there is no CPU half to keep in
 step with the shader, and the skyline costs no redraws at all.
+
+### The city, as it is now
+
+The city went through four versions, and the owner's verdict on each was the
+same one: rectangles on rectangles. What was wrong was never one thing, and
+what fixed it was several things at once, all in `SKYLINE_FRAG`:
+
+- **Equal slots were the barcode.** Buildings stood in equal slots, so the eye
+  saw a regular comb however the heights varied. The slots are now bounded by
+  jittered edges (`edgeAt`): a building is between 0.3 and 1.7 slots wide, and
+  the edges cannot cross. Finding which building a pixel is in costs two
+  comparisons on the neighbours. The measured spread of widths in a render is a
+  coefficient of variation of 1.4 and a tenth-to-ninetieth percentile ratio of
+  ten; a regular grid is nothing.
+- **A building is a podium, a tower and a crown**, not a box: up to three tiers
+  stepping in as it climbs and not centred, a roof that is flat with a plant
+  room, slanted, gabled, domed or spired, and a mast now and then. Each is a
+  box or a sloped edge with exact pixel coverage (`boxCover`), so every edge is
+  anti-aliased and a one-pixel spire is a faint line.
+- **Walls take the sun.** A building is turned a little to the view, so it shows
+  a broad face and a narrow side. The streets in a district run one way, so the
+  turn is shared by a district (`pnoise` of azimuth); a seventh of buildings are
+  turned at random. Each face's normal is a compass bearing, and it is lit by
+  the sun if the sun is on its side of the building, in the sun's own colour
+  (`transmittanceFor`, as the clouds use). So which wall is bright follows the
+  sun round the sky through the day, and the default view - which faces the
+  sun - sees mostly shade and the lit edges, where facing away shows warm
+  walls. A test holds that: the city is measurably less dark against its sky
+  facing away from the sun than towards it. Round towers shade smoothly across,
+  because their normal turns with the surface.
+- **Facades are made of something.** Glass, stone, brick or dark glass, each with
+  an albedo and a window set in the wall. Glass shows the sky; stone has dark
+  windows. The grid is drawn when a cell is wider than a pixel and fades to its
+  average when it is not, so the same city is as bright at any size. Glass
+  flashes the sun when a face is turned to throw it back at the viewer, which
+  is only possible with the sun low.
+- **Depth is four rows**, far to near: a far haze of towers, a middle row, a low
+  belt of dense buildings that hides the feet of those behind it, and the near
+  row, which is the only one allowed below the horizon. Below the horizon the
+  facades sink into the dark the rows stand on, which stops the bottom of the
+  picture reading as a fence.
+- **Night.** Lit rooms as before, now on the faces, plus a warm glow at the foot
+  from the street, floodlit crowns on some towers, and a red light on the
+  tallest masts. The light is steady: a blink would be a function of time and
+  would put the skyline in the frame signature at one redraw a second.
+- **It is periodic.** The building index is taken modulo the number of slots, so
+  the city is the same all the way round. The earlier versions had a seam where
+  the hash restarted; a test compares one full turn apart.
+
+Cost: the shader is about five times the work per pixel of the old one, over
+the bottom quarter of the frame only (the rest returns on the first test), once
+per redraw. That is not measured on a GPU and is not expected to matter; it is
+listed in the roadmap under things to measure.
 
 ## Share codes
 
