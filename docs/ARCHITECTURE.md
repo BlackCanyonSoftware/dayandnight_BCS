@@ -595,6 +595,50 @@ of the way through itself. Measured at the time: one step of 8.2 levels where
 its neighbours moved 0.45. The conversion now happens before the wrap, so the
 shader is handed an offset already counted in lattice cells.
 
+## Weather
+
+US-031, in `engine/sky/weather.js` and `WEATHER_FRAG`: fog, and rain or snow
+falling through it. It is the seventh pass, after the skyline and before the tone
+map, so it is in front of everything and is exposed with the rest of the frame.
+It emits the premultiplied pair the clouds and the skyline do (light in the
+colour, what is left of what is behind in the alpha), so fog is a veil and rain is
+added light.
+
+**Lit by the scene, not glowing.** Rain and snow are lit by the same ambient
+sky the clouds and the silhouette are, so they are plain on a bright overcast
+afternoon and nearly invisible on a dark night, which is what rain is. Near a
+city they catch its lights, and the fog above it glows: `uCityGlow` is the same
+lit fraction the windows use, with the same hour of the night.
+
+**Fog** is thickest at the ground and thins with height, more slowly the denser
+it is, and never quite nothing, so thick fog flattens the whole frame. Rain and
+snow thicken it a little, which is half of why a wet day is grey.
+
+**Falling things** are three layers each, far to near, placed in pixels of the
+whole span scaled to a 1080-line screen: continuous across monitors and the same
+in the editor's smaller preview. Rain is a column per cell with a streak per
+repeat, sheared by the wind; snow is a soft disc per cell that sways as it falls.
+The cell heights are in `weather.js` and the shader is built from them, so a
+layer's speed in pixels a second is its rate times its cell and a test can say so.
+
+**It is still a pure function of the instant.** Each layer's position is a phase,
+the instant modulo that layer's period, taken in double precision on the CPU and
+handed over as a fraction. Two screens, or one after a pause, draw the same rain
+at the same moment.
+
+**What it costs, which is the one real cost here.** A raindrop crosses the screen
+in a second, so rain and snow change every frame and defeat the frame-skipping
+that makes the rest of the product nearly free. The signature carries the phases
+quantised to about a pixel, so a falling sky redraws every frame it falls and a
+dry one or a foggy one not at all (a test asserts both: one distinct frame in a
+second dry or foggy, twenty in a second of rain). It is paid only while it falls,
+and the looks that use it say so in their hints. **Not measured** on a real GPU
+or against NFR-1; the arithmetic is a few hashes a pixel per layer, which is
+comparable to the clouds' pass, at twenty frames a second instead of three.
+
+**Rain leans with the wind that carries the clouds**, the component across the
+view, capped; snow leans less.
+
 ## The horizon
 
 US-032 asks for "a bundled skyline or mountain library, or the user's own PNG".

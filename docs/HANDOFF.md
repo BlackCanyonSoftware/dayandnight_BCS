@@ -186,6 +186,30 @@ its browser tests are headless.
 
 ## Session log
 
+### 2026-11-17 - weather: fog, rain and snow
+
+The owner asked for more features and detail in the application and the
+wallpapers; I chose US-031, the biggest unbuilt piece of the real sky.
+
+- **Built:** `engine/sky/weather.js`, `WEATHER_FRAG` (the seventh pass), three
+  preset keys, a Weather section, three looks, signature terms, tests (11 unit,
+  5 browser). `ARCHITECTURE.md`, Weather, has the design.
+- **Looked at, not assumed:** rain and snow by day, rain and fog at night over
+  the city, fog at dawn over mountains. Two things only looking found: rain at
+  night was invisible (nothing lit it), fixed by lighting it with the city's own
+  glow; and snow came out blue, fixed by making it white whatever the light.
+- **Tests that were wrong, not the code:** three of my first browser measures
+  could not see what they claimed to. Rain's mist lifted the whole frame so
+  every "streak" was the picture; snow's discs are bigger than rain's lines so
+  "pixels changed" said snow moved more; and my own top-down/bottom-up indexing
+  made the fall measure read zero. Rebuilt on a high-pass filter and on sliding
+  one frame down another, both at 1920 wide where a streak is a streak.
+- **Also fixed:** the skyline select neither saved nor recorded an undo step; the
+  gallery test had its count hard-coded (it derives it now).
+- **Not done:** following the real forecast (the roadmap says what it needs); a
+  GPU measurement; lightning; the sun or moon dimming in rain beyond what the
+  clouds do.
+
 ### 2026-11-13 (after that) - the city has hours
 
 The lights were one number all night; three in the morning looked like eleven.

@@ -76,6 +76,9 @@
  * @property {number} skylineHeight degrees of elevation
  * @property {number} skylineSeed which one; any whole number is a new one
  * @property {number} skylineLights how brightly a city lights up at night how much haze the air holds; 1 is a clear day
+ * @property {number} fog mist in the air, 0 clear to 1 thick
+ * @property {number} precipitation how hard it falls, 0 dry to 1 heavy
+ * @property {string} precipitationKind rain or snow
  * @property {string} dayTint colour cast in full daylight, as hex
  * @property {string} twilightTint colour cast around the horizon, as hex
  * @property {string} nightTint colour cast at night, as hex

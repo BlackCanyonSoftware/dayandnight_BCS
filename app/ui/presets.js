@@ -166,6 +166,69 @@ export const LOOKS = [
       glare: 1.2,
       turbidity: 1.3
     }
+  },
+  {
+    id: "rain",
+    name: "City in the rain",
+    hint: "Heavy grey cloud, rain leaning with the wind, and the city behind it going soft. By night the rain catches the lights and the air above the roofs glows with them. Rain is the one thing here that moves fast, so while it falls the wallpaper redraws every frame and costs more than any other look.",
+    preset: {
+      skyline: "city",
+      skylineHeight: 6.5,
+      skylineSeed: 8,
+      skylineLights: 0.9,
+      cloudCover: 0.97,
+      cloudScale: 3.6,
+      cloudSoftness: 0.5,
+      cloudDrift: 18,
+      precipitation: 0.6,
+      precipitationKind: "rain",
+      fog: 0.12,
+      turbidity: 2.2,
+      saturation: 0.75,
+      contrast: 0.92,
+      glare: 0.5,
+      horizon: 0.8
+    }
+  },
+  {
+    id: "snow",
+    name: "Snowfall",
+    hint: "Large flakes drifting down through a pale, still sky over a dark treeline, with a thick low fog that swallows the horizon. Quiet, and by far the gentlest of the falling-weather looks, but like rain it makes the sky redraw every frame while it falls.",
+    preset: {
+      skyline: "trees",
+      skylineHeight: 4.5,
+      skylineSeed: 21,
+      cloudCover: 0.96,
+      cloudScale: 4,
+      cloudSoftness: 0.55,
+      cloudDrift: 8,
+      precipitation: 0.55,
+      precipitationKind: "snow",
+      fog: 0.32,
+      turbidity: 2,
+      saturation: 0.6,
+      contrast: 0.85,
+      glare: 0.6,
+      horizon: 0.82
+    }
+  },
+  {
+    id: "mist",
+    name: "Morning mist",
+    hint: "Fog lying over a mountain range, with a little high cloud. The far ridges disappear first, the low sun goes soft and wide, and nothing moves quickly, so it costs no more than a clear day.",
+    preset: {
+      skyline: "mountains",
+      skylineHeight: 9,
+      skylineSeed: 12,
+      cloudCover: 0.18,
+      cloudSoftness: 0.45,
+      cloudScale: 3,
+      fog: 0.58,
+      turbidity: 1.8,
+      glare: 1.3,
+      saturation: 0.9,
+      horizon: 0.8
+    }
   }
 ];
 

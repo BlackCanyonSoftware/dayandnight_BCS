@@ -204,6 +204,30 @@ export function defaultPreset() {
      */
     skylineLights: 1,
 
+    /**
+     * Mist in the air: zero is clear, one is a fog you cannot see a street
+     * through.
+     *
+     * It thickens towards the ground and thins with height, so the horizon goes
+     * first and a low sun goes soft long before the sky overhead does. Zero
+     * skips the pass entirely, the same bargain the clouds and the skyline make.
+     */
+    fog: 0,
+
+    /**
+     * How hard it is raining or snowing, zero to one.
+     *
+     * Zero is dry and skips the pass. Anything else makes the sky redraw every
+     * frame, because a raindrop crosses the screen in a second - which is the
+     * one real cost in this product, and why the looks that use it say so.
+     */
+    precipitation: 0,
+
+    /**
+     * What is falling: rain or snow. It does nothing at zero precipitation.
+     */
+    precipitationKind: "rain",
+
     // A colour cast keyed to the sun's altitude, in three stops: full day,
     // the hour either side of the horizon, and night. Neutral greys leave the
     // physical sky exactly as it is, which is the default.

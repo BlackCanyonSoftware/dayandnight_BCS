@@ -17,6 +17,7 @@
 
 import { defaultPreset } from "../engine/index.js";
 import { isStyle } from "../engine/sky/skyline.js";
+import { isKind } from "../engine/sky/weather.js";
 
 /** @typedef {import("../engine/types.js").Place} Place */
 /** @typedef {import("../engine/types.js").Preset} Preset */
@@ -183,6 +184,11 @@ function normaliseCfg(raw) {
       skylineHeight: num(presetRaw["skylineHeight"], defaults.skylineHeight, 0, 25),
       skylineSeed: Math.round(num(presetRaw["skylineSeed"], defaults.skylineSeed, 0, 9999)),
       skylineLights: num(presetRaw["skylineLights"], defaults.skylineLights, 0, 1),
+      fog: num(presetRaw["fog"], defaults.fog, 0, 1),
+      precipitation: num(presetRaw["precipitation"], defaults.precipitation, 0, 1),
+      precipitationKind: isKind(presetRaw["precipitationKind"])
+        ? String(presetRaw["precipitationKind"])
+        : defaults.precipitationKind,
       dayTint: hex(presetRaw["dayTint"], defaults.dayTint),
       twilightTint: hex(presetRaw["twilightTint"], defaults.twilightTint),
       nightTint: hex(presetRaw["nightTint"], defaults.nightTint),

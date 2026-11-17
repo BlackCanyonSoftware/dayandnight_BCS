@@ -2684,7 +2684,13 @@ test("Ctrl+Z in a text field belongs to the field (US-024)", async ({ page }) =>
 
 test("the look gallery shows a picture of every preset", async ({ page }) => {
   const shots = page.locator("#lookGallery .shot");
-  await expect(shots).toHaveCount(8);
+
+  // However many looks ship, which is a fact about the product and not about
+  // this test: it used to be written in as 8 and had to be edited every time a
+  // look was added.
+  const count = await page.evaluate(async () => (await import("/ui/presets.js")).LOOKS.length);
+  expect(count).toBeGreaterThan(7);
+  await expect(shots).toHaveCount(count);
 
   // Every tile carries the look's own hint, which is what a title is for on a
   // control that is a picture rather than a word.
@@ -2706,14 +2712,14 @@ test("the look gallery shows a picture of every preset", async ({ page }) => {
         ),
       { timeout: 20_000 }
     )
-    .toBe(8);
+    .toBe(count);
 
-  // And they are different pictures. Eight identical rectangles would pass
+  // And they are different pictures. Identical rectangles would pass
   // every check above and be worth nothing.
   const sources = await shots.evaluateAll((nodes) =>
     nodes.map((n) => n.querySelector("img")?.getAttribute("src") ?? "")
   );
-  expect(new Set(sources).size, "the thumbnails should not all be the same").toBe(8);
+  expect(new Set(sources).size, "the thumbnails should not all be the same").toBe(count);
 });
 
 test("a look can be chosen by clicking its picture", async ({ page }) => {
@@ -3251,4 +3257,346 @@ test("far fewer windows are lit at two in the morning than at nine in the evenin
   expect(lit.evening).toBeGreaterThan(0);
   expect(lit.small, "the small hours have lights, but far fewer").toBeGreaterThan(0);
   expect(lit.small).toBeLessThan(lit.evening * 0.75);
+});
+
+/* ---------------------------------------------------------------- weather */
+
+/**
+ * A small renderer for the weather tests: draws a preset at an instant and hands
+ * back the pixels, bottom-up as the GL gives them.
+ */
+const weatherHarness = (width, height) => `
+  const { DayNightEngine, defaultPreset } = await import("/engine/index.js");
+  const W = ${width};
+  const H = ${height};
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+  const engine = new DayNightEngine(gl);
+  const draw = (look, t) => {
+    engine.setPreset({
+      ...defaultPreset(),
+      cloudCover: 0.8,
+      skyline: "mountains",
+      skylineHeight: 9,
+      ...look
+    });
+    engine.render({
+      t,
+      place: { lat: 39.74, lon: -104.99 },
+      crop: { x: 0, y: 0, w: W, h: H },
+      span: { w: W, h: H },
+      pixelRatio: 1
+    });
+    const px = new Uint8Array(W * H * 4);
+    gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    return px;
+  };
+  const luma = (px, i) => 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+
+  // What a row holds that is thin: each value less the mean of the fifteen
+  // around it, so that the mist rain brings and the clouds' own shape are gone
+  // and a streak a pixel or two wide is what is left.
+  const thin = (values) => {
+    const n = values.length;
+    const out = new Float32Array(n);
+    for (let x = 0; x < n; x += 1) {
+      let sum = 0;
+      let count = 0;
+      for (let k = Math.max(0, x - 7); k <= Math.min(n - 1, x + 7); k += 1) {
+        sum += values[k];
+        count += 1;
+      }
+      out[x] = values[x] - sum / count;
+    }
+    return out;
+  };
+`;
+
+test("with no weather set the picture is exactly what it was, and fog flattens it", async ({
+  page
+}) => {
+  const result = await page.evaluate(
+    async (harness) => {
+      const body = new Function(
+        `return (async () => { ${harness}
+        const noon = Date.UTC(2026, 10, 10, 19);
+        const dry = draw({ cloudCover: 0 }, noon);
+        const explicitlyDry = draw(
+          { cloudCover: 0, fog: 0, precipitation: 0, precipitationKind: "snow" },
+          noon
+        );
+        const foggy = draw({ cloudCover: 0, fog: 0.6 }, noon);
+
+        let same = true;
+        for (let i = 0; i < dry.length; i += 1) if (dry[i] !== explicitlyDry[i]) same = false;
+
+        const mean = (px, from, to) => {
+          let sum = 0;
+          let n = 0;
+          for (let row = from; row < to; row += 1) {
+            const y = H - 1 - row;
+            for (let x = 0; x < W; x += 1) {
+              sum += luma(px, (y * W + x) * 4);
+              n += 1;
+            }
+          }
+          return sum / n;
+        };
+
+        // The band just above the horizon, and the sky high overhead.
+        return {
+          same,
+          contrastDry: mean(dry, 90, 130) - mean(dry, 300, 359),
+          contrastFog: mean(foggy, 90, 130) - mean(foggy, 300, 359),
+          highDry: mean(dry, 300, 359),
+          highFog: mean(foggy, 300, 359)
+        };
+      })()`
+      );
+      return body();
+    },
+    weatherHarness(640, 360)
+  );
+
+  expect(result.same, "no fog and no rain, whatever the kind, draws nothing at all").toBe(true);
+
+  // Fog lifts the dark and lowers the bright until they meet: the difference
+  // between the glowing horizon and the deep sky overhead mostly goes.
+  expect(result.contrastDry).toBeGreaterThan(30);
+  expect(
+    result.contrastFog,
+    `fog should flatten the sky: ${result.contrastDry} became ${result.contrastFog}`
+  ).toBeLessThan(result.contrastDry * 0.5);
+  expect(result.highFog).toBeGreaterThan(result.highDry + 20);
+});
+
+test("rain falls: it adds streaks, they move, and the same instant is the same rain", async ({
+  page
+}) => {
+  const result = await page.evaluate(
+    async (harness) => {
+      const body = new Function(
+        `return (async () => { ${harness}
+        const t = Date.UTC(2026, 10, 10, 19);
+        // A wind along the view, so that nothing leans and a streak is upright.
+        const look = { cloudWindFrom: 180, precipitation: 0.8 };
+        const dry = draw({ cloudWindFrom: 180 }, t);
+        const wet = draw(look, t);
+        const again = draw(look, t);
+        const later = draw(look, t + 60);
+        const heavy = draw({ precipitation: 1 }, t);
+        const light = draw({ precipitation: 0.15 }, t);
+
+        const count = (a, b) => {
+          let n = 0;
+          for (let i = 0; i < a.length; i += 4) {
+            if (Math.abs(luma(a, i) - luma(b, i)) > 6) n += 1;
+          }
+          return n;
+        };
+
+        let identical = true;
+        for (let i = 0; i < wet.length; i += 1) if (wet[i] !== again[i]) identical = false;
+
+        // What the rain added, with the mist it brings taken out, so that a
+        // streak is what stands out.
+        const added = new Float32Array(W * H);
+        for (let row = 0; row < H; row += 1) {
+          const y = H - 1 - row;
+          const values = [];
+          for (let x = 0; x < W; x += 1) {
+            const i = (y * W + x) * 4;
+            values.push(luma(wet, i) - luma(dry, i));
+          }
+          const high = thin(values);
+          for (let x = 0; x < W; x += 1) added[row * W + x] = high[x];
+        }
+
+        // The tallest unbroken run of streak down a column, and the widest
+        // along a row, over the part of the picture that is sky.
+        let tall = 0;
+        let wide = 0;
+        for (let x = 0; x < W; x += 1) {
+          let run = 0;
+          for (let row = 300; row < H - 1; row += 1) {
+            if (added[row * W + x] > 8) {
+              run += 1;
+              tall = Math.max(tall, run);
+            } else run = 0;
+          }
+        }
+        for (let row = 300; row < H - 1; row += 1) {
+          let run = 0;
+          for (let x = 0; x < W; x += 1) {
+            if (added[row * W + x] > 8) {
+              run += 1;
+              wide = Math.max(wide, run);
+            } else run = 0;
+          }
+        }
+
+        return {
+          changed: count(dry, wet),
+          moved: count(wet, later),
+          identical,
+          heavier: count(dry, heavy),
+          lighter: count(dry, light),
+          tall,
+          wide
+        };
+      })()`
+      );
+      return body();
+    },
+    weatherHarness(1920, 1080)
+  );
+
+  expect(result.changed, "rain should put something in the picture").toBeGreaterThan(300);
+  expect(result.identical, "the same instant must give the same rain").toBe(true);
+  expect(result.moved, "sixty milliseconds later the rain is somewhere else").toBeGreaterThan(300);
+  expect(result.heavier, "harder rain is more of it").toBeGreaterThan(result.lighter);
+  expect(result.tall, "a streak is tall").toBeGreaterThan(15);
+  expect(result.tall, "and thin").toBeGreaterThan(result.wide * 2);
+});
+
+test("snow is soft discs, falling more slowly than rain", async ({ page }) => {
+  const result = await page.evaluate(
+    async (harness) => {
+      const body = new Function(
+        `return (async () => { ${harness}
+        const t = Date.UTC(2026, 10, 10, 19);
+
+        // A wind straight along the view, so that nothing leans and a fall is
+        // purely downward.
+        const calm = { cloudWindFrom: 180, precipitation: 0.8 };
+        const dry = draw({ cloudWindFrom: 180 }, t);
+        const snow = draw({ ...calm, precipitationKind: "snow" }, t);
+
+        let brighter = 0;
+        let darker = 0;
+        for (let i = 0; i < snow.length; i += 4) {
+          const d = luma(snow, i) - luma(dry, i);
+          if (d > 6) brighter += 1;
+          if (d < -6) darker += 1;
+        }
+
+        // How far it fell between two instants, found by sliding one picture of
+        // what was added down the other until they agree best.
+        const added = (kind, at) => {
+          const wet = draw({ ...calm, precipitationKind: kind }, at);
+          const out = new Float32Array(W * H);
+          for (let row = 0; row < H; row += 1) {
+            const y = H - 1 - row;
+            const values = [];
+            for (let x = 0; x < W; x += 1) {
+              const i = (y * W + x) * 4;
+              values.push(luma(wet, i) - luma(dry, i));
+            }
+            const high = thin(values);
+            // Top-down, so that "down" is increasing.
+            for (let x = 0; x < W; x += 1) out[row * W + x] = high[x];
+          }
+          return out;
+        };
+
+        const fell = (kind) => {
+          const a = added(kind, t);
+          const b = added(kind, t + 30);
+          let best = 0;
+          let bestScore = -Infinity;
+          for (let d = 0; d <= 60; d += 1) {
+            let score = 0;
+            for (let y = Math.floor(H * 0.15); y < Math.floor(H * 0.6); y += 1) {
+              for (let x = 0; x < W; x += 1) score += a[y * W + x] * b[(y + d) * W + x];
+            }
+            if (score > bestScore) {
+              bestScore = score;
+              best = d;
+            }
+          }
+          return best;
+        };
+
+        return { flakes: brighter + darker, brighter, darker, rain: fell("rain"), snow: fell("snow") };
+      })()`
+      );
+      return body();
+    },
+    weatherHarness(1920, 1080)
+  );
+
+  expect(result.flakes).toBeGreaterThan(300);
+  expect(result.brighter, "snow is lit, so it brightens").toBeGreaterThan(result.darker * 3);
+
+  // In thirty milliseconds the rain, weighted as it is by its layers, has fallen
+  // some seventeen pixels and the snow two; these are measured, and the bounds
+  // leave room either side.
+  expect(result.rain, `rain fell ${result.rain} px`).toBeGreaterThanOrEqual(10);
+  expect(result.snow, `snow fell ${result.snow} px`).toBeLessThanOrEqual(5);
+});
+
+test("a dry sky redraws nothing, and a falling one redraws every frame (NFR-1)", async ({
+  page
+}) => {
+  const result = await page.evaluate(async () => {
+    const { DayNightEngine, defaultPreset } = await import("/engine/index.js");
+    const canvas = document.createElement("canvas");
+    canvas.width = 320;
+    canvas.height = 180;
+    const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+    const engine = new DayNightEngine(gl);
+
+    const request = (t) => ({
+      t,
+      place: { lat: 39.74, lon: -104.99 },
+      crop: { x: 0, y: 0, w: 320, h: 180 },
+      span: { w: 320, h: 180 },
+      pixelRatio: 1
+    });
+    const t = Date.UTC(2026, 10, 10, 19);
+
+    const distinct = (look) => {
+      engine.setPreset({ ...defaultPreset(), ...look });
+      const seen = new Set();
+      // Twenty frames at twenty a second: one second of a wallpaper.
+      for (let i = 0; i < 20; i += 1) seen.add(engine.signature(request(t + i * 50)));
+      return seen.size;
+    };
+
+    return {
+      dry: distinct({}),
+      fog: distinct({ fog: 0.5 }),
+      rain: distinct({ precipitation: 0.6 })
+    };
+  });
+
+  expect(result.dry, "a clear dry second is one frame").toBe(1);
+  expect(result.fog, "fog is still, so it costs nothing either").toBe(1);
+  expect(result.rain, "rain redraws every frame it falls").toBe(20);
+});
+
+test("the Weather controls change the look, and rain is one click from a look", async ({
+  page
+}) => {
+  await openSection(page, "Weather");
+
+  await page.locator("#precipitation").fill("0.5");
+  await page.locator("#fog").fill("0.3");
+  await page.locator("#precipitationKind").selectOption("snow");
+
+  const preset = await page.evaluate(() => window.DayAndNight.document().cfg.preset);
+  expect(preset.precipitation).toBeCloseTo(0.5, 5);
+  expect(preset.fog).toBeCloseTo(0.3, 5);
+  expect(preset.precipitationKind).toBe("snow");
+
+  await expect(page.locator("#precipitationVal")).toHaveText("50%");
+  await expect(page.locator("#fogVal")).toHaveText("30%");
+
+  // And the looks that use it are in the gallery, choosing one sets it.
+  await page.locator('#lookGallery .shot[data-look="rain"]').click();
+  const rain = await page.evaluate(() => window.DayAndNight.document().cfg.preset);
+  expect(rain.precipitationKind).toBe("rain");
+  expect(rain.precipitation).toBeGreaterThan(0.3);
 });

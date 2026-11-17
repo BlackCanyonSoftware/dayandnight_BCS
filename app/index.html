@@ -579,6 +579,58 @@
           </details>
 
           <details class="sec">
+            <summary>Weather</summary>
+            <div class="sec-body">
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Fog</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="Mist in the air. It is thickest at the ground and thins with height, so the horizon goes first, a low sun goes soft, and a city's lights bloom after dark. Zero is clear. It costs nothing while it is still."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="fogVal">0%</span>
+                </label>
+                <input id="fog" type="range" min="0" max="1" step="0.01" value="0" />
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>Falling</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="Rain or snow, when there is any. Rain leans with the same wind that carries the clouds, so the two agree. Each is lit by the sky around it, so it shows best in daylight and is nearly invisible on a dark night, except near a city, whose lights it catches."
+                      >i</span
+                    ></span
+                  >
+                </label>
+                <select id="precipitationKind"></select>
+              </div>
+
+              <div class="row">
+                <label>
+                  <span class="labelleft"
+                    ><span>How hard</span
+                    ><span
+                      class="info"
+                      tabindex="0"
+                      data-tip="How heavily it falls. Zero is dry. Rain and snow are the one thing here that moves fast, so while anything is falling the wallpaper redraws every frame instead of resting between changes, and costs more for it. A touch of fog comes with it, because wet air is thicker."
+                      >i</span
+                    ></span
+                  >
+                  <span class="val" id="precipitationVal">0%</span>
+                </label>
+                <input id="precipitation" type="range" min="0" max="1" step="0.01" value="0" />
+              </div>
+            </div>
+          </details>
+
+          <details class="sec">
             <summary>Sun and moon</summary>
             <div class="sec-body">
               <div class="row">

@@ -18,6 +18,7 @@ import { guessPlace, labelFor, nearestCity, resolveCity, suggest } from "./place
 import { LOOKS, lookIdFor, presetFor } from "./presets.js";
 import { STYLES as SKYLINE_STYLES } from "../engine/sky/skyline.js";
 import { makeWindSeries } from "../engine/sky/wind.js";
+import { KINDS as PRECIPITATION_KINDS } from "../engine/sky/weather.js";
 import { readDocument, writeDocument } from "./settings.js";
 import { decodeLook, encodeLook } from "./share-code.js";
 import * as history from "./history.js";
@@ -274,11 +275,23 @@ function wireControls() {
   select("skyline").addEventListener("change", () => {
     setPreset({ skyline: select("skyline").value });
     paintFromState();
+    // The step the other controls take: without it the choice was neither
+    // saved nor undoable until something else was touched.
+    save();
   });
 
   bindRange("skylineHeight", (v) => setPreset({ skylineHeight: v }));
   bindRange("skylineSeed", (v) => setPreset({ skylineSeed: Math.round(v) }));
   bindRange("skylineLights", (v) => setPreset({ skylineLights: v }));
+
+  fillPrecipitationList();
+  select("precipitationKind").addEventListener("change", () => {
+    setPreset({ precipitationKind: select("precipitationKind").value });
+    paintFromState();
+    save();
+  });
+  bindRange("fog", (v) => setPreset({ fog: v }));
+  bindRange("precipitation", (v) => setPreset({ precipitation: v }));
 
   bindRange("cloudCover", (v) => setPreset({ cloudCover: v }));
   bindRange("cloudDrift", (v) => setPreset({ cloudDrift: v }));
@@ -405,6 +418,19 @@ function fillSkylineList() {
     const option = document.createElement("option");
     option.value = style.id;
     option.textContent = style.name;
+    list.append(option);
+  }
+}
+
+/** What can fall, from the engine's own list, for the same reason as the skyline's. */
+function fillPrecipitationList() {
+  const list = select("precipitationKind");
+  list.replaceChildren();
+
+  for (const kind of PRECIPITATION_KINDS) {
+    const option = document.createElement("option");
+    option.value = kind.id;
+    option.textContent = kind.name;
     list.append(option);
   }
 }
@@ -687,6 +713,12 @@ function paintFromState() {
   $("#skylineHeightVal").textContent = `${preset.skylineHeight.toFixed(1)}°`;
   $("#skylineSeedVal").textContent = String(preset.skylineSeed);
   $("#skylineLightsVal").textContent = `${Math.round(preset.skylineLights * 100)}%`;
+
+  input("fog").value = String(preset.fog);
+  input("precipitation").value = String(preset.precipitation);
+  select("precipitationKind").value = preset.precipitationKind;
+  $("#fogVal").textContent = `${Math.round(preset.fog * 100)}%`;
+  $("#precipitationVal").textContent = `${Math.round(preset.precipitation * 100)}%`;
 
   refreshShareCode();
 

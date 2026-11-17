@@ -34,6 +34,7 @@
 import { verticalDegrees } from "./view.js";
 import { cloudSteps, cloudsVisible, kmPerPixel } from "./sky/clouds.js";
 import { cityActivity, lightsOn, skylineVisible, styleIndex } from "./sky/skyline.js";
+import { weatherParts } from "./sky/weather.js";
 
 import { sunPosition } from "./astro/solar.js";
 import { resolveBearing } from "./defaults.js";
@@ -198,6 +199,10 @@ export function frameSignature(preset, request, bufferWidth, bufferHeight) {
     // happened. Without the last term the lights would come on only when
     // something else happened to force a draw.
     ...skylineParts(preset, sun.altitude, t, place.lon),
+    // Fog and what falls out of it. Fog is still, so its setting is all that is
+    // needed; rain and snow move, so their phases are here, which is what
+    // makes them redraw every frame while they fall and not otherwise.
+    ...weatherParts(preset, t, place, bearing, request.wind ?? null),
     // Geometry: a window that moved or resized must redraw even if the sky
     // has not changed at all.
     crop.x,

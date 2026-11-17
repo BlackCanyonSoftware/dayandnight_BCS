@@ -33,6 +33,7 @@ import {
   VIEW_MIN
 } from "./sky/atmosphere.js";
 import { LAYERS, PERIOD } from "./sky/clouds.js";
+import { CELL_HEIGHT } from "./sky/weather.js";
 
 /**
  * Shared GLSL: the table's axes, and the view mapping the sky and the stars
@@ -1237,6 +1238,167 @@ void main() {
   }
 
   outColour = vec4(body, 0.0);
+}
+`;
+
+/**
+ * Fog, rain and snow: the weather near, drawn over everything else and before
+ * the tone map, as light.
+ *
+ * Output is the premultiplied pair the clouds and the skyline use - light in the
+ * colour, what is left of what is behind in the alpha - so fog is a veil
+ * (alpha below one, colour the fog's own) and rain is added light (alpha near
+ * one, colour the streak).
+ *
+ * Everything is placed in pixels of the whole span, scaled to a 1080-line
+ * screen, so a streak is the same size on every monitor of a multi-monitor
+ * desktop, continuous across them, and the same in the editor's smaller
+ * preview as on the desktop.
+ */
+export const WEATHER_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+${VIEW}
+
+uniform vec2 uResolution;
+uniform vec4 uCrop;
+uniform vec2 uSpan;
+
+uniform float uBearing;
+uniform float uHorizon;
+uniform float uFieldOfView;
+uniform float uDegreesPerSpanY;
+
+uniform float uFog;
+uniform float uPrecip;
+uniform int uKind;
+uniform vec3 uFall;
+uniform float uSway;
+uniform float uSlant;
+
+uniform vec3 uAmbient;
+uniform float uSunAzimuth;
+uniform vec3 uHazeToSun;
+uniform vec3 uHazeAway;
+uniform float uCityGlow;
+
+out vec4 outColour;
+
+float hash12(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
+// One layer of rain. The pattern is columns, each with a streak per repeat of
+// its height that is there or not by a hash; the whole thing is sheared by the
+// wind and slides down with the phase. Streaks are brightest at the leading end,
+// which is how a falling drop is seen.
+float rainLayer(vec2 p, float layer, float phase, float density, float aa) {
+  vec2 cell = layer < 0.5 ? vec2(14.0, ${CELL_HEIGHT.rain[0].toFixed(1)})
+            : layer < 1.5 ? vec2(22.0, ${CELL_HEIGHT.rain[1].toFixed(1)})
+            : vec2(34.0, ${CELL_HEIGHT.rain[2].toFixed(1)});
+  float width = layer < 0.5 ? 0.7 : layer < 1.5 ? 1.0 : 1.5;
+  float streak = layer < 0.5 ? 0.35 : layer < 1.5 ? 0.45 : 0.55;
+
+  float x = p.x - p.y * uSlant;
+  float column = floor(x / cell.x);
+  float offset = hash12(vec2(column, layer * 13.0));
+
+  float q = p.y / cell.y - phase + offset;
+  float rep = floor(q);
+  float v = q - rep;
+
+  float present = step(hash12(vec2(column * 1.7 + layer, rep)), density);
+  float centre = (0.15 + 0.7 * hash12(vec2(column, rep + 31.0))) * cell.x;
+  float dx = abs(x - column * cell.x - centre);
+
+  float across = 1.0 - smoothstep(0.0, width + aa, dx);
+  float along = smoothstep(0.0, streak, v) * (1.0 - smoothstep(streak, streak + 0.04, v));
+
+  return present * across * along;
+}
+
+// One layer of snow: a soft disc in each cell that has one, drifting down with
+// the phase and swaying from side to side, each flake on its own cycle.
+float snowLayer(vec2 p, float layer, float phase, float density, float aa) {
+  float size = layer < 0.5 ? ${CELL_HEIGHT.snow[0].toFixed(1)}
+             : layer < 1.5 ? ${CELL_HEIGHT.snow[1].toFixed(1)}
+             : ${CELL_HEIGHT.snow[2].toFixed(1)};
+  float radius = layer < 0.5 ? 0.12 : layer < 1.5 ? 0.17 : 0.23;
+  float soft = max(layer < 0.5 ? 0.08 : layer < 1.5 ? 0.1 : 0.12, aa / size);
+
+  vec2 uv = vec2(p.x - p.y * uSlant, p.y) / size;
+  uv.y -= phase;
+
+  vec2 id = floor(uv);
+  vec2 f = uv - id;
+
+  float h = hash12(id + layer * 17.0);
+  float present = step(hash12(id * 1.31 + layer * 3.0), density);
+
+  vec2 centre = vec2(
+    0.5 + 0.1 * sin(6.2831853 * (uSway + h)) + 0.16 * (hash12(id + 5.0) - 0.5),
+    0.5 + 0.3 * (hash12(id + 9.0) - 0.5)
+  );
+
+  return present * (1.0 - smoothstep(radius - soft, radius + soft, length(f - centre)));
+}
+
+void main() {
+  vec2 inWindow = gl_FragCoord.xy / uResolution;
+  vec2 inSpan = (uCrop.xy + vec2(inWindow.x, 1.0 - inWindow.y) * uCrop.zw) / uSpan;
+
+  float azimuth = uBearing + (inSpan.x - 0.5) * uFieldOfView;
+  float elevation = (uHorizon - inSpan.y) * uDegreesPerSpanY;
+
+  // Pixels of the whole span, as if it were 1080 lines tall. The size of a
+  // pixel is taken here, before anything diverges.
+  vec2 p = inSpan * uSpan * (1080.0 / uSpan.y);
+  float aa = max(fwidth(p.x), fwidth(p.y));
+
+  // Rain and snow thicken the air, which is half of why a wet day is grey.
+  float mist = clamp(uFog + 0.3 * uPrecip, 0.0, 1.0);
+
+  // Fog is lit by the sky around it, and glows towards the sun.
+  float fromSun = abs(wrap180(azimuth - uSunAzimuth)) / 180.0;
+  float glow = smoothstep(0.35, 0.0, fromSun);
+  vec3 air = mix(uHazeAway, uHazeToSun, glow * glow);
+  vec3 fogColour = 0.6 * uAmbient + 0.4 * air;
+
+  // A city's lights, scattered by whatever is in the air above it: fog and rain
+  // at night glow with them, low down, which is most of what makes a wet night
+  // street look the way it does. The warm of the windows, fading with height.
+  vec3 cityLight = vec3(2.0e-4, 1.45e-4, 0.78e-4) * uCityGlow * exp(-max(elevation, 0.0) / 9.0);
+  fogColour += cityLight * (elevation < 0.0 ? 0.3 : 0.5);
+
+  // Thickest at the ground and thinning with height, more slowly the denser it
+  // is - and never quite nothing, so even high fog flattens the whole picture.
+  float low = exp(-max(elevation, 0.0) / (6.0 + 30.0 * uFog));
+  float veil = min(0.96, mist * mix(0.35, 1.0, low));
+
+  vec3 colour = fogColour * veil;
+  float transmit = 1.0 - veil;
+
+  if (uPrecip > 0.0) {
+    float light;
+    if (uKind == 0) {
+      // The far layers are the denser, as there is more rain at a distance.
+      light = 0.35 * rainLayer(p, 0.0, uFall.x, 0.55 * uPrecip, aa)
+            + 0.55 * rainLayer(p, 1.0, uFall.y, 0.4 * uPrecip, aa)
+            + 0.8 * rainLayer(p, 2.0, uFall.z, 0.28 * uPrecip, aa);
+      colour += (uAmbient * 1.8 + cityLight * 0.5) * light;
+    } else {
+      light = 0.5 * snowLayer(p, 0.0, uFall.x, 0.5 * uPrecip, aa)
+            + 0.75 * snowLayer(p, 1.0, uFall.y, 0.32 * uPrecip, aa)
+            + 1.0 * snowLayer(p, 2.0, uFall.z, 0.2 * uPrecip, aa);
+      // Snow is white, whatever colour the light on it is.
+      vec3 white = mix(uAmbient, vec3(dot(uAmbient, vec3(0.3333))), 0.6);
+      colour += (white * 2.4 + cityLight * 1.2) * light;
+    }
+    transmit *= 1.0 - 0.1 * clamp(light, 0.0, 1.0);
+  }
+
+  outColour = vec4(colour, transmit);
 }
 `;
 

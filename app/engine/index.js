@@ -35,7 +35,8 @@ import {
   SKYLINE_FRAG,
   SKY_FRAG,
   STAR_FRAG,
-  STAR_VERT
+  STAR_VERT,
+  WEATHER_FRAG
 } from "./shaders.js";
 import { moonBody, sunBody } from "./bodies.js";
 import { buildStarCatalogue, createStarBuffer } from "./stars.js";
@@ -47,6 +48,7 @@ import { frameSignature } from "./signature.js";
 import { verticalDegrees } from "./view.js";
 import { CLOUD_SUNLIGHT, cloudsVisible, driftCells, evolution } from "./sky/clouds.js";
 import { cityActivity, lightsOn, skylineVisible, styleIndex } from "./sky/skyline.js";
+import { kindIndex, phases, slant, weatherVisible } from "./sky/weather.js";
 
 /** @typedef {import("./types.js").FrameInfo} FrameInfo */
 /** @typedef {import("./types.js").FrameRequest} FrameRequest */
@@ -172,6 +174,7 @@ export class DayNightEngine {
     this.bodies = createProgram(gl, BODY_VERT, BODY_FRAG, "bodies");
     this.clouds = createProgram(gl, FULLSCREEN_VERT, CLOUD_FRAG, "clouds");
     this.skyline = createProgram(gl, FULLSCREEN_VERT, SKYLINE_FRAG, "skyline");
+    this.weather = createProgram(gl, FULLSCREEN_VERT, WEATHER_FRAG, "weather");
     this.composite = createProgram(gl, FULLSCREEN_VERT, COMPOSITE_FRAG, "composite");
     this.emptyVao = gl.createVertexArray();
 
@@ -192,6 +195,8 @@ export class DayNightEngine {
    */
   release() {
     this.sky?.dispose();
+    this.weather?.dispose();
+    this.weather = null;
     this.stars?.dispose();
     this.bodies?.dispose();
     this.composite?.dispose();
@@ -287,6 +292,7 @@ export class DayNightEngine {
     const bodies = this.bodies;
     const clouds = this.clouds;
     const skyline = this.skyline;
+    const weather = this.weather;
     const composite = this.composite;
     const quad = this.quad;
     const skyTexture = this.skyTexture;
@@ -300,6 +306,7 @@ export class DayNightEngine {
       !bodies ||
       !clouds ||
       !skyline ||
+      !weather ||
       !composite ||
       !quad ||
       !skyTexture ||
@@ -561,7 +568,70 @@ export class DayNightEngine {
       quad.draw();
     }
 
-    /* ------------------------------- 6. expose and tone map the sum, once */
+    /* ------------------------- 6. the weather, in front of all of it */
+
+    // Last of the scene passes, because fog and rain are between you and
+    // everything else, the skyline included. Skipped at zero of both, so a dry
+    // clear day costs what it did before this existed.
+    if (weatherVisible(this.preset)) {
+      weather.use();
+
+      // ONE, SRC_ALPHA, as the clouds and the skyline: light in the colour, what
+      // is left of what is behind in the alpha.
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.SRC_ALPHA);
+
+      gl.uniform2f(weather.uniform("uResolution"), width, height);
+      gl.uniform4f(weather.uniform("uCrop"), crop.x, crop.y, crop.w, crop.h);
+      gl.uniform2f(weather.uniform("uSpan"), span.w, span.h);
+
+      gl.uniform1f(weather.uniform("uBearing"), bearing);
+      gl.uniform1f(weather.uniform("uHorizon"), this.preset.horizon);
+      gl.uniform1f(weather.uniform("uFieldOfView"), this.preset.fieldOfView);
+      gl.uniform1f(weather.uniform("uDegreesPerSpanY"), verticalSpread);
+
+      gl.uniform1f(weather.uniform("uFog"), this.preset.fog);
+      gl.uniform1f(weather.uniform("uPrecip"), this.preset.precipitation);
+      gl.uniform1i(weather.uniform("uKind"), kindIndex(this.preset.precipitationKind));
+
+      const falling = phases(t, this.preset.precipitationKind);
+      gl.uniform3f(weather.uniform("uFall"), falling.fall[0], falling.fall[1], falling.fall[2]);
+      gl.uniform1f(weather.uniform("uSway"), falling.sway);
+      gl.uniform1f(
+        weather.uniform("uSlant"),
+        slant(t, place, this.preset, bearing, request.wind ?? null)
+      );
+
+      // The same light everything else in the scene is lit by, and the same two
+      // samples of the horizon the skyline's haze uses.
+      const weatherAmbient = ambientFor(sun.altitude);
+      gl.uniform3f(
+        weather.uniform("uAmbient"),
+        weatherAmbient[0],
+        weatherAmbient[1],
+        weatherAmbient[2]
+      );
+      gl.uniform1f(weather.uniform("uSunAzimuth"), sun.azimuth);
+
+      // How much a city is lit, for the weather to be lit by. Nothing when there
+      // is no city, since a mountain range has no windows.
+      const cityLit =
+        this.preset.skyline === "city" &&
+        skylineVisible(this.preset.skyline, this.preset.skylineHeight)
+          ? lightsOn(sun.altitude) * cityActivity(t, place.lon) * this.preset.skylineLights
+          : 0;
+      gl.uniform1f(weather.uniform("uCityGlow"), cityLit);
+
+      const airToSun = sampleSky(sun.altitude, 1.5, 12);
+      const airAway = sampleSky(sun.altitude, 1.5, 168);
+      gl.uniform3f(weather.uniform("uHazeToSun"), airToSun[0], airToSun[1], airToSun[2]);
+      gl.uniform3f(weather.uniform("uHazeAway"), airAway[0], airAway[1], airAway[2]);
+
+      quad.bind();
+      quad.draw();
+    }
+
+    /* ------------------------------- 7. expose and tone map the sum, once */
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, width, height);

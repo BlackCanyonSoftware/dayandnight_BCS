@@ -84,8 +84,23 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   instrument, and that drawing behind your desktop icons relies on undocumented
   Windows behaviour that can stop working.
 
+### Added
+
+- **Weather: fog, rain and snow.** A new Weather section in the panel, with fog,
+  what is falling and how hard. Fog is thickest at the ground and flattens the
+  whole picture as it thickens, and a city's lights bloom in it after dark. Rain
+  falls in three layers, leaning with the same wind that carries the clouds;
+  snow drifts and sways in three more. Both are lit by the sky around them, so
+  they show best by day and are nearly invisible on a dark night, except near a
+  city, whose lights they catch. Three new looks use them: **City in the rain**,
+  **Snowfall** and **Morning mist**. Rain and snow make the sky redraw every
+  frame while they fall, so they cost more than any other setting; fog costs
+  nothing extra.
+
 ### Changed
 
+- **Choosing a skyline from the list now saves and can be undone.** It did
+  neither until you touched another control.
 - **A city that looks like a city.** It was rectangles on rectangles. It is
   now three rows deep, the farther ones paler with the air in front of them, with
   a downtown where the towers gather and a low sprawl around it. Buildings have
